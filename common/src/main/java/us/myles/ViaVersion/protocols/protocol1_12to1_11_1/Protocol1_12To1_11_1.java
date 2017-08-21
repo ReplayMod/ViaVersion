@@ -89,6 +89,36 @@ public class Protocol1_12To1_11_1 extends Protocol {
             }
         });
 
+        // Statistics packet
+        registerOutgoing(State.PLAY, 0x07, 0x07, new PacketRemapper() {
+            @Override
+            public void registerMap() {
+                handler(new PacketHandler() {
+                    @Override
+                    public void handle(PacketWrapper wrapper) throws Exception {
+                        int count = wrapper.passthrough(Type.VAR_INT);
+                        int removed = 0;
+                        for (int i = 0; i < count; i++) {
+                            String name = wrapper.read(Type.STRING);
+                            int value = wrapper.read(Type.VAR_INT);
+                            // Drop achievements (have been superseded by advancements)
+                            if (name.startsWith("achievement.")) {
+                                removed++;
+                                continue;
+                            }
+                            wrapper.write(Type.STRING, name);
+                            wrapper.write(Type.VAR_INT, value);
+                        }
+                        // Set actual count
+                        wrapper.set(Type.VAR_INT, 0, count - removed);
+                        if (count == removed) {
+                            wrapper.cancel();
+                        }
+                    }
+                });
+            }
+        });
+
         // Chat message packet
         registerOutgoing(State.PLAY, 0x0F, 0x0F, new PacketRemapper() {
             @Override
