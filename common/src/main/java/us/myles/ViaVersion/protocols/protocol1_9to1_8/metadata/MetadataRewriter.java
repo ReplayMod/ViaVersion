@@ -96,6 +96,9 @@ public class MetadataRewriter {
                                 entry.setValue(value);
                                 break;
                             case String:
+                                if (!(value instanceof String)) {
+                                    throw new Exception("Invalid metadata value");
+                                }
                                 entry.setValue(value);
                                 break;
                             case Boolean:
