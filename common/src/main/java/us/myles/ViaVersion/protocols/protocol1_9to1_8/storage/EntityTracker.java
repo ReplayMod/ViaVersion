@@ -1,5 +1,6 @@
 package us.myles.ViaVersion.protocols.protocol1_9to1_8.storage;
 
+import com.google.common.base.Strings;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.Sets;
@@ -175,7 +176,10 @@ public class EntityTracker extends StoredObject {
                     byte data = (byte) metadata.getValue();
                     // Check invisible | Check small | Check if custom name is empty | Check if custom name visible is true
                     if ((data & 0x20) == 0x20 && ((byte) meta.getValue() & 0x01) == 0x01
-                            && ((String) getMetaByIndex(metadataList, 2).getValue()).length() != 0 && (boolean) getMetaByIndex(metadataList, 3).getValue()) {
+                            && getMetaByIndex(metadataList, 2) != null
+                            &&!Strings.isNullOrEmpty((String) getMetaByIndex(metadataList, 2).getValue())
+                            && getMetaByIndex(metadataList, 3) != null
+                            && getMetaByIndex(metadataList, 3).getValue() == Boolean.TRUE) {
                         if (!knownHolograms.contains(entityID)) {
                             knownHolograms.add(entityID);
                             try {
