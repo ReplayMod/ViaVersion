@@ -1,22 +1,30 @@
 package us.myles.ViaVersion.api.data;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandler;
-import io.netty.channel.socket.SocketChannel;
+import io.netty.channel.ChannelHandlerContext;
 import lombok.Data;
+import lombok.NonNull;
 import net.md_5.bungee.api.ChatColor;
+import us.myles.ViaVersion.api.PacketWrapper;
 import us.myles.ViaVersion.api.Via;
 import us.myles.ViaVersion.api.ViaVersionConfig;
+import us.myles.ViaVersion.api.type.Type;
 import us.myles.ViaVersion.protocols.base.ProtocolInfo;
+import us.myles.ViaVersion.util.PipelineUtil;
 
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 @Data
 public class UserConnection {
-    private final SocketChannel channel;
+    @NonNull
+    private final Channel channel;
     Map<Class, StoredObject> storedObjects = new ConcurrentHashMap<>();
     private boolean active = true;
     private boolean pendingDisconnect = false;
@@ -30,10 +38,10 @@ public class UserConnection {
     // Used for handling warnings (over time)
     private int secondsObserved = 0;
     private int warnings = 0;
+    private ReadWriteLock velocityLock = new ReentrantReadWriteLock();
 
-
-    public UserConnection(SocketChannel socketChannel) {
-        this.channel = socketChannel;
+    public UserConnection(Channel channel) {
+        this.channel = channel;
     }
 
     /**
@@ -102,7 +110,8 @@ public class UserConnection {
      */
     public ChannelFuture sendRawPacketFuture(final ByteBuf packet) {
         final ChannelHandler handler = channel.pipeline().get(Via.getManager().getInjector().getEncoderName());
-        return channel.pipeline().context(handler).writeAndFlush(packet);
+        ChannelFuture future = channel.pipeline().context(handler).writeAndFlush(packet);
+        return future;
     }
 
     /**
@@ -128,7 +137,7 @@ public class UserConnection {
      */
     public boolean incrementReceived() {
         // handle stats
-        Long diff = System.currentTimeMillis() - startTime;
+        long diff = System.currentTimeMillis() - startTime;
         if (diff >= 1000) {
             packetsPerSecond = intervalPackets;
             startTime = System.currentTimeMillis();
@@ -147,7 +156,7 @@ public class UserConnection {
         // Max PPS Checker
         if (conf.getMaxPPS() > 0) {
             if (getPacketsPerSecond() >= conf.getMaxPPS()) {
-                disconnect(conf.getMaxPPSKickMessage().replace("%pps", ((Long) getPacketsPerSecond()).intValue() + ""));
+                disconnect(conf.getMaxPPSKickMessage().replace("%pps", Long.toString(getPacketsPerSecond())));
                 return true; // don't send current packet
             }
         }
@@ -165,7 +174,7 @@ public class UserConnection {
                 }
 
                 if (getWarnings() >= conf.getMaxWarnings()) {
-                    disconnect(conf.getMaxWarningsKickMessage().replace("%pps", ((Long) getPacketsPerSecond()).intValue() + ""));
+                    disconnect(conf.getMaxWarningsKickMessage().replace("%pps", Long.toString(getPacketsPerSecond())));
                     return true; // don't send current packet
                 }
             }
@@ -194,5 +203,52 @@ public class UserConnection {
             });
         }
 
+    }
+
+    /**
+     * Sends a raw packet to the server
+     *
+     * @param packet        Raw packet to be sent
+     * @param currentThread If {@code true} executes immediately, {@code false} submits a task to EventLoop
+     */
+    public void sendRawPacketToServer(final ByteBuf packet, boolean currentThread) {
+        final ByteBuf buf = packet.alloc().buffer();
+        try {
+            Type.VAR_INT.write(buf, PacketWrapper.PASSTHROUGH_ID);
+        } catch (Exception e) {
+            // Should not happen
+            Via.getPlatform().getLogger().warning("Type.VAR_INT.write thrown an exception: " + e);
+        }
+        buf.writeBytes(packet);
+        packet.release();
+        final ChannelHandlerContext context = PipelineUtil
+                .getPreviousContext(Via.getManager().getInjector().getDecoderName(), getChannel().pipeline());
+        if (currentThread) {
+            if (context != null) {
+                context.fireChannelRead(buf);
+            } else {
+                getChannel().pipeline().fireChannelRead(buf);
+            }
+        } else {
+            channel.eventLoop().submit(new Runnable() {
+                @Override
+                public void run() {
+                    if (context != null) {
+                        context.fireChannelRead(buf);
+                    } else {
+                        getChannel().pipeline().fireChannelRead(buf);
+                    }
+                }
+            });
+        }
+    }
+
+    /**
+     * Sends a raw packet to the server. It will submit a task to EventLoop
+     *
+     * @param packet Raw packet to be sent
+     */
+    public void sendRawPacketToServer(ByteBuf packet) {
+        sendRawPacketToServer(packet, false);
     }
 }

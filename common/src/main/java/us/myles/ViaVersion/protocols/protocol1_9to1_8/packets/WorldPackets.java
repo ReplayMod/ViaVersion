@@ -4,7 +4,6 @@ import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
 import com.github.steveice10.opennbt.tag.builtin.StringTag;
 import com.google.common.base.Optional;
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
 import us.myles.ViaVersion.api.PacketWrapper;
 import us.myles.ViaVersion.api.Via;
 import us.myles.ViaVersion.api.minecraft.Position;
@@ -17,7 +16,7 @@ import us.myles.ViaVersion.api.type.Type;
 import us.myles.ViaVersion.packets.State;
 import us.myles.ViaVersion.protocols.protocol1_9to1_8.ItemRewriter;
 import us.myles.ViaVersion.protocols.protocol1_9to1_8.Protocol1_9TO1_8;
-import us.myles.ViaVersion.protocols.protocol1_9to1_8.chunks.Chunk1_9to1_8;
+import us.myles.ViaVersion.api.minecraft.chunks.Chunk1_8;
 import us.myles.ViaVersion.protocols.protocol1_9to1_8.providers.BulkChunkTranslatorProvider;
 import us.myles.ViaVersion.protocols.protocol1_9to1_8.providers.CommandBlockProvider;
 import us.myles.ViaVersion.protocols.protocol1_9to1_8.sounds.Effect;
@@ -25,7 +24,7 @@ import us.myles.ViaVersion.protocols.protocol1_9to1_8.sounds.SoundEffect;
 import us.myles.ViaVersion.protocols.protocol1_9to1_8.storage.ClientChunks;
 import us.myles.ViaVersion.protocols.protocol1_9to1_8.storage.EntityTracker;
 import us.myles.ViaVersion.protocols.protocol1_9to1_8.storage.PlaceBlockTracker;
-import us.myles.ViaVersion.protocols.protocol1_9to1_8.types.ChunkType;
+import us.myles.ViaVersion.protocols.protocol1_9to1_8.types.Chunk1_9to1_8Type;
 
 import java.io.IOException;
 import java.util.List;
@@ -122,16 +121,20 @@ public class WorldPackets {
                     @Override
                     public void handle(PacketWrapper wrapper) throws Exception {
                         ClientChunks clientChunks = wrapper.user().get(ClientChunks.class);
-                        Chunk1_9to1_8 chunk = (Chunk1_9to1_8) wrapper.passthrough(new ChunkType(clientChunks));
+                        Chunk1_9to1_8Type type = new Chunk1_9to1_8Type(clientChunks);
+                        Chunk1_8 chunk = (Chunk1_8) wrapper.read(type);
                         if (chunk.isUnloadPacket()) {
                             wrapper.setId(0x1D);
 
+                            wrapper.write(Type.INT, chunk.getX());
+                            wrapper.write(Type.INT, chunk.getZ());
                             // Remove commandBlocks on chunk unload
                             CommandBlockProvider provider = Via.getManager().getProviders().get(CommandBlockProvider.class);
                             provider.unloadChunk(wrapper.user(), chunk.getX(), chunk.getZ());
+                        } else {
+                            wrapper.write(type, chunk);
+                            // eat any other data (Usually happens with unload packets)
                         }
-
-                        // eat any other data (Usually happens with unload packets)
                         wrapper.read(Type.REMAINING_BYTES);
                     }
                 });
@@ -158,11 +161,12 @@ public class WorldPackets {
                                 throw new IOException("transformMapChunkBulk returned the wrong object type");
 
                             PacketWrapper output = (PacketWrapper) obj;
-                            ByteBuf buffer = Unpooled.buffer();
+                            ByteBuf buffer = wrapper.user().getChannel().alloc().buffer();
                             output.setId(-1); // -1 for no writing of id
                             output.writeToBuffer(buffer);
                             PacketWrapper chunkPacket = new PacketWrapper(0x21, buffer, wrapper.user());
                             chunkPacket.send(Protocol1_9TO1_8.class, false, true);
+                            buffer.release();
                         }
                     }
                 });
@@ -207,23 +211,6 @@ public class WorldPackets {
             }
         });
 
-        // Server Difficulty Packet
-        protocol.registerOutgoing(State.PLAY, 0x41, 0x0D, new PacketRemapper() {
-            @Override
-            public void registerMap() {
-                handler(new PacketHandler() {
-                    @Override
-                    public void handle(PacketWrapper wrapper) throws Exception {
-                        if (Via.getConfig().isAutoTeam()) {
-                            EntityTracker entityTracker = wrapper.user().get(EntityTracker.class);
-                            entityTracker.setAutoTeam(true);
-                            entityTracker.sendTeamPacket(true, true);
-                        }
-                    }
-                });
-            }
-        });
-
         // Block Change Packet
         protocol.registerOutgoing(State.PLAY, 0x23, 0x0B, new PacketRemapper() {
             @Override
@@ -236,6 +223,7 @@ public class WorldPackets {
 
         protocol.registerOutgoing(State.PLAY, 0x25, 0x08); // Block Break Animation Packet
         protocol.registerOutgoing(State.PLAY, 0x24, 0x0A); // Block Action Packet
+        protocol.registerOutgoing(State.PLAY, 0x41, 0x0D); // Server Difficulty Packet
         protocol.registerOutgoing(State.PLAY, 0x22, 0x10); // Multi Block Change Packet
         protocol.registerOutgoing(State.PLAY, 0x27, 0x1C); // Explosion Packet
         protocol.registerOutgoing(State.PLAY, 0x2A, 0x22); // Particle Packet
@@ -307,7 +295,7 @@ public class WorldPackets {
                         // Blocking patch
                         if (Via.getConfig().isShieldBlocking()) {
                             EntityTracker tracker = wrapper.user().get(EntityTracker.class);
-                            
+
                             if (item != null && Protocol1_9TO1_8.isSword(item.getId())) {
                                 if (hand == 0) {
                                     if (!tracker.isBlocking()) {

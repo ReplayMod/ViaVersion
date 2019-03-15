@@ -4,9 +4,9 @@ import io.netty.buffer.ByteBuf;
 import us.myles.ViaVersion.api.minecraft.item.Item;
 import us.myles.ViaVersion.api.type.Type;
 
-public class ItemType extends Type<Item> {
+public class ItemType extends BaseItemType {
     public ItemType() {
-        super(Item.class);
+        super("Item");
     }
 
     @Override

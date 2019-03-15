@@ -2,7 +2,6 @@ package us.myles.ViaVersion.api;
 
 import com.google.common.base.Preconditions;
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
 import lombok.Getter;
 import lombok.Setter;
@@ -149,10 +148,11 @@ public class PacketWrapper {
             }
         } else {
             Pair<Type, Object> read = readableObjects.poll();
-            if (read.getKey().equals(type) || (type.getBaseClass().equals(read.getKey().getBaseClass()) && type.getOutputClass().equals(read.getKey().getOutputClass()))) {
+            Type rtype = read.getKey();
+            if (rtype.equals(type) || (type.getBaseClass().equals(rtype.getBaseClass()) && type.getOutputClass().equals(rtype.getOutputClass()))) {
                 return (T) read.getValue();
             } else {
-                if (type == Type.NOTHING) {
+                if (rtype == Type.NOTHING) {
                     return read(type); // retry
                 } else {
                     Exception e = new IOException("Unable to read type " + type.getTypeName() + ", found " + read.getKey().getTypeName());
@@ -298,7 +298,7 @@ public class PacketWrapper {
      */
     public void send(Class<? extends Protocol> packetProtocol, boolean skipCurrentPipeline, boolean currentThread) throws Exception {
         if (!isCancelled()) {
-            ByteBuf output = constructPacket(packetProtocol, skipCurrentPipeline);
+            ByteBuf output = constructPacket(packetProtocol, skipCurrentPipeline, Direction.OUTGOING);
             user().sendRawPacket(output, currentThread);
         }
     }
@@ -311,11 +311,13 @@ public class PacketWrapper {
      * @return Packet buffer
      * @throws Exception if it fails to write
      */
-    private ByteBuf constructPacket(Class<? extends Protocol> packetProtocol, boolean skipCurrentPipeline) throws Exception {
+    private ByteBuf constructPacket(Class<? extends Protocol> packetProtocol, boolean skipCurrentPipeline, Direction direction) throws Exception {
         // Apply current pipeline
         List<Protocol> protocols = new ArrayList<>(user().get(ProtocolInfo.class).getPipeline().pipes());
-        // Other way if outgoing
-        Collections.reverse(protocols);
+        if (direction == Direction.OUTGOING) {
+            // Other way if outgoing
+            Collections.reverse(protocols);
+        }
         int index = 0;
         for (int i = 0; i < protocols.size(); i++) {
             if (protocols.get(i).getClass().equals(packetProtocol)) {
@@ -328,9 +330,9 @@ public class PacketWrapper {
         resetReader();
 
         // Apply other protocols
-        apply(Direction.OUTGOING, user().get(ProtocolInfo.class).getState(), index, protocols);
+        apply(direction, user().get(ProtocolInfo.class).getState(), index, protocols);
         // Send
-        ByteBuf output = inputBuffer == null ? Unpooled.buffer() : inputBuffer.alloc().buffer();
+        ByteBuf output = inputBuffer == null ? user().getChannel().alloc().buffer() : inputBuffer.alloc().buffer();
         writeToBuffer(output);
 
         return output;
@@ -360,7 +362,7 @@ public class PacketWrapper {
      */
     public ChannelFuture sendFuture(Class<? extends Protocol> packetProtocol) throws Exception {
         if (!isCancelled()) {
-            ByteBuf output = constructPacket(packetProtocol, true);
+            ByteBuf output = constructPacket(packetProtocol, true, Direction.OUTGOING);
             return user().sendRawPacketFuture(output);
         }
         return user().getChannel().newFailedFuture(new Exception("Cancelled packet"));
@@ -378,7 +380,7 @@ public class PacketWrapper {
     public void send() throws Exception {
         if (!isCancelled()) {
             // Send
-            ByteBuf output = inputBuffer == null ? Unpooled.buffer() : inputBuffer.alloc().buffer();
+            ByteBuf output = inputBuffer == null ? user().getChannel().alloc().buffer() : inputBuffer.alloc().buffer();
             writeToBuffer(output);
             user().sendRawPacket(output);
         }
@@ -471,14 +473,39 @@ public class PacketWrapper {
      *
      * @throws Exception If it failed to write
      */
+    @Deprecated
     public void sendToServer() throws Exception {
         if (!isCancelled()) {
-            ByteBuf output = inputBuffer == null ? Unpooled.buffer() : inputBuffer.alloc().buffer();
+            ByteBuf output = inputBuffer == null ? user().getChannel().alloc().buffer() : inputBuffer.alloc().buffer();
             writeToBuffer(output);
 
-            user().getChannel().pipeline().context(Via.getManager().getInjector().getDecoderName()).fireChannelRead(output);
+            user().sendRawPacketToServer(output, true);
         }
     }
+
+    /**
+     * Send this packet to the server.
+     *
+     * @param packetProtocol - The protocol version of the packet.
+     * @param skipCurrentPipeline - Skip the current pipeline
+     * @param currentThread - Run in the same thread
+     * @throws Exception if it fails to write
+     */
+    public void sendToServer(Class<? extends Protocol> packetProtocol, boolean skipCurrentPipeline, boolean currentThread) throws Exception {
+        if (!isCancelled()) {
+            ByteBuf output = constructPacket(packetProtocol, skipCurrentPipeline, Direction.INCOMING);
+            user().sendRawPacketToServer(output, currentThread);
+        }
+    }
+
+    public void sendToServer(Class<? extends Protocol> packetProtocol, boolean skipCurrentPipeline) throws Exception {
+        sendToServer(packetProtocol, skipCurrentPipeline, false);
+    }
+
+    public void sendToServer(Class<? extends Protocol> packetProtocol) throws Exception {
+        sendToServer(packetProtocol, true);
+    }
+
 
     @Override
     public String toString() {

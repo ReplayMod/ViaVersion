@@ -4,10 +4,10 @@ import io.netty.buffer.ByteBuf;
 import us.myles.ViaVersion.api.minecraft.item.Item;
 import us.myles.ViaVersion.api.type.Type;
 
-public class ItemArrayType extends Type<Item[]> {
+public class ItemArrayType extends BaseItemArrayType {
 
     public ItemArrayType() {
-        super("Item Array", Item[].class);
+        super("Item Array");
     }
 
     @Override

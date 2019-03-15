@@ -34,7 +34,7 @@ public class ViaVersionPlugin extends JavaPlugin implements ViaPlatform {
     private boolean lateBind = false;
     private boolean protocolSupport = false;
     @Getter
-    private BukkitConfigAPI conf;
+    private BukkitViaConfig conf;
     @Getter
     private ViaAPI<Player> api = new BukkitViaAPI(this);
     private List<Runnable> queuedTasks = new ArrayList<>();
@@ -51,7 +51,7 @@ public class ViaVersionPlugin extends JavaPlugin implements ViaPlatform {
                 .loader(new BukkitViaLoader(this))
                 .build());
         // Config magic
-        conf = new BukkitConfigAPI();
+        conf = new BukkitViaConfig();
         // For compatibility
         ViaVersion.setInstance(this);
 
@@ -175,8 +175,13 @@ public class ViaVersionPlugin extends JavaPlugin implements ViaPlatform {
     }
 
     @Override
+    public TaskId runSync(Runnable runnable, Long ticks) {
+        return new BukkitTaskId(getServer().getScheduler().runTaskLater(this, runnable, ticks).getTaskId());
+    }
+
+    @Override
     public TaskId runRepeatingSync(Runnable runnable, Long ticks) {
-        return new BukkitTaskId(getServer().getScheduler().runTaskTimer(this, runnable, ticks, 0).getTaskId());
+        return new BukkitTaskId(getServer().getScheduler().runTaskTimer(this, runnable, 0, ticks).getTaskId());
     }
 
     @Override

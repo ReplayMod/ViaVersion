@@ -12,6 +12,7 @@ import us.myles.ViaVersion.api.data.UserConnection;
 import us.myles.ViaVersion.api.entities.Entity1_12Types;
 import us.myles.ViaVersion.api.minecraft.chunks.Chunk;
 import us.myles.ViaVersion.api.minecraft.chunks.ChunkSection;
+import us.myles.ViaVersion.api.platform.providers.ViaProviders;
 import us.myles.ViaVersion.api.protocol.Protocol;
 import us.myles.ViaVersion.api.remapper.PacketHandler;
 import us.myles.ViaVersion.api.remapper.PacketRemapper;
@@ -19,6 +20,7 @@ import us.myles.ViaVersion.api.type.Type;
 import us.myles.ViaVersion.api.type.types.version.Types1_12;
 import us.myles.ViaVersion.packets.State;
 import us.myles.ViaVersion.protocols.protocol1_12to1_11_1.packets.InventoryPackets;
+import us.myles.ViaVersion.protocols.protocol1_12to1_11_1.providers.InventoryQuickMoveProvider;
 import us.myles.ViaVersion.protocols.protocol1_12to1_11_1.storage.EntityTracker;
 import us.myles.ViaVersion.protocols.protocol1_9_1_2to1_9_3_4.types.Chunk1_9_3_4Type;
 import us.myles.ViaVersion.protocols.protocol1_9_3to1_9_1_2.storage.ClientWorld;
@@ -132,6 +134,10 @@ public class Protocol1_12To1_11_1 extends Protocol {
                         if (!Via.getConfig().is1_12NBTArrayFix()) return;
                         try {
                             JsonElement obj = new JsonParser().parse(wrapper.get(Type.STRING, 0));
+                            if (!TranslateRewriter.toClient(obj, wrapper.user())) {
+                                wrapper.cancel();
+                                return;
+                            }
                             ChatItemRewriter.toClient(obj, wrapper.user());
                             wrapper.set(Type.STRING, 0, obj.toString());
                         } catch (Exception e) {
@@ -159,9 +165,9 @@ public class Protocol1_12To1_11_1 extends Protocol {
                             if (section == null)
                                 continue;
 
-                            for (int x = 0; x < 16; x++) {
-                                for (int y = 0; y < 16; y++) {
-                                    for (int z = 0; z < 16; z++) {
+                            for (int y = 0; y < 16; y++) {
+                                for (int z = 0; z < 16; z++) {
+                                    for (int x = 0; x < 16; x++) {
                                         int block = section.getBlockId(x, y, z);
                                         // Is this a bed?
                                         if (block == 26) {
@@ -336,7 +342,36 @@ public class Protocol1_12To1_11_1 extends Protocol {
         registerIncoming(State.PLAY, 0x01, 0x02);
         registerIncoming(State.PLAY, 0x02, 0x03);
         registerIncoming(State.PLAY, 0x03, 0x04);
-        registerIncoming(State.PLAY, 0x04, 0x05);
+        // Client Settings (max length changed)
+        registerIncoming(State.PLAY, 0x04, 0x05, new PacketRemapper() {
+            @Override
+            public void registerMap() {
+                map(Type.STRING); // 0 - Locale
+                map(Type.BYTE); // 1 - view distance
+                map(Type.VAR_INT); // 2 - chat mode
+                map(Type.BOOLEAN); // 3 - chat colors
+                map(Type.UNSIGNED_BYTE); // 4 - chat flags
+                map(Type.VAR_INT); // 5 - main hand
+                handler(new PacketHandler() {
+                    @Override
+                    public void handle(PacketWrapper wrapper) throws Exception {
+                        // As part of the fix for MC-111054, the max length of
+                        // the locale was raised to 16 (from 7), and the client
+                        // now makes sure that resource packs have names in that
+                        // length.  However, for older servers, it is still 7,
+                        // and thus the server will reject it (and the client
+                        // won't know that the pack's invalid).
+                        // The fix is to just silently lower the length.  The
+                        // server doesn't actually use the locale anywhere, so
+                        // this is fine.
+                        String locale = wrapper.get(Type.STRING, 0);
+                        if (locale.length() > 7) {
+                            wrapper.set(Type.STRING, 0, locale.substring(0, 7));
+                        }
+                    }
+                });
+            }
+        });
         registerIncoming(State.PLAY, 0x05, 0x06);
         registerIncoming(State.PLAY, 0x06, 0x07);
         // registerIncoming(State.PLAY, 0x07, 0x08); - Handled in InventoryPackets
@@ -413,6 +448,11 @@ public class Protocol1_12To1_11_1 extends Protocol {
         if (id >= 491) // UI toast sound
             newId += 3;
         return newId;
+    }
+
+    @Override
+    protected void register(ViaProviders providers) {
+        providers.register(InventoryQuickMoveProvider.class, new InventoryQuickMoveProvider());
     }
 
     @Override

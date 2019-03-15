@@ -1,20 +1,26 @@
 package us.myles.ViaVersion.api.protocol;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
 import us.myles.ViaVersion.api.Pair;
 import us.myles.ViaVersion.api.Via;
 import us.myles.ViaVersion.protocols.base.BaseProtocol;
+import us.myles.ViaVersion.protocols.base.BaseProtocol1_7;
 import us.myles.ViaVersion.protocols.protocol1_10to1_9_3.Protocol1_10To1_9_3_4;
 import us.myles.ViaVersion.protocols.protocol1_11_1to1_11.Protocol1_11_1To1_11;
 import us.myles.ViaVersion.protocols.protocol1_11to1_10.Protocol1_11To1_10;
 import us.myles.ViaVersion.protocols.protocol1_12_1to1_12.Protocol1_12_1TO1_12;
+import us.myles.ViaVersion.protocols.protocol1_12_2to1_12_1.Protocol1_12_2TO1_12_1;
 import us.myles.ViaVersion.protocols.protocol1_12to1_11_1.Protocol1_12To1_11_1;
+import us.myles.ViaVersion.protocols.protocol1_13_2to1_13_1.Protocol1_13_2To1_13_1;
+import us.myles.ViaVersion.protocols.protocol1_13to1_12_2.Protocol1_13To1_12_2;
 import us.myles.ViaVersion.protocols.protocol1_9_1_2to1_9_3_4.Protocol1_9_1_2TO1_9_3_4;
 import us.myles.ViaVersion.protocols.protocol1_9_1to1_9.Protocol1_9_1TO1_9;
 import us.myles.ViaVersion.protocols.protocol1_9_3to1_9_1_2.Protocol1_9_3TO1_9_1_2;
 import us.myles.ViaVersion.protocols.protocol1_9to1_8.Protocol1_9TO1_8;
 import us.myles.ViaVersion.protocols.protocol1_9to1_9_1.Protocol1_9TO1_9_1;
+import us.myles.ViaVersion.protocols.protocol1_13_1to1_13.Protocol1_13_1To1_13;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -27,10 +33,13 @@ public class ProtocolRegistry {
     private static final Map<Pair<Integer, Integer>, List<Pair<Integer, Protocol>>> pathCache = new ConcurrentHashMap<>();
     private static final List<Protocol> registerList = Lists.newCopyOnWriteArrayList();
     private static final Set<Integer> supportedVersions = Sets.newConcurrentHashSet();
+    private static final List<Pair<Range<Integer>, Protocol>> baseProtocols = Lists.newCopyOnWriteArrayList();
 
     static {
         // Base Protocol
-        registerProtocol(BASE_PROTOCOL, Collections.<Integer>emptyList(), -1);
+        registerBaseProtocol(BASE_PROTOCOL, Range.lessThan(Integer.MIN_VALUE));
+        registerBaseProtocol(new BaseProtocol1_7(), Range.<Integer>all());
+
         // Register built in protocols
         registerProtocol(new Protocol1_9TO1_8(), Collections.singletonList(ProtocolVersion.v1_9.getId()), ProtocolVersion.v1_8.getId());
         registerProtocol(new Protocol1_9_1TO1_9(), Arrays.asList(ProtocolVersion.v1_9_1.getId(), ProtocolVersion.v1_9_2.getId()), ProtocolVersion.v1_9.getId());
@@ -45,6 +54,11 @@ public class ProtocolRegistry {
 
         registerProtocol(new Protocol1_12To1_11_1(), Collections.singletonList(ProtocolVersion.v1_12.getId()), ProtocolVersion.v1_11_1.getId());
         registerProtocol(new Protocol1_12_1TO1_12(), Collections.singletonList(ProtocolVersion.v1_12_1.getId()), ProtocolVersion.v1_12.getId());
+        registerProtocol(new Protocol1_12_2TO1_12_1(), Collections.singletonList(ProtocolVersion.v1_12_2.getId()), ProtocolVersion.v1_12_1.getId());
+
+        registerProtocol(new Protocol1_13To1_12_2(), Collections.singletonList(ProtocolVersion.v1_13.getId()), ProtocolVersion.v1_12_2.getId());
+        registerProtocol(new Protocol1_13_1To1_13(), Arrays.asList(ProtocolVersion.v1_13_1.getId()), ProtocolVersion.v1_13.getId());
+        registerProtocol(new Protocol1_13_2To1_13_1(), Arrays.asList(ProtocolVersion.v1_13_2.getId()), ProtocolVersion.v1_13_1.getId());
     }
 
     /**
@@ -73,6 +87,25 @@ public class ProtocolRegistry {
             refreshVersions();
         } else {
             registerList.add(protocol);
+        }
+    }
+
+    /**
+     * Registers a base protocol.
+     * Base Protocols registered later have higher priority
+     * Only one base protocol will be added to pipeline
+     *
+     * @param baseProtocol       Base Protocol to register
+     * @param supportedProtocols Versions that baseProtocol supports
+     */
+    public static void registerBaseProtocol(Protocol baseProtocol, Range<Integer> supportedProtocols) {
+        baseProtocols.add(new Pair<>(supportedProtocols, baseProtocol));
+        if (Via.getPlatform().isPluginEnabled()) {
+            baseProtocol.registerListeners();
+            baseProtocol.register(Via.getManager().getProviders());
+            refreshVersions();
+        } else {
+            registerList.add(baseProtocol);
         }
     }
 
@@ -134,13 +167,14 @@ public class ProtocolRegistry {
         if (current.size() > 50) return null; // Fail safe, protocol too complicated.
 
         // First check if there is any protocols for this
-        if (!registryMap.containsKey(clientVersion)) {
+        Map<Integer, Protocol> inputMap = registryMap.get(clientVersion);
+        if (inputMap == null) {
             return null; // Not supported
         }
         // Next check there isn't an obvious path
-        Map<Integer, Protocol> inputMap = registryMap.get(clientVersion);
-        if (inputMap.containsKey(serverVersion)) {
-            current.add(new Pair<>(serverVersion, inputMap.get(serverVersion)));
+        Protocol protocol = inputMap.get(serverVersion);
+        if (protocol != null) {
+            current.add(new Pair<>(serverVersion, protocol));
             return current; // Easy solution
         }
         // There might be a more advanced solution... So we'll see if any of the others can get us there
@@ -180,8 +214,9 @@ public class ProtocolRegistry {
     public static List<Pair<Integer, Protocol>> getProtocolPath(int clientVersion, int serverVersion) {
         Pair<Integer, Integer> protocolKey = new Pair<>(clientVersion, serverVersion);
         // Check cache
-        if (pathCache.containsKey(protocolKey)) {
-            return pathCache.get(protocolKey);
+        List<Pair<Integer, Protocol>> protocolList = pathCache.get(protocolKey);
+        if (protocolList != null) {
+            return protocolList;
         }
         // Generate path
         List<Pair<Integer, Protocol>> outputPath = getProtocolPath(new ArrayList<Pair<Integer, Protocol>>(), clientVersion, serverVersion);
@@ -191,4 +226,23 @@ public class ProtocolRegistry {
         }
         return outputPath;
     }
+
+    public static Protocol getBaseProtocol(int serverVersion) {
+        for (Pair<Range<Integer>, Protocol> rangeProtocol : Lists.reverse(baseProtocols)) {
+            if (rangeProtocol.getKey().contains(serverVersion)) {
+                return rangeProtocol.getValue();
+            }
+        }
+        throw new IllegalStateException("No Base Protocol for " + serverVersion);
+    }
+
+    public static boolean isBaseProtocol(Protocol protocol) {
+        for (Pair<Range<Integer>, Protocol> p : baseProtocols) {
+            if (p.getValue() == protocol) {
+                return true;
+            }
+        }
+        return false;
+    }
+
 }

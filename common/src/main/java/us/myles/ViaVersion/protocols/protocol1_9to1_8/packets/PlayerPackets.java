@@ -19,6 +19,7 @@ import us.myles.ViaVersion.protocols.protocol1_9to1_8.Protocol1_9TO1_8;
 import us.myles.ViaVersion.protocols.protocol1_9to1_8.chat.ChatRewriter;
 import us.myles.ViaVersion.protocols.protocol1_9to1_8.chat.GameMode;
 import us.myles.ViaVersion.protocols.protocol1_9to1_8.providers.CommandBlockProvider;
+import us.myles.ViaVersion.protocols.protocol1_9to1_8.providers.MainHandProvider;
 import us.myles.ViaVersion.protocols.protocol1_9to1_8.storage.ClientChunks;
 import us.myles.ViaVersion.protocols.protocol1_9to1_8.storage.EntityTracker;
 
@@ -129,22 +130,40 @@ public class PlayerPackets {
                         }
 
                         if (mode == 0 || mode == 3 || mode == 4) {
-                            String[] players = wrapper.read(Type.STRING_ARRAY); // Players
+                            String[] players = wrapper.passthrough(Type.STRING_ARRAY); // Players
                             final EntityTracker entityTracker = wrapper.user().get(EntityTracker.class);
                             String myName = wrapper.user().get(ProtocolInfo.class).getUsername();
+                            String teamName = wrapper.get(Type.STRING, 0);
                             for (String player : players) {
                                 if (entityTracker.isAutoTeam() && player.equalsIgnoreCase(myName)) {
                                     if (mode == 4) {
                                         // since removing add to auto team
-                                        entityTracker.sendTeamPacket(true, false);
-
+                                        // Workaround for packet order issue
+                                        wrapper.send(Protocol1_9TO1_8.class, true, true);
+                                        wrapper.cancel();
+                                        entityTracker.sendTeamPacket(true, true);
+                                        entityTracker.setCurrentTeam("viaversion");
                                     } else {
                                         // since adding remove from auto team
                                         entityTracker.sendTeamPacket(false, true);
+                                        entityTracker.setCurrentTeam(teamName);
                                     }
                                 }
                             }
-                            wrapper.write(Type.STRING_ARRAY, players);
+                        }
+
+                        if (mode == 1) { // Remove team
+                            final EntityTracker entityTracker = wrapper.user().get(EntityTracker.class);
+                            String teamName = wrapper.get(Type.STRING, 0);
+                            if (entityTracker.isAutoTeam()
+                                    && teamName.equals(entityTracker.getCurrentTeam())) {
+                                // team was removed
+                                // Workaround for packet order issue
+                                wrapper.send(Protocol1_9TO1_8.class, true, true);
+                                wrapper.cancel();
+                                entityTracker.sendTeamPacket(true, true);
+                                entityTracker.setCurrentTeam("viaversion");
+                            }
                         }
                     }
                 });
@@ -190,6 +209,24 @@ public class PlayerPackets {
                             }
                         }
                 );
+
+                // Scoreboard will be cleared when join game is received
+                handler(new PacketHandler() {
+                    @Override
+                    public void handle(PacketWrapper wrapper) throws Exception {
+                        EntityTracker entityTracker = wrapper.user().get(EntityTracker.class);
+                        if (Via.getConfig().isAutoTeam()) {
+                            entityTracker.setAutoTeam(true);
+                            // Workaround for packet order issue
+                            wrapper.send(Protocol1_9TO1_8.class, true, true);
+                            wrapper.cancel();
+                            entityTracker.sendTeamPacket(true, true);
+                            entityTracker.setCurrentTeam("viaversion");
+                        } else {
+                            entityTracker.setAutoTeam(false);
+                        }
+                    }
+                });
             }
         });
 
@@ -364,19 +401,6 @@ public class PlayerPackets {
 
         /* Removed packets */
 
-        // Map Bulk
-        protocol.registerOutgoing(State.PLAY, 0x26, 0x26, new PacketRemapper() {
-            @Override
-            public void registerMap() {
-                handler(new PacketHandler() {
-                    @Override
-                    public void handle(PacketWrapper wrapper) throws Exception {
-                        wrapper.cancel();
-                    }
-                });
-            }
-        });
-
         // Set Compression
         protocol.registerOutgoing(State.PLAY, 0x46, 0x46, new PacketRemapper() {
             @Override
@@ -435,8 +459,15 @@ public class PlayerPackets {
                     public void handle(PacketWrapper wrapper) throws Exception {
                         int hand = wrapper.read(Type.VAR_INT);
 
-                        EntityTracker tracker = wrapper.user().get(EntityTracker.class);
-                        tracker.setMainHand(hand);
+                        if (Via.getConfig().isLeftHandedHandling()) {
+                            // Add 0x80 if left handed
+                            if (hand == 0) wrapper.set(Type.UNSIGNED_BYTE, 0,
+                                    (short) (wrapper.get(Type.UNSIGNED_BYTE, 0).intValue() | 0x80)
+                            );
+                        }
+                        wrapper.sendToServer(Protocol1_9TO1_8.class, true, true);
+                        wrapper.cancel();
+                        Via.getManager().getProviders().get(MainHandProvider.class).setMainHand(wrapper.user(), hand);
                     }
                 });
             }
@@ -502,6 +533,7 @@ public class PlayerPackets {
                             Item item = wrapper.passthrough(Type.ITEM);
                             if (item != null) {
                                 item.setId((short) 387); // Written Book
+                                ItemRewriter.rewriteBookToServer(item);
                             }
                         }
                         if (name.equalsIgnoreCase("MC|AutoCmd")) {

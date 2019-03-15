@@ -12,6 +12,7 @@ import us.myles.ViaVersion.api.Via;
 import us.myles.ViaVersion.api.ViaAPI;
 import us.myles.ViaVersion.api.command.ViaCommandSender;
 import us.myles.ViaVersion.api.configuration.ConfigurationProvider;
+import us.myles.ViaVersion.api.data.UserConnection;
 import us.myles.ViaVersion.api.platform.TaskId;
 import us.myles.ViaVersion.api.platform.ViaPlatform;
 import us.myles.ViaVersion.bungee.commands.BungeeCommand;
@@ -30,13 +31,13 @@ import java.util.concurrent.TimeUnit;
 
 public class BungeePlugin extends Plugin implements ViaPlatform, Listener {
     private BungeeViaAPI api;
-    private BungeeConfigAPI config;
+    private BungeeViaConfig config;
     private BungeeCommandHandler commandHandler;
 
     @Override
     public void onLoad() {
         api = new BungeeViaAPI();
-        config = new BungeeConfigAPI(getDataFolder());
+        config = new BungeeViaConfig(getDataFolder());
         commandHandler = new BungeeCommandHandler();
         ProxyServer.getInstance().getPluginManager().registerCommand(this, new BungeeCommand(commandHandler));
         // Init platform
@@ -77,6 +78,11 @@ public class BungeePlugin extends Plugin implements ViaPlatform, Listener {
     @Override
     public TaskId runSync(Runnable runnable) {
         return runAsync(runnable);
+    }
+
+    @Override
+    public TaskId runSync(Runnable runnable, Long ticks) {
+        return new BungeeTaskId(getProxy().getScheduler().schedule(this, runnable, ticks * 50, TimeUnit.MILLISECONDS).getId());
     }
 
     @Override
@@ -128,7 +134,7 @@ public class BungeePlugin extends Plugin implements ViaPlatform, Listener {
     }
 
     @Override
-    public BungeeConfigAPI getConf() {
+    public BungeeViaConfig getConf() {
         return config;
     }
 
@@ -162,6 +168,13 @@ public class BungeePlugin extends Plugin implements ViaPlatform, Listener {
 
     @EventHandler
     public void onQuit(PlayerDisconnectEvent e) {
-        Via.getManager().removePortedClient(e.getPlayer().getUniqueId());
+        UserConnection userConnection = Via.getManager().getPortedPlayers().get(e.getPlayer().getUniqueId());
+        if (userConnection != null) {
+            // Only remove if the connection is disconnected (eg. relogin)
+            if (userConnection.getChannel() == null || !userConnection.getChannel().isOpen()) {
+                Via.getManager().removePortedClient(e.getPlayer().getUniqueId());
+            }
+        }
+
     }
 }

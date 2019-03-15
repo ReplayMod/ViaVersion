@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import us.myles.ViaVersion.api.PacketWrapper;
 import us.myles.ViaVersion.api.Pair;
+import us.myles.ViaVersion.api.Via;
 import us.myles.ViaVersion.api.data.UserConnection;
 import us.myles.ViaVersion.api.platform.providers.ViaProviders;
 import us.myles.ViaVersion.api.remapper.PacketRemapper;
@@ -14,6 +15,7 @@ import us.myles.ViaVersion.packets.State;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
 
 public abstract class Protocol {
     private final Map<Pair<State, Integer>, ProtocolPacket> incoming = new HashMap<>();
@@ -72,6 +74,7 @@ public abstract class Protocol {
 
     /**
      * Initialise a user for this protocol setting up objects.
+     * /!\ WARNING - May be called more than once in a single {@link UserConnection}
      *
      * @param userConnection The user to initialise
      */
@@ -97,8 +100,17 @@ public abstract class Protocol {
      * @param packetRemapper The remapper to use for the packet
      */
     public void registerIncoming(State state, int oldPacketID, int newPacketID, PacketRemapper packetRemapper) {
+        registerIncoming(state, oldPacketID, newPacketID, packetRemapper, false);
+    }
+
+    public void registerIncoming(State state, int oldPacketID, int newPacketID, PacketRemapper packetRemapper, boolean override) {
         ProtocolPacket protocolPacket = new ProtocolPacket(state, oldPacketID, newPacketID, packetRemapper);
-        incoming.put(new Pair<>(state, newPacketID), protocolPacket);
+        Pair<State, Integer> pair = new Pair<>(state, newPacketID);
+        if (!override && incoming.containsKey(pair)) {
+            Via.getPlatform().getLogger().log(Level.WARNING, pair + " already registered!" +
+                    " If this override is intentional, set override to true. Stacktrace: ", new Exception());
+        }
+        incoming.put(pair, protocolPacket);
     }
 
     /**
@@ -121,8 +133,17 @@ public abstract class Protocol {
      * @param packetRemapper The remapper to use for the packet
      */
     public void registerOutgoing(State state, int oldPacketID, int newPacketID, PacketRemapper packetRemapper) {
+        registerOutgoing(state, oldPacketID, newPacketID, packetRemapper, false);
+    }
+
+    public void registerOutgoing(State state, int oldPacketID, int newPacketID, PacketRemapper packetRemapper, boolean override) {
         ProtocolPacket protocolPacket = new ProtocolPacket(state, oldPacketID, newPacketID, packetRemapper);
-        outgoing.put(new Pair<>(state, oldPacketID), protocolPacket);
+        Pair<State, Integer> pair = new Pair<>(state, oldPacketID);
+        if (!override && outgoing.containsKey(pair)) {
+            Via.getPlatform().getLogger().log(Level.WARNING, pair + " already registered!" +
+                    " If override is intentional, set override to true. Stacktrace: ", new Exception());
+        }
+        outgoing.put(pair, protocolPacket);
     }
 
     /**
@@ -136,10 +157,8 @@ public abstract class Protocol {
     public void transform(Direction direction, State state, PacketWrapper packetWrapper) throws Exception {
         Pair<State, Integer> statePacket = new Pair<>(state, packetWrapper.getId());
         Map<Pair<State, Integer>, ProtocolPacket> packetMap = (direction == Direction.OUTGOING ? outgoing : incoming);
-        ProtocolPacket protocolPacket;
-        if (packetMap.containsKey(statePacket)) {
-            protocolPacket = packetMap.get(statePacket);
-        } else {
+        ProtocolPacket protocolPacket = packetMap.get(statePacket);
+        if (protocolPacket == null) {
             return;
         }
         // write packet id

@@ -53,20 +53,20 @@ public class EntityTracker extends StoredObject {
     @Setter
     private GameMode gameMode;
     @Setter
-    private int mainHand;
+    private String currentTeam;
 
     public EntityTracker(UserConnection user) {
         super(user);
     }
 
     public UUID getEntityUUID(int id) {
-        if (uuidMap.containsKey(id)) {
-            return uuidMap.get(id);
-        } else {
-            UUID uuid = UUID.randomUUID();
+        UUID uuid = uuidMap.get(id);
+        if (uuid == null) {
+            uuid = UUID.randomUUID();
             uuidMap.put(id, uuid);
-            return uuid;
         }
+
+        return uuid;
     }
 
     public void setSecondHand(Item item) {
@@ -118,11 +118,11 @@ public class EntityTracker extends StoredObject {
     }
 
     public void handleMetadata(int entityID, List<Metadata> metadataList) {
-        if (!clientEntityTypes.containsKey(entityID)) {
+        Entity1_10Types.EntityType type = clientEntityTypes.get(entityID);
+        if (type == null) {
             return;
         }
 
-        Entity1_10Types.EntityType type = clientEntityTypes.get(entityID);
         for (Metadata metadata : new ArrayList<>(metadataList)) {
             // Fix: wither (crash fix)
             if (type == Entity1_10Types.EntityType.WITHER) {
@@ -168,6 +168,13 @@ public class EntityTracker extends StoredObject {
                             setSecondHand(entityID, null);
                         }
                     }
+                }
+                if (metadata.getId() == 12 && Via.getConfig().isLeftHandedHandling()) { // Player model
+                    metadataList.add(new Metadata(
+                            13, // Main hand
+                            MetaType1_9.Byte,
+                            (byte) (((((byte) metadata.getValue()) & 0x80) != 0) ? 0 : 1)
+                    ));
                 }
             }
             if (type == Entity1_10Types.EntityType.ARMOR_STAND && Via.getConfig().isHologramPatch()) {
@@ -262,8 +269,7 @@ public class EntityTracker extends StoredObject {
             } else {
                 wrapper.write(Type.BYTE, (byte) 3);
             }
-            wrapper.write(Type.VAR_INT, 1); // player count
-            wrapper.write(Type.STRING, getUser().get(ProtocolInfo.class).getUsername());
+            wrapper.write(Type.STRING_ARRAY, new String[]{getUser().get(ProtocolInfo.class).getUsername()});
         } else {
             wrapper.write(Type.BYTE, (byte) 1); // remove team
         }
@@ -276,21 +282,23 @@ public class EntityTracker extends StoredObject {
     }
 
     public void addMetadataToBuffer(int entityID, List<Metadata> metadataList) {
-        if (metadataBuffer.containsKey(entityID)) {
-            metadataBuffer.get(entityID).addAll(metadataList);
+        final List<Metadata> metadata = metadataBuffer.get(entityID);
+        if (metadata != null) {
+            metadata.addAll(metadataList);
         } else {
             metadataBuffer.put(entityID, metadataList);
         }
     }
 
     public void sendMetadataBuffer(int entityID) {
-        if (metadataBuffer.containsKey(entityID)) {
+        List<Metadata> metadataList = metadataBuffer.get(entityID);
+        if (metadataList != null) {
             PacketWrapper wrapper = new PacketWrapper(0x39, null, getUser());
             wrapper.write(Type.VAR_INT, entityID);
-            wrapper.write(Types1_9.METADATA_LIST, metadataBuffer.get(entityID));
-            MetadataRewriter.transform(getClientEntityTypes().get(entityID), metadataBuffer.get(entityID));
-            handleMetadata(entityID, metadataBuffer.get(entityID));
-            if (metadataBuffer.get(entityID).size() > 0) {
+            wrapper.write(Types1_9.METADATA_LIST, metadataList);
+            MetadataRewriter.transform(getClientEntityTypes().get(entityID), metadataList);
+            handleMetadata(entityID, metadataList);
+            if (metadataList.size() > 0) {
                 try {
                     wrapper.send(Protocol1_9TO1_8.class);
                 } catch (Exception e) {

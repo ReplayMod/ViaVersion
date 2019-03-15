@@ -211,6 +211,20 @@ public interface ViaVersionConfig {
     boolean is1_12NBTArrayFix();
 
     /**
+     * Should we make team colours based on the last colour in team prefix
+     *
+     * @return True if enabled
+     */
+    boolean is1_13TeamColourFix();
+
+    /**
+     * Should we fix shift quick move action for 1.12 clients
+     *
+     * @return True if enabled
+     */
+    boolean is1_12QuickMoveActionFix();
+
+    /**
      * Get the blocked protocols
      *
      * @return An Integer list
@@ -231,4 +245,72 @@ public interface ViaVersionConfig {
      * @return Disconnect message
      */
     String getReloadDisconnectMsg();
+
+    /**
+     * Should we hide errors that occur when trying to converting to 1.13 data?
+     *
+     * @return True if enabled
+     */
+    boolean isSuppress1_13ConversionErrors();
+
+    /**
+     * Should we disable the 1.13 auto-complete feature to stop spam kicks? (for any server lower than 1.13)
+     *
+     * @return True if enabled
+     */
+    boolean isDisable1_13AutoComplete();
+
+    /**
+     * Tries to minimize cooldown animation.
+     *
+     * @return True if enabled
+     */
+    boolean isMinimizeCooldown();
+
+    /**
+     * Enable the serverside blockconnections for 1.13+ clients
+     *
+     * @return True if enabled
+     */
+    boolean isServersideBlockConnections();
+
+    /**
+     * Get the type of block-connection provider which should be used
+     *
+     * @return String world for world-level or packet for packet-level
+     */
+    String getBlockConnectionMethod();
+
+    /**
+     * When activated, only the most important blocks are saved in the BlockStorage.
+     *
+     * @return True if enabled
+     */
+    boolean isReduceBlockStorageMemory();
+
+    /**
+     * When activated with serverside-blockconnections, flower parts with blocks above will be sent as stems.
+     * Useful for lobbyservers where users can't build and those stems are used decoratively.
+     *
+     * @return True if enabled
+     */
+    boolean isStemWhenBlockAbove();
+
+    /**
+     * When activated, the 1-layer snow will be sent as 2-layer snow to 1.13+ clients to have collision.
+     *
+     * @return True if enabled
+     */
+    boolean isSnowCollisionFix();
+
+    /**
+     * When greater than 0, enables tab complete request delaying by x ticks
+     * @return the delay in ticks
+     */
+    int get1_13TabCompleteDelay();
+
+    /**
+     * Handles left handed info by using unused bit 7 on Client Settings packet
+     */
+    boolean isLeftHandedHandling();
 }
