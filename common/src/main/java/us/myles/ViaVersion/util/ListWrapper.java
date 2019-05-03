@@ -19,124 +19,171 @@ public abstract class ListWrapper implements List {
     }
 
     @Override
-    public synchronized int size() {
-        return this.list.size();
+    public int size() {
+        synchronized (this) {
+            return this.list.size();
+        }
     }
 
     @Override
-    public synchronized boolean isEmpty() {
-        return this.list.isEmpty();
+    public boolean isEmpty() {
+        synchronized (this) {
+            return this.list.isEmpty();
+        }
+    }
+
+
+    @Override
+    public boolean contains(Object o) {
+        synchronized (this) {
+            return this.list.contains(o);
+        }
     }
 
     @Override
-    public synchronized boolean contains(Object o) {
-        return this.list.contains(o);
+    public Iterator iterator() {
+        synchronized (this) {
+            return listIterator();
+        }
     }
 
     @Override
-    public synchronized Iterator iterator() {
-        return listIterator();
+    public Object[] toArray() {
+        synchronized (this) {
+            return this.list.toArray();
+        }
     }
 
     @Override
-    public synchronized Object[] toArray() {
-        return this.list.toArray();
-    }
-
-    @Override
-    public synchronized boolean add(Object o) {
+    public boolean add(Object o) {
         handleAdd(o);
-        return this.list.add(o);
+        synchronized (this) {
+            return this.list.add(o);
+        }
     }
 
     @Override
-    public synchronized boolean remove(Object o) {
-        return this.list.remove(o);
+    public boolean remove(Object o) {
+        synchronized (this) {
+            return this.list.remove(o);
+        }
     }
 
     @Override
-    public synchronized boolean addAll(Collection c) {
+    public boolean addAll(Collection c) {
         for (Object o : c) {
             handleAdd(o);
         }
-        return this.list.addAll(c);
+        synchronized (this) {
+            return this.list.addAll(c);
+        }
     }
 
     @Override
-    public synchronized boolean addAll(int index, Collection c) {
+    public boolean addAll(int index, Collection c) {
         for (Object o : c) {
             handleAdd(o);
         }
-        return this.list.addAll(index, c);
+        synchronized (this) {
+            return this.list.addAll(index, c);
+        }
     }
 
     @Override
-    public synchronized void clear() {
-        this.list.clear();
+    public void clear() {
+        synchronized (this) {
+            this.list.clear();
+        }
     }
 
     @Override
-    public synchronized Object get(int index) {
-        return this.list.get(index);
+    public Object get(int index) {
+        synchronized (this) {
+            return this.list.get(index);
+        }
     }
 
     @Override
-    public synchronized Object set(int index, Object element) {
-        return this.list.set(index, element);
+    public Object set(int index, Object element) {
+        synchronized (this) {
+            return this.list.set(index, element);
+        }
     }
 
     @Override
-    public synchronized void add(int index, Object element) {
-        this.list.add(index, element);
+    public void add(int index, Object element) {
+        synchronized (this) {
+            this.list.add(index, element);
+        }
     }
 
     @Override
-    public synchronized Object remove(int index) {
-        return this.list.remove(index);
+    public Object remove(int index) {
+        synchronized (this) {
+            return this.list.remove(index);
+        }
     }
 
     @Override
-    public synchronized int indexOf(Object o) {
-        return this.list.indexOf(o);
+    public int indexOf(Object o) {
+        synchronized (this) {
+            return this.list.indexOf(o);
+        }
     }
 
     @Override
-    public synchronized int lastIndexOf(Object o) {
-        return this.list.lastIndexOf(o);
+    public int lastIndexOf(Object o) {
+        synchronized (this) {
+            return this.list.lastIndexOf(o);
+        }
     }
 
     @Override
-    public synchronized ListIterator listIterator() {
-        return this.list.listIterator();
+    public ListIterator listIterator() {
+        synchronized (this) {
+            return this.list.listIterator();
+        }
     }
 
     @Override
-    public synchronized ListIterator listIterator(int index) {
-        return this.list.listIterator(index);
+    public ListIterator listIterator(int index) {
+        synchronized (this) {
+            return this.list.listIterator(index);
+        }
     }
 
     @Override
-    public synchronized List subList(int fromIndex, int toIndex) {
-        return this.list.subList(fromIndex, toIndex);
+    public List subList(int fromIndex, int toIndex) {
+        synchronized (this) {
+            return this.list.subList(fromIndex, toIndex);
+        }
     }
 
     @Override
-    public synchronized boolean retainAll(Collection c) {
-        return this.list.retainAll(c);
+    public boolean retainAll(Collection c) {
+        synchronized (this) {
+            return this.list.retainAll(c);
+        }
     }
 
     @Override
-    public synchronized boolean removeAll(Collection c) {
-        return this.list.removeAll(c);
+    public boolean removeAll(Collection c) {
+        synchronized (this) {
+            return this.list.removeAll(c);
+        }
     }
 
     @Override
-    public synchronized boolean containsAll(Collection c) {
-        return this.list.containsAll(c);
+    public boolean containsAll(Collection c) {
+        synchronized (this) {
+            return this.list.containsAll(c);
+        }
     }
 
     @Override
-    public synchronized Object[] toArray(Object[] a) {
-        return this.list.toArray(a);
+    public Object[] toArray(Object[] a) {
+        synchronized (this) {
+            return this.list.toArray(a);
+        }
     }
 }

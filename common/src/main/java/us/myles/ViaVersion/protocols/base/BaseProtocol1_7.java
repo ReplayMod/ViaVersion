@@ -18,7 +18,7 @@ import us.myles.ViaVersion.api.remapper.PacketHandler;
 import us.myles.ViaVersion.api.remapper.PacketRemapper;
 import us.myles.ViaVersion.api.type.Type;
 import us.myles.ViaVersion.packets.State;
-import us.myles.ViaVersion.protocols.protocol1_9to1_8.Protocol1_9TO1_8;
+import us.myles.ViaVersion.protocols.protocol1_9to1_8.Protocol1_9To1_8;
 import us.myles.ViaVersion.util.GsonUtil;
 
 import java.util.List;
@@ -81,7 +81,7 @@ public class BaseProtocol1_7 extends Protocol {
                             }
 
                             if (protocols != null) {
-                                if (protocolVersion != 9999) {
+                                if (protocolVersion == protocol || protocolVersion == 0) {
                                     //Fix ServerListPlus
                                     version.addProperty("protocol", info.getProtocolVersion());
                                 }
@@ -169,7 +169,7 @@ public class BaseProtocol1_7 extends Protocol {
                             if (!wrapper.user().getChannel().isOpen()) return;
 
                             PacketWrapper disconnectPacket = new PacketWrapper(0x00, null, wrapper.user()); // Disconnect Packet
-                            Protocol1_9TO1_8.FIX_JSON.write(disconnectPacket, ChatColor.translateAlternateColorCodes('&', Via.getConfig().getBlockedDisconnectMsg()));
+                            Protocol1_9To1_8.FIX_JSON.write(disconnectPacket, ChatColor.translateAlternateColorCodes('&', Via.getConfig().getBlockedDisconnectMsg()));
                             wrapper.cancel(); // cancel current
 
                             // Send and close

@@ -11,6 +11,7 @@ import us.myles.ViaVersion.api.Via;
 import us.myles.ViaVersion.api.boss.BossBar;
 import us.myles.ViaVersion.api.boss.BossColor;
 import us.myles.ViaVersion.api.boss.BossStyle;
+import us.myles.ViaVersion.api.data.ExternalJoinGameListener;
 import us.myles.ViaVersion.api.data.StoredObject;
 import us.myles.ViaVersion.api.data.UserConnection;
 import us.myles.ViaVersion.api.entities.Entity1_10Types;
@@ -21,7 +22,7 @@ import us.myles.ViaVersion.api.minecraft.metadata.types.MetaType1_9;
 import us.myles.ViaVersion.api.type.Type;
 import us.myles.ViaVersion.api.type.types.version.Types1_9;
 import us.myles.ViaVersion.protocols.base.ProtocolInfo;
-import us.myles.ViaVersion.protocols.protocol1_9to1_8.Protocol1_9TO1_8;
+import us.myles.ViaVersion.protocols.protocol1_9to1_8.Protocol1_9To1_8;
 import us.myles.ViaVersion.protocols.protocol1_9to1_8.chat.GameMode;
 import us.myles.ViaVersion.protocols.protocol1_9to1_8.metadata.MetadataRewriter;
 import us.myles.ViaVersion.protocols.protocol1_9to1_8.providers.BossBarProvider;
@@ -32,7 +33,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 @Getter
-public class EntityTracker extends StoredObject {
+public class EntityTracker extends StoredObject implements ExternalJoinGameListener {
     private final Map<Integer, UUID> uuidMap = new ConcurrentHashMap<>();
     private final Map<Integer, Entity1_10Types.EntityType> clientEntityTypes = new ConcurrentHashMap<>();
     private final Map<Integer, List<Metadata>> metadataBuffer = new ConcurrentHashMap<>();
@@ -79,7 +80,7 @@ public class EntityTracker extends StoredObject {
         wrapper.write(Type.VAR_INT, 1); // slot
         wrapper.write(Type.ITEM, item);
         try {
-            wrapper.send(Protocol1_9TO1_8.class);
+            wrapper.send(Protocol1_9To1_8.class);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -197,7 +198,7 @@ public class EntityTracker extends StoredObject {
                                 wrapper.write(Type.SHORT, (short) (128D * (Via.getConfig().getHologramYOffset() * 32D)));
                                 wrapper.write(Type.SHORT, (short) 0);
                                 wrapper.write(Type.BOOLEAN, true);
-                                wrapper.send(Protocol1_9TO1_8.class, true, false);
+                                wrapper.send(Protocol1_9To1_8.class, true, false);
                             } catch (Exception ignored) {
                             }
                         }
@@ -275,7 +276,7 @@ public class EntityTracker extends StoredObject {
         }
         teamExists = add;
         try {
-            wrapper.send(Protocol1_9TO1_8.class, true, now);
+            wrapper.send(Protocol1_9To1_8.class, true, now);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -300,7 +301,7 @@ public class EntityTracker extends StoredObject {
             handleMetadata(entityID, metadataList);
             if (metadataList.size() > 0) {
                 try {
-                    wrapper.send(Protocol1_9TO1_8.class);
+                    wrapper.send(Protocol1_9To1_8.class);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -315,5 +316,10 @@ public class EntityTracker extends StoredObject {
         } catch (Exception e) {
             return entityID;
         }
+    }
+
+    @Override
+    public void onExternalJoinGame(int playerEntityId) {
+        clientEntityTypes.put(playerEntityId, Entity1_10Types.EntityType.PLAYER);
     }
 }

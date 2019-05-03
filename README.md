@@ -1,4 +1,4 @@
-# ViaVersion 1.6.0 - Spigot, Sponge, BungeeCord
+# ViaVersion 2.0.1 - Spigot, Sponge, BungeeCord, Velocity
 [![Build Status](https://travis-ci.com/ViaVersion/ViaVersion.svg?branch=master)](https://travis-ci.com/ViaVersion/ViaVersion)
 [![Discord](https://img.shields.io/badge/chat-on%20discord-blue.svg)](https://viaversion.com/discord)
 
@@ -8,13 +8,12 @@ IRC: [#viaversion](http://irc.spi.gt/iris/?channels=viaversion) on irc.spi.gt fo
 
 Supported Versions:
 
-![Table (https://i.imgur.com/YZNJhUv.png)](https://i.imgur.com/YZNJhUv.png)
+![Table (https://i.imgur.com/iWAtD1p.png)](https://i.imgur.com/iWAtD1p.png)
 
 On Bukkit you may also use ProtocolSupport, but ensure you have the right build for your server version.
 
 **User Docs:** https://docs.viaversion.com/display/VIAVERSION/
 
-**Contributor Chat:** https://gitter.im/MylesIsCool/ViaVersion
 
 
 
@@ -51,4 +50,4 @@ License:
 MIT License, see LICENSE for more details.
 
 
-Special thanks to all our [Contributors](https://github.com/MylesIsCool/ViaVersion/graphs/contributors)
+Special thanks to all our [Contributors](https://github.com/ViaVersion/ViaVersion/graphs/contributors)

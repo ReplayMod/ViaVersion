@@ -1,8 +1,8 @@
 # Thanks for downloading ViaVersion
 # Ensure you look through all these options
 # If you need help:
+# Discord - https://viaversion.com/discord
 # viaversion.com - Discussion tab
-# IRC - https://elmer.spi.gt/iris/?nick=&channels=viaversion #viaversion on irc.spi.gt
 # Docs - https://docs.viaversion.com/display/VIAVERSION/Configuration
 #
 #----------------------------------------------------------#
@@ -118,11 +118,19 @@ disable-1_13-auto-complete: false
 1_13-tab-complete-delay: 0
 # For 1.13 clients the smallest (1 layer) snow doesn't have collision, this will send these as 2 snowlayers for 1.13+ clients to prevent them bugging through them
 fix-low-snow-collision: false
+# In 1.14 the client page limit has been upped to 100 (from 50). Some anti-exploit plugins ban when clients go higher than 50. This option cuts edited books to 50 pages.
+truncate-1_14-books: false
+# This prevents clients using 1.9-1.13 on 1.8 servers from receiving no knockback/having velocity bugs whilst sneaking under a block.
+change-1_9-hitbox: false
+# Similar to the above, but for 1.14+ players on 1.8-1.13 servers.
+# WARNING: This gives 1.14+ players the ability to sneak under blocks, that players under that version cannot (sneaking in places that are only 1.5 blocks high)!
+# Another thing to remember is that those players might be missed by projectiles and other hits directed at the very top of their head whilst sneaking.
+change-1_14-hitbox: false
 #
 # Enable serverside block-connections for 1.13+ clients
 serverside-blockconnections: false
-# Sets the method for the block connections (world for world-level or packet for packet-level)
-blockconnection-method: world
+# Sets the method for the block connections (world for highly experimental (USE AT OWN RISK) world-level or packet for packet-level)
+blockconnection-method: packet
 # When activated, only the most important blocks are stored in the blockstorage. (fences, glass panes etc. won't connect to solid blocks)
 reduce-blockstorage-memory: false
 # When activated with serverside-blockconnections, flower parts with blocks above will be sent as stems

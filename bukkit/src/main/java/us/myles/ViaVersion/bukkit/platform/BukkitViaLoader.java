@@ -1,6 +1,7 @@
 package us.myles.ViaVersion.bukkit.platform;
 
 import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
@@ -13,13 +14,14 @@ import us.myles.ViaVersion.api.minecraft.item.Item;
 import us.myles.ViaVersion.api.platform.ViaPlatformLoader;
 import us.myles.ViaVersion.api.protocol.ProtocolRegistry;
 import us.myles.ViaVersion.api.protocol.ProtocolVersion;
+import us.myles.ViaVersion.bukkit.classgenerator.ClassGenerator;
 import us.myles.ViaVersion.bukkit.listeners.UpdateListener;
+import us.myles.ViaVersion.bukkit.listeners.multiversion.PlayerSneakListener;
 import us.myles.ViaVersion.bukkit.listeners.protocol1_9to1_8.*;
 import us.myles.ViaVersion.bukkit.providers.BukkitBlockConnectionProvider;
 import us.myles.ViaVersion.bukkit.providers.BukkitInventoryQuickMoveProvider;
 import us.myles.ViaVersion.bukkit.providers.BukkitViaBulkChunkTranslator;
 import us.myles.ViaVersion.bukkit.providers.BukkitViaMovementTransmitter;
-import us.myles.ViaVersion.bukkit.classgenerator.ClassGenerator;
 import us.myles.ViaVersion.protocols.base.ProtocolInfo;
 import us.myles.ViaVersion.protocols.protocol1_12to1_11_1.providers.InventoryQuickMoveProvider;
 import us.myles.ViaVersion.protocols.protocol1_13to1_12_2.blockconnections.providers.BlockConnectionProvider;
@@ -76,10 +78,17 @@ public class BukkitViaLoader implements ViaPlatformLoader {
         storeListener(new DeathListener(plugin)).register();
         storeListener(new BlockListener(plugin)).register();
 
+        if (ProtocolRegistry.SERVER_PROTOCOL < ProtocolVersion.v1_14.getId()) {
+            boolean use1_9Fix = plugin.getConf().is1_9HitboxFix() && ProtocolRegistry.SERVER_PROTOCOL < ProtocolVersion.v1_9.getId();
+            if (use1_9Fix || plugin.getConf().is1_14HitboxFix()) {
+                storeListener(new PlayerSneakListener(plugin, this, use1_9Fix, plugin.getConf().is1_14HitboxFix())).register();
+            }
+        }
+
         if ((Bukkit.getVersion().toLowerCase().contains("paper")
                 || Bukkit.getVersion().toLowerCase().contains("taco")
                 || Bukkit.getVersion().toLowerCase().contains("torch"))
-				&& ProtocolRegistry.SERVER_PROTOCOL < ProtocolVersion.v1_12.getId()) {
+                && ProtocolRegistry.SERVER_PROTOCOL < ProtocolVersion.v1_12.getId()) {
             plugin.getLogger().info("Enabling Paper/TacoSpigot/Torch patch: Fixes block placement.");
             storeListener(new PaperPatch(plugin)).register();
         }
@@ -108,8 +117,9 @@ public class BukkitViaLoader implements ViaPlatformLoader {
                             @Override
                             public Item call() throws Exception {
                                 UUID playerUUID = info.get(ProtocolInfo.class).getUuid();
-                                if (Bukkit.getPlayer(playerUUID) != null) {
-                                    return HandItemCache.convert(Bukkit.getPlayer(playerUUID).getItemInHand());
+                                Player player = Bukkit.getPlayer(playerUUID);
+                                if (player != null) {
+                                    return HandItemCache.convert(player.getItemInHand());
                                 }
                                 return null;
                             }

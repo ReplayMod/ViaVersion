@@ -3,10 +3,7 @@ package us.myles.ViaVersion.api.type;
 
 import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
 import lombok.Getter;
-import us.myles.ViaVersion.api.minecraft.BlockChangeRecord;
-import us.myles.ViaVersion.api.minecraft.EulerAngle;
-import us.myles.ViaVersion.api.minecraft.Position;
-import us.myles.ViaVersion.api.minecraft.Vector;
+import us.myles.ViaVersion.api.minecraft.*;
 import us.myles.ViaVersion.api.minecraft.item.Item;
 import us.myles.ViaVersion.api.type.types.*;
 import us.myles.ViaVersion.api.type.types.minecraft.*;
@@ -53,12 +50,14 @@ public abstract class Type<T> implements ByteBufReader<T>, ByteBufWriter<T> {
     /* Variable Types */
     public static final Type<Integer> VAR_INT = new VarIntType();
     public static final Type<Integer[]> VAR_INT_ARRAY = new ArrayType<>(Type.VAR_INT);
+    public static final Type<Integer> OPTIONAL_VAR_INT = new OptionalVarIntType();
     public static final Type<Long> VAR_LONG = new VarLongType();
     public static final Type<Long[]> VAR_LONG_ARRAY = new ArrayType<>(Type.VAR_LONG);
     /* Special Types */
     public static final Type<Void> NOTHING = new VoidType(); // This is purely used for remapping.
     /* MC Types */
     public static final Type<Position> POSITION = new PositionType();
+    public static final Type<Position> POSITION1_14 = new Position1_14Type();
     public static final Type<EulerAngle> ROTATION = new EulerAngleType();
     public static final Type<Vector> VECTOR = new VectorType();
     public static final Type<CompoundTag> NBT = new NBTType();
@@ -67,12 +66,15 @@ public abstract class Type<T> implements ByteBufReader<T>, ByteBufWriter<T> {
     public static final Type<UUID> OPTIONAL_UUID = new OptUUIDType();
     public static final Type<String> OPTIONAL_CHAT = new OptionalChatType();
     public static final Type<Position> OPTIONAL_POSITION = new OptPositionType();
+    public static final Type<Position> OPTIONAL_POSITION_1_14 = new OptPosition1_14Type();
 
     public static final Type<Item> ITEM = new ItemType();
     public static final Type<Item[]> ITEM_ARRAY = new ItemArrayType();
 
     public static final Type<BlockChangeRecord> BLOCK_CHANGE_RECORD = new BlockChangeRecordType();
     public static final Type<BlockChangeRecord[]> BLOCK_CHANGE_RECORD_ARRAY = new ArrayType<>(Type.BLOCK_CHANGE_RECORD);
+
+    public static final Type<VillagerData> VILLAGER_DATA = new VillagerDataType();
 
     /* 1.13 Flat Item (no data) */
     public static final Type<Item> FLAT_ITEM = new FlatItemType();

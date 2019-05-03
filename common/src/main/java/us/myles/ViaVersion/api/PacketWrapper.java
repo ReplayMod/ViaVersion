@@ -10,10 +10,12 @@ import us.myles.ViaVersion.api.protocol.Protocol;
 import us.myles.ViaVersion.api.remapper.ValueCreator;
 import us.myles.ViaVersion.api.type.Type;
 import us.myles.ViaVersion.api.type.TypeConverter;
+import us.myles.ViaVersion.exception.CancelException;
 import us.myles.ViaVersion.exception.InformativeException;
 import us.myles.ViaVersion.packets.Direction;
 import us.myles.ViaVersion.packets.State;
 import us.myles.ViaVersion.protocols.base.ProtocolInfo;
+import us.myles.ViaVersion.util.PipelineUtil;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -278,8 +280,8 @@ public class PacketWrapper {
      * Be careful not to send packets twice.
      * (Sends it after current)
      *
-     * @param packetProtocol      - The protocol version of the packet.
-     * @param skipCurrentPipeline - Skip the current pipeline
+     * @param packetProtocol      The protocol version of the packet.
+     * @param skipCurrentPipeline Skip the current pipeline
      * @throws Exception if it fails to write
      */
     public void send(Class<? extends Protocol> packetProtocol, boolean skipCurrentPipeline) throws Exception {
@@ -291,23 +293,29 @@ public class PacketWrapper {
      * Be careful not to send packets twice.
      * (Sends it after current)
      *
-     * @param packetProtocol      - The protocol version of the packet.
-     * @param skipCurrentPipeline - Skip the current pipeline
-     * @param currentThread       - Run in the same thread
+     * @param packetProtocol      The protocol version of the packet.
+     * @param skipCurrentPipeline Skip the current pipeline
+     * @param currentThread       Run in the same thread
      * @throws Exception if it fails to write
      */
     public void send(Class<? extends Protocol> packetProtocol, boolean skipCurrentPipeline, boolean currentThread) throws Exception {
         if (!isCancelled()) {
-            ByteBuf output = constructPacket(packetProtocol, skipCurrentPipeline, Direction.OUTGOING);
-            user().sendRawPacket(output, currentThread);
+            try {
+                ByteBuf output = constructPacket(packetProtocol, skipCurrentPipeline, Direction.OUTGOING);
+                user().sendRawPacket(output, currentThread);
+            } catch (Exception e) {
+                if (!PipelineUtil.containsCause(e, CancelException.class)) {
+                    throw e;
+                }
+            }
         }
     }
 
     /**
      * Let the packet go through the protocol pipes and write it to ByteBuf
      *
-     * @param packetProtocol      - The protocol version of the packet.
-     * @param skipCurrentPipeline - Skip the current pipeline
+     * @param packetProtocol      The protocol version of the packet.
+     * @param skipCurrentPipeline Skip the current pipeline
      * @return Packet buffer
      * @throws Exception if it fails to write
      */
@@ -343,7 +351,7 @@ public class PacketWrapper {
      * Be careful not to send packets twice.
      * (Sends it after current)
      *
-     * @param packetProtocol - The protocol version of the packet.
+     * @param packetProtocol The protocol version of the packet.
      * @throws Exception if it fails to write
      */
     public void send(Class<? extends Protocol> packetProtocol) throws Exception {
@@ -356,7 +364,7 @@ public class PacketWrapper {
      * (Sends it after current)
      * Also returns the packets ChannelFuture
      *
-     * @param packetProtocol - The protocol version of the packet.
+     * @param packetProtocol The protocol version of the packet.
      * @return The packets ChannelFuture
      * @throws Exception if it fails to write
      */
@@ -486,15 +494,21 @@ public class PacketWrapper {
     /**
      * Send this packet to the server.
      *
-     * @param packetProtocol - The protocol version of the packet.
-     * @param skipCurrentPipeline - Skip the current pipeline
-     * @param currentThread - Run in the same thread
+     * @param packetProtocol      The protocol version of the packet.
+     * @param skipCurrentPipeline Skip the current pipeline
+     * @param currentThread       Run in the same thread
      * @throws Exception if it fails to write
      */
     public void sendToServer(Class<? extends Protocol> packetProtocol, boolean skipCurrentPipeline, boolean currentThread) throws Exception {
         if (!isCancelled()) {
-            ByteBuf output = constructPacket(packetProtocol, skipCurrentPipeline, Direction.INCOMING);
-            user().sendRawPacketToServer(output, currentThread);
+            try {
+                ByteBuf output = constructPacket(packetProtocol, skipCurrentPipeline, Direction.INCOMING);
+                user().sendRawPacketToServer(output, currentThread);
+            } catch (Exception e) {
+                if (!PipelineUtil.containsCause(e, CancelException.class)) {
+                    throw e;
+                }
+            }
         }
     }
 

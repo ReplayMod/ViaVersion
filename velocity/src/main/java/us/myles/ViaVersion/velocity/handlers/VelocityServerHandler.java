@@ -15,7 +15,7 @@ import us.myles.ViaVersion.api.protocol.ProtocolRegistry;
 import us.myles.ViaVersion.api.type.Type;
 import us.myles.ViaVersion.protocols.base.ProtocolInfo;
 import us.myles.ViaVersion.protocols.protocol1_13to1_12_2.packets.InventoryPackets;
-import us.myles.ViaVersion.protocols.protocol1_9to1_8.Protocol1_9TO1_8;
+import us.myles.ViaVersion.protocols.protocol1_9to1_8.Protocol1_9To1_8;
 import us.myles.ViaVersion.util.ReflectionUtil;
 import us.myles.ViaVersion.velocity.service.ProtocolDetectorService;
 import us.myles.ViaVersion.velocity.storage.VelocityStorage;
@@ -34,6 +34,7 @@ public class VelocityServerHandler {
     private static Method getMinecraftConnection;
     private static Method getNextProtocolVersion;
     private static Method getKnownChannels;
+    private static Class<?> clientPlaySessionHandler;
 
     static {
         try {
@@ -45,7 +46,8 @@ public class VelocityServerHandler {
                     .getDeclaredMethod("getMinecraftConnection");
             getNextProtocolVersion = Class.forName("com.velocitypowered.proxy.connection.MinecraftConnection")
                     .getDeclaredMethod("getNextProtocolVersion");
-            getKnownChannels = Class.forName("com.velocitypowered.proxy.connection.client.ClientPlaySessionHandler")
+            clientPlaySessionHandler = Class.forName("com.velocitypowered.proxy.connection.client.ClientPlaySessionHandler");
+            getKnownChannels = clientPlaySessionHandler
                     .getDeclaredMethod("getKnownChannels");
         } catch (NoSuchMethodException | ClassNotFoundException e) {
             e.printStackTrace();
@@ -98,94 +100,102 @@ public class VelocityServerHandler {
 
             user.getVelocityLock().writeLock().lock();
 
-            VelocityStorage storage = user.get(VelocityStorage.class);
+            try {
+                VelocityStorage storage = user.get(VelocityStorage.class);
 
-            if (storage.getBossbar() == null) storage.saveServerBossBars();
+                if (e.getServer() != null) {
+                    if (!e.getServer().getServerInfo().getName().equals(storage.getCurrentServer())) {
+                        String serverName = e.getServer().getServerInfo().getName();
 
-            if (e.getServer() != null) {
-                if (!e.getServer().getServerInfo().getName().equals(storage.getCurrentServer())) {
-                    String serverName = e.getServer().getServerInfo().getName();
+                        storage.setCurrentServer(serverName);
 
-                    storage.setCurrentServer(serverName);
+                        int protocolId = ProtocolDetectorService.getProtocolId(serverName);
 
-                    int protocolId = ProtocolDetectorService.getProtocolId(serverName);
-
-                    if (protocolId <= ProtocolVersion.MINECRAFT_1_8.getProtocol()) { // 1.8 doesn't have BossBar packet
-                        if (storage.getBossbar() != null) {
-                            for (UUID uuid : storage.getBossbar()) {
-                                PacketWrapper wrapper = new PacketWrapper(0x0C, null, user);
-                                wrapper.write(Type.UUID, uuid);
-                                wrapper.write(Type.VAR_INT, 1); // remove
-                                wrapper.send(Protocol1_9TO1_8.class, true, true);
+                        if (protocolId <= ProtocolVersion.MINECRAFT_1_8.getProtocol()) { // 1.8 doesn't have BossBar packet
+                            if (storage.getBossbar() != null) {
+                                for (UUID uuid : storage.getBossbar()) {
+                                    PacketWrapper wrapper = new PacketWrapper(0x0C, null, user);
+                                    wrapper.write(Type.UUID, uuid);
+                                    wrapper.write(Type.VAR_INT, 1); // remove
+                                    wrapper.send(Protocol1_9To1_8.class, true, true);
+                                }
+                                storage.getBossbar().clear();
                             }
-                            storage.getBossbar().clear();
                         }
-                    }
 
-                    ProtocolInfo info = user.get(ProtocolInfo.class);
-                    int previousServerProtocol = info.getServerProtocolVersion();
+                        ProtocolInfo info = user.get(ProtocolInfo.class);
+                        int previousServerProtocol = info.getServerProtocolVersion();
 
-                    // Refresh the pipes
-                    List<Pair<Integer, Protocol>> protocols = ProtocolRegistry.getProtocolPath(info.getProtocolVersion(), protocolId);
-                    ProtocolPipeline pipeline = user.get(ProtocolInfo.class).getPipeline();
-                    user.clearStoredObjects();
-                    pipeline.cleanPipes();
-                    if (protocols == null) {
-                        // TODO Check Bungee Supported Protocols? *shrugs*
-                        protocolId = info.getProtocolVersion();
-                    } else {
-                        for (Pair<Integer, Protocol> prot : protocols) {
-                            pipeline.add(prot.getValue());
-                        }
-                    }
-
-                    info.setServerProtocolVersion(protocolId);
-                    // Add version-specific base Protocol
-                    pipeline.add(ProtocolRegistry.getBaseProtocol(protocolId));
-
-                    // Workaround 1.13 server change
-                    Set<String> knownChannels = (Set<String>) getKnownChannels.invoke(
-                            ReflectionUtil.invoke(
-                                    getMinecraftConnection.invoke(e.getPlayer()),
-                                    "getSessionHandler"
-                            )
-                    );
-                    if (previousServerProtocol != -1) {
-                        int id1_13 = ProtocolVersion.MINECRAFT_1_13.getProtocol();
-                        if (previousServerProtocol < id1_13 && protocolId >= id1_13) {
-                            ArrayList<String> newChannels = new ArrayList<>();
-                            for (String oldChannel : knownChannels) {
-                                newChannels.add(InventoryPackets.getNewPluginChannelId(oldChannel));
+                        // Refresh the pipes
+                        List<Pair<Integer, Protocol>> protocols = ProtocolRegistry.getProtocolPath(info.getProtocolVersion(), protocolId);
+                        ProtocolPipeline pipeline = user.get(ProtocolInfo.class).getPipeline();
+                        user.clearStoredObjects();
+                        pipeline.cleanPipes();
+                        if (protocols == null) {
+                            // TODO Check Bungee Supported Protocols? *shrugs*
+                            protocolId = info.getProtocolVersion();
+                        } else {
+                            for (Pair<Integer, Protocol> prot : protocols) {
+                                pipeline.add(prot.getValue());
                             }
-                            knownChannels.clear();
-                            knownChannels.addAll(newChannels);
-
-                        } else if (previousServerProtocol >= id1_13 && protocolId < id1_13) {
-                            ArrayList<String> newChannels = new ArrayList<>();
-                            for (String oldChannel : knownChannels) {
-                                newChannels.add(InventoryPackets.getOldPluginChannelId(oldChannel));
-                            }
-                            knownChannels.clear();
-                            knownChannels.addAll(newChannels);
                         }
+
+                        info.setServerProtocolVersion(protocolId);
+                        // Add version-specific base Protocol
+                        pipeline.add(ProtocolRegistry.getBaseProtocol(protocolId));
+
+                        // Workaround 1.13 server change
+                        Object sessionHandler = ReflectionUtil.invoke(
+                                getMinecraftConnection.invoke(e.getPlayer()),
+                                "getSessionHandler"
+                        );
+
+                        if (clientPlaySessionHandler.isInstance(sessionHandler)) { // It may be InitialConnectSessionHandler on the first server connection
+                            Set<String> knownChannels = (Set<String>) getKnownChannels.invoke(sessionHandler);
+                            if (previousServerProtocol != -1) {
+                                int id1_13 = ProtocolVersion.MINECRAFT_1_13.getProtocol();
+                                if (previousServerProtocol < id1_13 && protocolId >= id1_13) {
+                                    ArrayList<String> newChannels = new ArrayList<>();
+                                    for (String oldChannel : knownChannels) {
+                                        String transformed = InventoryPackets.getNewPluginChannelId(oldChannel);
+                                        if (transformed != null) {
+                                            newChannels.add(transformed);
+                                        }
+                                    }
+                                    knownChannels.clear();
+                                    knownChannels.addAll(newChannels);
+                                } else if (previousServerProtocol >= id1_13 && protocolId < id1_13) {
+                                    ArrayList<String> newChannels = new ArrayList<>();
+                                    for (String oldChannel : knownChannels) {
+                                        String transformed = InventoryPackets.getOldPluginChannelId(oldChannel);
+                                        if (transformed != null) {
+                                            newChannels.add(transformed);
+                                        }
+                                    }
+                                    knownChannels.clear();
+                                    knownChannels.addAll(newChannels);
+                                }
+                            }
+                        }
+
+                        user.put(info);
+                        user.put(storage);
+
+                        user.setActive(protocols != null);
+
+                        // Init all protocols TODO check if this can get moved up to the previous for loop, and doesn't require the pipeline to already exist.
+                        for (Protocol protocol : pipeline.pipes()) {
+                            protocol.init(user);
+                        }
+
+                        Object connection = getMinecraftConnection.invoke(e.getPlayer());
+                        ProtocolVersion version = (ProtocolVersion) getNextProtocolVersion.invoke(connection);
+                        setProtocolVersion.invoke(connection, version);
                     }
-
-                    user.put(info);
-                    user.put(storage);
-
-                    user.setActive(protocols != null);
-
-                    // Init all protocols TODO check if this can get moved up to the previous for loop, and doesn't require the pipeline to already exist.
-                    for (Protocol protocol : pipeline.pipes()) {
-                        protocol.init(user);
-                    }
-
-                    Object connection = getMinecraftConnection.invoke(e.getPlayer());
-                    ProtocolVersion version = (ProtocolVersion) getNextProtocolVersion.invoke(connection);
-                    setProtocolVersion.invoke(connection, version);
                 }
+            } finally {
+                user.getVelocityLock().writeLock().unlock();
             }
-            user.getVelocityLock().writeLock().unlock();
         }
     }
 }
