@@ -48,7 +48,7 @@ public class MappingData {
         enchantmentMappings = new EnchantmentMappingByteArray(mapping1_12.getAsJsonObject("enchantments"), mapping1_13.getAsJsonObject("enchantments"));
         Via.getPlatform().getLogger().info("Loading 1.12.2 -> 1.13 sound mapping...");
         soundMappings = new SoundMappingShortArray(mapping1_12.getAsJsonArray("sounds"), mapping1_13.getAsJsonArray("sounds"));
-        Via.getPlatform().getLogger().info("Loading translation mappping");
+        Via.getPlatform().getLogger().info("Loading translation mapping");
         translateMapping = new HashMap<>();
         Map<String, String> translateData = GsonUtil.getGson().fromJson(
                 new InputStreamReader(
@@ -202,12 +202,14 @@ public class MappingData {
             }
 
             // Remap infested blocks, as they are instantly breakabale in 1.13+ and can't be broken by those clients on older servers
-            oldToNew[1552] = 1; // stone
-            oldToNew[1553] = 14; // cobblestone
-            oldToNew[1554] = 3983; // stone bricks
-            oldToNew[1555] = 3984; // mossy stone bricks
-            oldToNew[1556] = 3985; // cracked stone bricks
-            oldToNew[1557] = 3986; // chiseled stone bricks
+            if (Via.getConfig().isInfestedBlocksFix()) {
+                oldToNew[1552] = 1; // stone
+                oldToNew[1553] = 14; // cobblestone
+                oldToNew[1554] = 3983; // stone bricks
+                oldToNew[1555] = 3984; // mossy stone bricks
+                oldToNew[1556] = 3985; // cracked stone bricks
+                oldToNew[1557] = 3986; // chiseled stone bricks
+            }
         }
 
         @Override

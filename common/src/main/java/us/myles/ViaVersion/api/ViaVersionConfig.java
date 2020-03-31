@@ -297,11 +297,25 @@ public interface ViaVersionConfig {
     boolean isStemWhenBlockAbove();
 
     /**
+     * Vines not connected to any blocks will be mapped to air for 1.13+ clients to prevent them from climbing up.
+     *
+     * @return True if enabled
+     */
+    boolean isVineClimbFix();
+
+    /**
      * When activated, the 1-layer snow will be sent as 2-layer snow to 1.13+ clients to have collision.
      *
      * @return True if enabled
      */
     boolean isSnowCollisionFix();
+
+    /**
+     * When activated, infested blocks will be mapped to their normal stone variants for 1.13+ clients.
+     *
+     * @return True if enabled
+     */
+    boolean isInfestedBlocksFix();
 
     /**
      * When greater than 0, enables tab complete request delaying by x ticks
@@ -337,4 +351,20 @@ public interface ViaVersionConfig {
      * @return True if enabled
      */
     boolean is1_14HitboxFix();
+
+    /**
+     * Fixes non full blocks having 0 light for 1.14+ clients on sub 1.14 servers.
+     *
+     * @return True if enabled
+     */
+    boolean isNonFullBlockLightFix();
+
+    boolean is1_14HealthNaNFix();
+
+    /**
+     * Should 1.15 clients respawn instantly / without showing the death screen
+     *
+     * @return True if enabled
+     */
+    boolean is1_15InstantRespawn();
 }

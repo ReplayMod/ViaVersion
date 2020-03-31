@@ -32,7 +32,6 @@ import us.myles.ViaVersion.protocols.protocol1_13to1_12_2.storage.BlockConnectio
 import us.myles.ViaVersion.protocols.protocol1_13to1_12_2.storage.BlockStorage;
 import us.myles.ViaVersion.protocols.protocol1_13to1_12_2.storage.EntityTracker;
 import us.myles.ViaVersion.protocols.protocol1_13to1_12_2.storage.TabCompleteTracker;
-import us.myles.ViaVersion.protocols.protocol1_13to1_12_2.types.Particle1_13Type;
 import us.myles.ViaVersion.protocols.protocol1_9_3to1_9_1_2.storage.ClientWorld;
 import us.myles.ViaVersion.util.GsonUtil;
 
@@ -41,7 +40,6 @@ import java.util.Map;
 
 // Development of 1.13 support!
 public class Protocol1_13To1_12_2 extends Protocol {
-    public static final Particle1_13Type PARTICLE_TYPE = new Particle1_13Type();
 
     public static final PacketHandler POS_TO_3_INT = new PacketHandler() {
         @Override
@@ -105,8 +103,7 @@ public class Protocol1_13To1_12_2 extends Protocol {
             };
 
     // These are arbitrary rewrite values, it just needs an invalid color code character.
-    protected static EnumMap<ChatColor, Character> SCOREBOARD_TEAM_NAME_REWRITE = new EnumMap<>(ChatColor.class);
-    // @formatter:on
+    protected static final EnumMap<ChatColor, Character> SCOREBOARD_TEAM_NAME_REWRITE = new EnumMap<>(ChatColor.class);
 
     static {
         SCOREBOARD_TEAM_NAME_REWRITE.put(ChatColor.BLACK, 'g');
@@ -125,6 +122,13 @@ public class Protocol1_13To1_12_2 extends Protocol {
         SCOREBOARD_TEAM_NAME_REWRITE.put(ChatColor.LIGHT_PURPLE, 'z');
         SCOREBOARD_TEAM_NAME_REWRITE.put(ChatColor.YELLOW, '!');
         SCOREBOARD_TEAM_NAME_REWRITE.put(ChatColor.WHITE, '?');
+        SCOREBOARD_TEAM_NAME_REWRITE.put(ChatColor.MAGIC, '#');
+        SCOREBOARD_TEAM_NAME_REWRITE.put(ChatColor.BOLD, '(');
+        SCOREBOARD_TEAM_NAME_REWRITE.put(ChatColor.STRIKETHROUGH, ')');
+        SCOREBOARD_TEAM_NAME_REWRITE.put(ChatColor.UNDERLINE, ':');
+        SCOREBOARD_TEAM_NAME_REWRITE.put(ChatColor.ITALIC, ';');
+        SCOREBOARD_TEAM_NAME_REWRITE.put(ChatColor.RESET, '/');
+
         MappingData.init();
         ConnectionData.init();
         RecipeData.init();

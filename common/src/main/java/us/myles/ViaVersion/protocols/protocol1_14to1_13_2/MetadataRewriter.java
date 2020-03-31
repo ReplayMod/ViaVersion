@@ -9,7 +9,7 @@ import us.myles.ViaVersion.api.minecraft.item.Item;
 import us.myles.ViaVersion.api.minecraft.metadata.Metadata;
 import us.myles.ViaVersion.api.minecraft.metadata.types.MetaType1_14;
 import us.myles.ViaVersion.api.type.Type;
-import us.myles.ViaVersion.protocols.protocol1_13to1_12_2.data.Particle;
+import us.myles.ViaVersion.api.type.types.Particle;
 import us.myles.ViaVersion.protocols.protocol1_14to1_13_2.packets.InventoryPackets;
 import us.myles.ViaVersion.protocols.protocol1_14to1_13_2.storage.EntityTracker;
 
@@ -38,6 +38,12 @@ public class MetadataRewriter {
                 //Metadata 6 added to abstract_entity
                 if (metadata.getId() > 5) {
                     metadata.setId(metadata.getId() + 1);
+                }
+                if (metadata.getId() == 8 && type.isOrHasParent(Entity1_14Types.EntityType.LIVINGENTITY)) {
+                    final float v = ((Number) metadata.getValue()).floatValue();
+                    if (Float.isNaN(v) && Via.getConfig().is1_14HealthNaNFix()) {
+                       metadata.setValue(1F);
+                    }
                 }
 
                 //Metadata 12 added to living_entity

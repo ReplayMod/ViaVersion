@@ -11,11 +11,7 @@ import us.myles.ViaVersion.util.GsonUtil;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 public class MappingData {
     public static BiMap<Integer, Integer> oldToNewItems = HashBiMap.create();
@@ -23,6 +19,7 @@ public class MappingData {
     public static BlockMappings blockMappings;
     public static SoundMappings soundMappings;
     public static Set<Integer> motionBlocking;
+    public static Set<Integer> nonFullBlocks;
 
     public static void init() {
         JsonObject mapping1_13_2 = loadData("mapping-1.13.2.json");
@@ -57,6 +54,19 @@ public class MappingData {
                 MappingData.motionBlocking.add(id);
             }
         }
+
+        if (Via.getConfig().isNonFullBlockLightFix()) {
+            nonFullBlocks = new HashSet<>();
+            for (Map.Entry<String, JsonElement> blockstates : mapping1_13_2.getAsJsonObject("blockstates").entrySet()) {
+                final String state = blockstates.getValue().getAsString();
+                if (state.contains("_slab") || state.contains("_stairs") || state.contains("_wall["))
+                    nonFullBlocks.add(blockStateMappings.getNewBlock(Integer.parseInt(blockstates.getKey())));
+            }
+            nonFullBlocks.add(blockStateMappings.getNewBlock(8163)); // grass path
+            for (int i = 3060; i <= 3067; i++) { // farmland
+                nonFullBlocks.add(blockStateMappings.getNewBlock(i));
+            }
+        }
     }
 
     public static JsonObject loadData(String name) {
@@ -73,7 +83,7 @@ public class MappingData {
         }
     }
 
-    private static void mapIdentifiers(Map<Integer, Integer> output, JsonObject oldIdentifiers, JsonObject newIdentifiers) {
+    public static void mapIdentifiers(Map<Integer, Integer> output, JsonObject oldIdentifiers, JsonObject newIdentifiers) {
         for (Map.Entry<String, JsonElement> entry : oldIdentifiers.entrySet()) {
             Map.Entry<String, JsonElement> value = findValue(newIdentifiers, entry.getValue().getAsString());
             if (value == null) {
@@ -100,11 +110,15 @@ public class MappingData {
     }
 
     private static void mapIdentifiers(short[] output, JsonArray oldIdentifiers, JsonArray newIdentifiers) {
+        mapIdentifiers(output, oldIdentifiers, newIdentifiers, true);
+    }
+
+    private static void mapIdentifiers(short[] output, JsonArray oldIdentifiers, JsonArray newIdentifiers, boolean warnOnMissing) {
         for (int i = 0; i < oldIdentifiers.size(); i++) {
             JsonElement v = oldIdentifiers.get(i);
             Integer index = findIndex(newIdentifiers, v.getAsString());
             if (index == null) {
-                if (!Via.getConfig().isSuppress1_13ConversionErrors() || Via.getManager().isDebug()) {
+                if (warnOnMissing && !Via.getConfig().isSuppress1_13ConversionErrors() || Via.getManager().isDebug()) {
                     Via.getPlatform().getLogger().warning("No key for " + v + " :( ");
                 }
                 continue;
@@ -137,13 +151,17 @@ public class MappingData {
         int getNewSound(int old);
     }
 
-    private static class SoundMappingShortArray implements SoundMappings {
+    public static class SoundMappingShortArray implements SoundMappings {
         private short[] oldToNew;
 
-        private SoundMappingShortArray(JsonArray mapping1_13_2, JsonArray mapping1_14) {
+        public SoundMappingShortArray(JsonArray mapping1_13_2, JsonArray mapping1_14, boolean warnOnMissing) {
             oldToNew = new short[mapping1_13_2.size()];
             Arrays.fill(oldToNew, (short) -1);
-            mapIdentifiers(oldToNew, mapping1_13_2, mapping1_14);
+            mapIdentifiers(oldToNew, mapping1_13_2, mapping1_14, warnOnMissing);
+        }
+
+        public SoundMappingShortArray(JsonArray mapping1_13_2, JsonArray mapping1_14) {
+            this(mapping1_13_2, mapping1_14, true);
         }
 
         @Override
@@ -156,10 +174,10 @@ public class MappingData {
         int getNewBlock(int old);
     }
 
-    private static class BlockMappingsShortArray implements BlockMappings {
+    public static class BlockMappingsShortArray implements BlockMappings {
         private short[] oldToNew;
 
-        private BlockMappingsShortArray(JsonObject mapping1_13_2, JsonObject mapping1_14) {
+        public BlockMappingsShortArray(JsonObject mapping1_13_2, JsonObject mapping1_14) {
             oldToNew = new short[mapping1_13_2.entrySet().size()];
             Arrays.fill(oldToNew, (short) -1);
             mapIdentifiers(oldToNew, mapping1_13_2, mapping1_14);

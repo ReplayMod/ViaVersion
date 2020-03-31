@@ -241,8 +241,18 @@ public class BukkitViaConfig extends Config implements ViaVersionConfig {
     }
 
     @Override
+    public boolean isVineClimbFix() {
+        return getBoolean("vine-climb-fix", false);
+    }
+
+    @Override
     public boolean isSnowCollisionFix() {
         return getBoolean("fix-low-snow-collision", false);
+    }
+
+    @Override
+    public boolean isInfestedBlocksFix() {
+        return getBoolean("fix-infested-block-breaking", true);
     }
 
     @Override
@@ -268,5 +278,20 @@ public class BukkitViaConfig extends Config implements ViaVersionConfig {
     @Override
     public boolean is1_14HitboxFix() {
         return getBoolean("change-1_14-hitbox", false);
+    }
+
+    @Override
+    public boolean isNonFullBlockLightFix() {
+        return getBoolean("fix-non-full-blocklight", true);
+    }
+
+    @Override
+    public boolean is1_14HealthNaNFix() {
+        return getBoolean("fix-1_14-health-nan", true);
+    }
+
+    @Override
+    public boolean is1_15InstantRespawn() {
+        return getBoolean("use-1_15-instant-respawn", false);
     }
 }

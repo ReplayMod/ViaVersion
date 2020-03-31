@@ -27,6 +27,7 @@ import us.myles.ViaVersion.protocols.protocol1_13to1_12_2.data.SpawnEggRewriter;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 public class InventoryPackets {
     private static String NBT_TAG_NAME;
@@ -404,13 +405,13 @@ public class InventoryPackets {
                     if (numberConverted != null) {
                         oldId = numberConverted;
                     }
-                    String[] newValues = BlockIdData.blockIdMapping.get(oldId);
+                    String[] newValues = BlockIdData.blockIdMapping.get(oldId.toLowerCase(Locale.ROOT));
                     if (newValues != null) {
                         for (String newValue : newValues) {
                             newCanPlaceOn.add(new StringTag("", newValue));
                         }
                     } else {
-                        newCanPlaceOn.add(new StringTag("", oldId));
+                        newCanPlaceOn.add(new StringTag("", oldId.toLowerCase(Locale.ROOT)));
                     }
                 }
                 tag.put(newCanPlaceOn);
@@ -426,13 +427,13 @@ public class InventoryPackets {
                     if (numberConverted != null) {
                         oldId = numberConverted;
                     }
-                    String[] newValues = BlockIdData.blockIdMapping.get(oldId);
+                    String[] newValues = BlockIdData.blockIdMapping.get(oldId.toLowerCase(Locale.ROOT));
                     if (newValues != null) {
                         for (String newValue : newValues) {
                             newCanDestroy.add(new StringTag("", newValue));
                         }
                     } else {
-                        newCanDestroy.add(new StringTag("", oldId));
+                        newCanDestroy.add(new StringTag("", oldId.toLowerCase(Locale.ROOT)));
                     }
                 }
                 tag.put(newCanDestroy);
@@ -512,8 +513,12 @@ public class InventoryPackets {
                 return "wdl:request";
             case "bungeecord:main":
                 return null;
+            case "FML|MP":
+            	return "fml:mp";
+            case "FML|HS":
+            	return "fml:hs";
             default:
-                return old.matches("([0-9a-z_.-]*:)?[0-9a-z_/.-]*") // Identifier regex
+                return old.matches("([0-9a-z_.-]+):([0-9a-z_/.-]+)") // Identifier regex
                         ? old : null;
         }
     }
@@ -718,7 +723,7 @@ public class InventoryPackets {
     }
 
     public static String getOldPluginChannelId(String newId) {
-        if (!newId.matches("([0-9a-z_.-]*:)?[0-9a-z_/.-]*")) {
+        if (!newId.matches("([0-9a-z_.-]+):([0-9a-z_/.-]+)")) {
             return null; // Not valid
         }
         int separatorIndex = newId.indexOf(':');
@@ -749,6 +754,10 @@ public class InventoryPackets {
                 return "WDL|CONTROL";
             case "wdl:request":
                 return "WDL|REQUEST";
+            case "fml:hs":
+            	return "FML|HS";
+            case "fml:mp":
+            	return "FML:MP";
             default:
                 return newId.length() > 20 ? newId.substring(0, 20) : newId;
         }
