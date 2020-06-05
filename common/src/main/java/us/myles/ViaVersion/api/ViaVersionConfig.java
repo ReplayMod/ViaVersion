@@ -1,6 +1,6 @@
 package us.myles.ViaVersion.api;
 
-import java.util.List;
+import java.util.Set;
 
 public interface ViaVersionConfig {
 
@@ -76,14 +76,6 @@ public interface ViaVersionConfig {
     boolean isBossbarAntiflicker();
 
     /**
-     * Get if unknown entity errors will be suppressed
-     *
-     * @return true if boss bar patching is enabled
-     */
-    @Deprecated
-    boolean isUnknownEntitiesSuppressed();
-
-    /**
      * Get the vertical offset armor stands are being moved with when the hologram patch is enabled
      *
      * @return the vertical offset holograms will be moved with
@@ -96,14 +88,6 @@ public interface ViaVersionConfig {
      * @return true if automatic teaming is enabled
      */
     boolean isAutoTeam();
-
-    /**
-     * Get if our block break patch is enabled to prevent weird ghost glitches.
-     *
-     * @return true if it is enabled.
-     */
-    @Deprecated
-    boolean isBlockBreakPatch();
 
     /**
      * Get the maximum number of packets a client can send per second.
@@ -166,7 +150,7 @@ public interface ViaVersionConfig {
      *
      * @return if true, enabled
      */
-    boolean isStimulatePlayerTick();
+    boolean isSimulatePlayerTick();
 
     /**
      * Use the item cache to prevent high resource usage
@@ -229,7 +213,7 @@ public interface ViaVersionConfig {
      *
      * @return An Integer list
      */
-    List<Integer> getBlockedProtocols();
+    Set<Integer> getBlockedProtocols();
 
     /**
      * Get the custom disconnect message
@@ -247,11 +231,11 @@ public interface ViaVersionConfig {
     String getReloadDisconnectMsg();
 
     /**
-     * Should we hide errors that occur when trying to converting to 1.13 data?
+     * Should we hide errors that occur when trying to convert block and item data over versions?
      *
      * @return True if enabled
      */
-    boolean isSuppress1_13ConversionErrors();
+    boolean isSuppressConversionWarnings();
 
     /**
      * Should we disable the 1.13 auto-complete feature to stop spam kicks? (for any server lower than 1.13)

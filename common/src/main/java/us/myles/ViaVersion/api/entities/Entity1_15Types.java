@@ -1,38 +1,35 @@
 package us.myles.ViaVersion.api.entities;
 
-import com.google.common.base.Optional;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
 import us.myles.ViaVersion.api.Via;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 
 public class Entity1_15Types {
+
     public static EntityType getTypeFromId(int typeID) {
         Optional<EntityType> type = EntityType.findById(typeID);
 
         if (!type.isPresent()) {
-            Via.getPlatform().getLogger().severe("Could not find type id " + typeID);
+            Via.getPlatform().getLogger().severe("Could not find 1.15 type id " + typeID);
             return EntityType.ENTITY; // Fall back to the basic ENTITY
         }
 
         return type.get();
     }
 
-    @AllArgsConstructor
-    @Getter
-    public enum EntityType {
+    public enum EntityType implements us.myles.ViaVersion.api.entities.EntityType {
         ENTITY(-1),
 
         AREA_EFFECT_CLOUD(0, ENTITY),
-        ENDER_CRYSTAL(18, ENTITY),
-        EVOCATION_FANGS(22, ENTITY),
-        XP_ORB(24, ENTITY),
-        EYE_OF_ENDER_SIGNAL(25, ENTITY),
+        END_CRYSTAL(18, ENTITY),
+        EVOKER_FANGS(22, ENTITY),
+        EXPERIENCE_ORB(24, ENTITY),
+        EYE_OF_ENDER(25, ENTITY),
         FALLING_BLOCK(26, ENTITY),
-        FIREWORKS_ROCKET(27, ENTITY),
+        FIREWORK_ROCKET(27, ENTITY),
         ITEM(35, ENTITY),
         LLAMA_SPIT(40, ENTITY),
         TNT(59, ENTITY),
@@ -89,15 +86,15 @@ public class Entity1_15Types {
 
         // Golem
         ABSTRACT_GOLEM(-1, ABSTRACT_CREATURE),
-        SNOWMAN(70, ABSTRACT_GOLEM),
-        VILLAGER_GOLEM(86, ABSTRACT_GOLEM),
+        SNOW_GOLEM(70, ABSTRACT_GOLEM),
+        IRON_GOLEM(86, ABSTRACT_GOLEM),
         SHULKER(63, ABSTRACT_GOLEM),
 
         // Fish
         ABSTRACT_FISHES(-1, ABSTRACT_CREATURE),
         COD(10, ABSTRACT_FISHES),
-        PUFFER_FISH(56, ABSTRACT_FISHES),
-        SALMON_MOB(61, ABSTRACT_FISHES),
+        PUFFERFISH(56, ABSTRACT_FISHES),
+        SALMON(61, ABSTRACT_FISHES),
         TROPICAL_FISH(77, ABSTRACT_FISHES),
 
         // Monsters
@@ -116,9 +113,9 @@ public class Entity1_15Types {
         // Illagers
         ABSTRACT_ILLAGER_BASE(-1, ABSTRACT_MONSTER),
         ABSTRACT_EVO_ILLU_ILLAGER(-1, ABSTRACT_ILLAGER_BASE),
-        EVOCATION_ILLAGER(23, ABSTRACT_EVO_ILLU_ILLAGER),
-        ILLUSION_ILLAGER(34, ABSTRACT_EVO_ILLU_ILLAGER),
-        VINDICATION_ILLAGER(87, ABSTRACT_ILLAGER_BASE),
+        EVOKER(23, ABSTRACT_EVO_ILLU_ILLAGER),
+        ILLUSIONER(34, ABSTRACT_EVO_ILLU_ILLAGER),
+        VINDICATOR(87, ABSTRACT_ILLAGER_BASE),
         PILLAGER(88, ABSTRACT_ILLAGER_BASE),
 
         // Skeletons
@@ -185,7 +182,7 @@ public class Entity1_15Types {
         ENDER_PEARL(80, PROJECTILE_ABSTRACT),
         EGG(79, PROJECTILE_ABSTRACT),
         POTION(82, PROJECTILE_ABSTRACT),
-        XP_BOTTLE(81, PROJECTILE_ABSTRACT),
+        EXPERIENCE_BOTTLE(81, PROJECTILE_ABSTRACT),
 
         // Vehicles
         MINECART_ABSTRACT(-1, ENTITY),
@@ -194,7 +191,7 @@ public class Entity1_15Types {
         HOPPER_MINECART(46, CHESTED_MINECART_ABSTRACT),
         MINECART(42, MINECART_ABSTRACT),
         FURNACE_MINECART(45, MINECART_ABSTRACT),
-        COMMANDBLOCK_MINECART(44, MINECART_ABSTRACT),
+        COMMAND_BLOCK_MINECART(44, MINECART_ABSTRACT),
         TNT_MINECART(48, MINECART_ABSTRACT),
         SPAWNER_MINECART(47, MINECART_ABSTRACT),
         BOAT(6, ENTITY);
@@ -209,6 +206,21 @@ public class Entity1_15Types {
             this.parent = null;
         }
 
+        EntityType(int id, EntityType parent) {
+            this.id = id;
+            this.parent = parent;
+        }
+
+        @Override
+        public int getId() {
+            return id;
+        }
+
+        @Override
+        public EntityType getParent() {
+            return parent;
+        }
+
         static {
             for (EntityType type : EntityType.values()) {
                 TYPES.put(type.id, type);
@@ -217,32 +229,8 @@ public class Entity1_15Types {
 
         public static Optional<EntityType> findById(int id) {
             if (id == -1)
-                return Optional.absent();
-            return Optional.fromNullable(TYPES.get(id));
-        }
-
-        public boolean is(EntityType... types) {
-            for (EntityType type : types)
-                if (is(type))
-                    return true;
-            return false;
-        }
-
-        public boolean is(EntityType type) {
-            return this == type;
-        }
-
-        public boolean isOrHasParent(EntityType type) {
-            EntityType parent = this;
-
-            do {
-                if (parent == type)
-                    return true;
-
-                parent = parent.getParent();
-            } while (parent != null);
-
-            return false;
+                return Optional.empty();
+            return Optional.ofNullable(TYPES.get(id));
         }
     }
 }

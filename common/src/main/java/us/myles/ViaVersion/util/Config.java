@@ -14,20 +14,17 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentSkipListMap;
 
 public abstract class Config implements ConfigurationProvider {
-    private static final ThreadLocal<Yaml> YAML = new ThreadLocal<Yaml>() {
-        @Override
-        protected Yaml initialValue() {
-            DumperOptions options = new DumperOptions();
-            options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
-            options.setPrettyFlow(false);
-            options.setIndent(2);
-            return new Yaml(new YamlConstructor(), new Representer(), options);
-        }
-    };
+    private static final ThreadLocal<Yaml> YAML = ThreadLocal.withInitial(() -> {
+        DumperOptions options = new DumperOptions();
+        options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
+        options.setPrettyFlow(false);
+        options.setIndent(2);
+        return new Yaml(new YamlConstructor(), new Representer(), options);
+    });
 
-    private CommentStore commentStore = new CommentStore('.', 2);
+    private final CommentStore commentStore = new CommentStore('.', 2);
     private final File configFile;
-    private ConcurrentSkipListMap<String, Object> config;
+    private Map<String, Object> config;
 
     /**
      * Create a new Config instance, this will *not* load the config by default.
@@ -76,10 +73,10 @@ public abstract class Config implements ConfigurationProvider {
                 defaults.remove(option);
             }
             // Merge with defaultLoader
-            for (Object key : config.keySet()) {
+            for (Map.Entry<String, Object> entry : config.entrySet()) {
                 // Set option in new conf if exists
-                if (defaults.containsKey(key) && !unsupported.contains(key.toString())) {
-                    defaults.put((String) key, config.get(key));
+                if (defaults.containsKey(entry.getKey()) && !unsupported.contains(entry.getKey())) {
+                    defaults.put(entry.getKey(), entry.getValue());
                 }
             }
         } catch (IOException e) {

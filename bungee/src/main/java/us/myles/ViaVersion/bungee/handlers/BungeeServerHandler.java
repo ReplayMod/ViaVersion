@@ -26,7 +26,7 @@ import us.myles.ViaVersion.protocols.base.ProtocolInfo;
 import us.myles.ViaVersion.protocols.protocol1_13to1_12_2.packets.InventoryPackets;
 import us.myles.ViaVersion.protocols.protocol1_9to1_8.Protocol1_9To1_8;
 import us.myles.ViaVersion.protocols.protocol1_9to1_8.providers.EntityIdProvider;
-import us.myles.ViaVersion.protocols.protocol1_9to1_8.storage.EntityTracker;
+import us.myles.ViaVersion.protocols.protocol1_9to1_8.storage.EntityTracker1_9;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
@@ -128,7 +128,7 @@ public class BungeeServerHandler implements Listener {
             if (e.getServer() != null) {
                 if (!e.getServer().getInfo().getName().equals(storage.getCurrentServer())) {
                     // Clear auto-team
-                    EntityTracker oldEntityTracker = user.get(EntityTracker.class);
+                    EntityTracker1_9 oldEntityTracker = user.get(EntityTracker1_9.class);
                     if (oldEntityTracker != null) {
                         if (oldEntityTracker.isAutoTeam() && oldEntityTracker.isTeamExists()) {
                             oldEntityTracker.sendTeamPacket(false, true);
@@ -143,11 +143,15 @@ public class BungeeServerHandler implements Listener {
 
                     if (protocolId <= ProtocolVersion.v1_8.getId()) { // 1.8 doesn't have BossBar packet
                         if (storage.getBossbar() != null) {
-                            for (UUID uuid : storage.getBossbar()) {
-                                PacketWrapper wrapper = new PacketWrapper(0x0C, null, user);
-                                wrapper.write(Type.UUID, uuid);
-                                wrapper.write(Type.VAR_INT, 1); // remove
-                                wrapper.send(Protocol1_9To1_8.class, true, true);
+                            // TODO: Verify whether this packet needs to be sent when 1.8 -> 1.9 protocol isn't present in the pipeline
+                            // This ensures we can encode it properly as only the 1.9 protocol is currently implemented.
+                            if (user.get(ProtocolInfo.class).getPipeline().contains(Protocol1_9To1_8.class)) {
+                                for (UUID uuid : storage.getBossbar()) {
+                                    PacketWrapper wrapper = new PacketWrapper(0x0C, null, user);
+                                    wrapper.write(Type.UUID, uuid);
+                                    wrapper.write(Type.VAR_INT, 1); // remove
+                                    wrapper.send(Protocol1_9To1_8.class, true, true);
+                                }
                             }
                             storage.getBossbar().clear();
                         }
@@ -219,7 +223,7 @@ public class BungeeServerHandler implements Listener {
                         protocol.init(user);
                     }
 
-                    EntityTracker newTracker = user.get(EntityTracker.class);
+                    EntityTracker1_9 newTracker = user.get(EntityTracker1_9.class);
                     if (newTracker != null) {
                         if (Via.getConfig().isAutoTeam()) {
                             String currentTeam = null;

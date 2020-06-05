@@ -1,8 +1,6 @@
 package us.myles.ViaVersion.api.minecraft.chunks;
 
 import io.netty.buffer.ByteBuf;
-import lombok.Getter;
-import lombok.Setter;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -10,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 
 public class ChunkSection {
+
     /**
      * Size (dimensions) of blocks in a chunks section.
      */
@@ -18,13 +17,11 @@ public class ChunkSection {
      * Length of the sky and block light nibble arrays.
      */
     public static final int LIGHT_LENGTH = 16 * 16 * 16 / 2; // size * size * size / 2 (nibble bit count)
-    private List<Integer> palette = new ArrayList<>();
-    private Map<Integer, Integer> inversePalette = new HashMap<>();
+    private final List<Integer> palette = new ArrayList<>();
+    private final Map<Integer, Integer> inversePalette = new HashMap<>();
     private final int[] blocks;
     private NibbleArray blockLight;
     private NibbleArray skyLight;
-    @Getter
-    @Setter
     private int nonAirBlocksCount;
 
     public ChunkSection() {
@@ -234,5 +231,13 @@ public class ChunkSection {
 
     public boolean hasBlockLight() {
         return blockLight != null;
+    }
+
+    public int getNonAirBlocksCount() {
+        return nonAirBlocksCount;
+    }
+
+    public void setNonAirBlocksCount(int nonAirBlocksCount) {
+        this.nonAirBlocksCount = nonAirBlocksCount;
     }
 }

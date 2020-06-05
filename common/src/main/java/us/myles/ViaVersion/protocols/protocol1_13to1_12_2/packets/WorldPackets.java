@@ -1,7 +1,6 @@
 package us.myles.ViaVersion.protocols.protocol1_13to1_12_2.packets;
 
 import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
-import com.google.common.base.Optional;
 import us.myles.ViaVersion.api.PacketWrapper;
 import us.myles.ViaVersion.api.Via;
 import us.myles.ViaVersion.api.data.UserConnection;
@@ -13,13 +12,13 @@ import us.myles.ViaVersion.api.protocol.Protocol;
 import us.myles.ViaVersion.api.remapper.PacketHandler;
 import us.myles.ViaVersion.api.remapper.PacketRemapper;
 import us.myles.ViaVersion.api.type.Type;
+import us.myles.ViaVersion.api.type.types.Particle;
 import us.myles.ViaVersion.packets.State;
 import us.myles.ViaVersion.protocols.protocol1_13to1_12_2.Protocol1_13To1_12_2;
 import us.myles.ViaVersion.protocols.protocol1_13to1_12_2.blockconnections.ConnectionData;
 import us.myles.ViaVersion.protocols.protocol1_13to1_12_2.blockconnections.ConnectionHandler;
 import us.myles.ViaVersion.protocols.protocol1_13to1_12_2.data.MappingData;
 import us.myles.ViaVersion.protocols.protocol1_13to1_12_2.data.NamedSoundRewriter;
-import us.myles.ViaVersion.api.type.types.Particle;
 import us.myles.ViaVersion.protocols.protocol1_13to1_12_2.data.ParticleRewriter;
 import us.myles.ViaVersion.protocols.protocol1_13to1_12_2.providers.BlockEntityProvider;
 import us.myles.ViaVersion.protocols.protocol1_13to1_12_2.providers.PaintingProvider;
@@ -30,6 +29,7 @@ import us.myles.ViaVersion.protocols.protocol1_9_3to1_9_1_2.storage.ClientWorld;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 public class WorldPackets {
@@ -73,10 +73,10 @@ public class WorldPackets {
 
                         Optional<Integer> id = provider.getIntByIdentifier(motive);
 
-                        if (!id.isPresent() && (!Via.getConfig().isSuppress1_13ConversionErrors() || Via.getManager().isDebug())) {
+                        if (!id.isPresent() && (!Via.getConfig().isSuppressConversionWarnings() || Via.getManager().isDebug())) {
                             Via.getPlatform().getLogger().warning("Could not find painting motive: " + motive + " falling back to default (0)");
                         }
-                        wrapper.write(Type.VAR_INT, id.or(0));
+                        wrapper.write(Type.VAR_INT, id.orElse(0));
                     }
                 });
             }
@@ -152,7 +152,7 @@ public class WorldPackets {
 
                         if (blockId == 73) { // Note block
                             PacketWrapper blockChange = wrapper.create(0x0B); // block change
-                            blockChange.write(Type.POSITION, new Position(pos.getX(), pos.getY(), pos.getZ())); // Clone because position is mutable
+                            blockChange.write(Type.POSITION, new Position(pos)); // Clone because position is mutable
                             blockChange.write(Type.VAR_INT, 249 + (action * 24 * 2) + (param * 2));
                             blockChange.send(Protocol1_13To1_12_2.class, true, true);
                         }
@@ -177,7 +177,7 @@ public class WorldPackets {
                         UserConnection userConnection = wrapper.user();
                         if (Via.getConfig().isServersideBlockConnections()) {
 
-                            ConnectionData.updateBlockStorage(userConnection, position, newId);
+                            ConnectionData.updateBlockStorage(userConnection, position.getX(), position.getY(), position.getZ(), newId);
                             newId = ConnectionData.connect(userConnection, position, newId);
                         }
                         wrapper.set(Type.VAR_INT, 0, checkStorage(wrapper.user(), position, newId));
@@ -211,12 +211,12 @@ public class WorldPackets {
                         for (BlockChangeRecord record : records) {
                             int newBlock = toNewId(record.getBlockId());
                             Position position = new Position(
-                                    (long) (record.getHorizontal() >> 4 & 15) + (chunkX * 16),
-                                    (long) record.getY(),
-                                    (long) (record.getHorizontal() & 15) + (chunkZ * 16));
+                                    (record.getHorizontal() >> 4 & 15) + (chunkX * 16),
+                                    record.getY(),
+                                    (record.getHorizontal() & 15) + (chunkZ * 16));
 
                             if (Via.getConfig().isServersideBlockConnections()) {
-                                ConnectionData.updateBlockStorage(userConnection, position, newBlock);
+                                ConnectionData.updateBlockStorage(userConnection, position.getX(), position.getY(), position.getZ(), newBlock);
                             }
                             record.setBlockId(checkStorage(wrapper.user(), position, newBlock));
                         }
@@ -226,9 +226,9 @@ public class WorldPackets {
                                 int blockState = record.getBlockId();
 
                                 Position position = new Position(
-                                        (long) (record.getHorizontal() >> 4 & 15) + (chunkX * 16),
-                                        (long) record.getY(),
-                                        (long) (record.getHorizontal() & 15) + (chunkZ * 16));
+                                        (record.getHorizontal() >> 4 & 15) + (chunkX * 16),
+                                        record.getY(),
+                                        (record.getHorizontal() & 15) + (chunkZ * 16));
 
                                 ConnectionHandler handler = ConnectionData.getConnectionHandler(blockState);
                                 if (handler != null) {
@@ -242,13 +242,59 @@ public class WorldPackets {
 
                             for (BlockChangeRecord record : records) {
                                 Position position = new Position(
-                                        (long) (record.getHorizontal() >> 4 & 15) + (chunkX * 16),
-                                        (long) record.getY(),
-                                        (long) (record.getHorizontal() & 15) + (chunkZ * 16));
+                                        (record.getHorizontal() >> 4 & 15) + (chunkX * 16),
+                                        record.getY(),
+                                        (record.getHorizontal() & 15) + (chunkZ * 16));
                                 ConnectionData.update(userConnection, position);
                             }
                         }
 
+                    }
+                });
+            }
+        });
+
+        // Explosion
+        protocol.registerOutgoing(State.PLAY, 0x1C, 0x1E, new PacketRemapper() {
+            @Override
+            public void registerMap() {
+                if (!Via.getConfig().isServersideBlockConnections())
+                    return;
+
+                map(Type.FLOAT); // X
+                map(Type.FLOAT); // Y
+                map(Type.FLOAT); // Z
+                map(Type.FLOAT); // Radius
+                map(Type.INT); // Record Count
+
+                handler(new PacketHandler() {
+                    @Override
+                    public void handle(PacketWrapper wrapper) throws Exception {
+                        UserConnection userConnection = wrapper.user();
+                        int x = (int) Math.floor(wrapper.get(Type.FLOAT, 0));
+                        int y = (int) Math.floor(wrapper.get(Type.FLOAT, 1));
+                        int z = (int) Math.floor(wrapper.get(Type.FLOAT, 2));
+                        int recordCount = wrapper.get(Type.INT, 0);
+                        Position[] records = new Position[recordCount];
+
+                        for (int i = 0; i < recordCount; i++) {
+                            Position position = new Position(
+                                    x + wrapper.passthrough(Type.BYTE),
+                                    (short) (y + wrapper.passthrough(Type.BYTE)),
+                                    z + wrapper.passthrough(Type.BYTE));
+                            records[i] = position;
+
+                            // Set to air
+                            ConnectionData.updateBlockStorage(userConnection, position.getX(), position.getY(), position.getZ(), 0);
+                        }
+
+                        // Workaround for packet order issue
+                        wrapper.send(Protocol1_13To1_12_2.class, true, true);
+                        wrapper.cancel();
+
+                        for (int i = 0; i < recordCount; i++) {
+                            ConnectionData.update(userConnection, records[i]);
+                        }
                     }
                 });
             }
@@ -264,7 +310,7 @@ public class WorldPackets {
                         public void handle(PacketWrapper wrapper) throws Exception {
                             int x = wrapper.passthrough(Type.INT);
                             int z = wrapper.passthrough(Type.INT);
-                            ConnectionData.getProvider().unloadChunk(wrapper.user(), x, z);
+                            ConnectionData.blockConnectionProvider.unloadChunk(wrapper.user(), x, z);
                         }
                     });
                 }
@@ -339,9 +385,9 @@ public class WorldPackets {
                                             int block = section.getFlatBlock(x, y, z);
                                             if (storage.isWelcome(block)) {
                                                 storage.store(new Position(
-                                                        (long) (x + (chunk.getX() << 4)),
-                                                        (long) (y + (i << 4)),
-                                                        (long) (z + (chunk.getZ() << 4))
+                                                        (x + (chunk.getX() << 4)),
+                                                        (short) (y + (i << 4)),
+                                                        (z + (chunk.getZ() << 4))
                                                 ), block);
                                             }
                                         }
@@ -355,9 +401,9 @@ public class WorldPackets {
                                         for (int x = 0; x < 16; x++) {
                                             int block = section.getFlatBlock(x, y, z);
                                             if (ConnectionData.isWelcome(block)) {
-                                                ConnectionData.getProvider().storeBlock(wrapper.user(), (long) (x + (chunk.getX() << 4)),
-                                                        (long) (y + (i << 4)),
-                                                        (long) (z + (chunk.getZ() << 4)),
+                                                ConnectionData.blockConnectionProvider.storeBlock(wrapper.user(), x + (chunk.getX() << 4),
+                                                        y + (i << 4),
+                                                        z + (chunk.getZ() << 4),
                                                         block);
                                             }
                                         }
@@ -374,7 +420,7 @@ public class WorldPackets {
                                 if (!validBiomes.contains(biome)) {
                                     if (biome != 255 // is it generated naturally? *shrug*
                                             && latestBiomeWarn != biome) {
-                                        if (!Via.getConfig().isSuppress1_13ConversionErrors() || Via.getManager().isDebug()) {
+                                        if (!Via.getConfig().isSuppressConversionWarnings() || Via.getManager().isDebug()) {
                                             Via.getPlatform().getLogger().warning("Received invalid biome id " + biome);
                                         }
                                         latestBiomeWarn = biome;
@@ -393,7 +439,7 @@ public class WorldPackets {
                                 int y = (int) tag.get("y").getValue();
                                 int z = (int) tag.get("z").getValue();
 
-                                Position position = new Position((long) x, (long) y, (long) z);
+                                Position position = new Position(x, (short) y, z);
                                 // Store the replacement blocks for blockupdates
                                 if (storage.contains(position))
                                     storage.get(position).setReplacement(newId);
@@ -496,18 +542,18 @@ public class WorldPackets {
         if (oldId < 0) {
             oldId = 0; // Some plugins use negative numbers to clear blocks, remap them to air.
         }
-        int newId = MappingData.blockMappings.getNewBlock(oldId);
+        int newId = MappingData.blockMappings.getNewId(oldId);
         if (newId != -1) {
             return newId;
         }
-        newId = MappingData.blockMappings.getNewBlock(oldId & ~0xF); // Remove data
+        newId = MappingData.blockMappings.getNewId(oldId & ~0xF); // Remove data
         if (newId != -1) {
-            if (!Via.getConfig().isSuppress1_13ConversionErrors() || Via.getManager().isDebug()) {
+            if (!Via.getConfig().isSuppressConversionWarnings() || Via.getManager().isDebug()) {
                 Via.getPlatform().getLogger().warning("Missing block " + oldId);
             }
             return newId;
         }
-        if (!Via.getConfig().isSuppress1_13ConversionErrors() || Via.getManager().isDebug()) {
+        if (!Via.getConfig().isSuppressConversionWarnings() || Via.getManager().isDebug()) {
             Via.getPlatform().getLogger().warning("Missing block completely " + oldId);
         }
         // Default stone

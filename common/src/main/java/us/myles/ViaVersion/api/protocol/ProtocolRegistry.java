@@ -2,9 +2,9 @@ package us.myles.ViaVersion.api.protocol;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Range;
-import com.google.common.collect.Sets;
 import us.myles.ViaVersion.api.Pair;
 import us.myles.ViaVersion.api.Via;
+import us.myles.ViaVersion.api.data.MappingDataLoader;
 import us.myles.ViaVersion.protocols.base.BaseProtocol;
 import us.myles.ViaVersion.protocols.base.BaseProtocol1_7;
 import us.myles.ViaVersion.protocols.protocol1_10to1_9_3.Protocol1_10To1_9_3_4;
@@ -24,14 +24,28 @@ import us.myles.ViaVersion.protocols.protocol1_14to1_13_2.Protocol1_14To1_13_2;
 import us.myles.ViaVersion.protocols.protocol1_15_1to1_15.Protocol1_15_1To1_15;
 import us.myles.ViaVersion.protocols.protocol1_15_2to1_15_1.Protocol1_15_2To1_15_1;
 import us.myles.ViaVersion.protocols.protocol1_15to1_14_4.Protocol1_15To1_14_4;
+import us.myles.ViaVersion.protocols.protocol1_16to1_15_2.Protocol1_16To1_15_2;
 import us.myles.ViaVersion.protocols.protocol1_9_1_2to1_9_3_4.Protocol1_9_1_2To1_9_3_4;
 import us.myles.ViaVersion.protocols.protocol1_9_1to1_9.Protocol1_9_1To1_9;
 import us.myles.ViaVersion.protocols.protocol1_9_3to1_9_1_2.Protocol1_9_3To1_9_1_2;
 import us.myles.ViaVersion.protocols.protocol1_9to1_8.Protocol1_9To1_8;
 import us.myles.ViaVersion.protocols.protocol1_9to1_9_1.Protocol1_9To1_9_1;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 public class ProtocolRegistry {
     public static final Protocol BASE_PROTOCOL = new BaseProtocol();
@@ -39,44 +53,68 @@ public class ProtocolRegistry {
     // Input Version -> Output Version & Protocol (Allows fast lookup)
     private static final Map<Integer, Map<Integer, Protocol>> registryMap = new ConcurrentHashMap<>();
     private static final Map<Pair<Integer, Integer>, List<Pair<Integer, Protocol>>> pathCache = new ConcurrentHashMap<>();
-    private static final List<Protocol> registerList = Lists.newCopyOnWriteArrayList();
-    private static final Set<Integer> supportedVersions = Sets.newConcurrentHashSet();
+    private static final List<Protocol> registerList = new ArrayList<>();
+    private static final Set<Integer> supportedVersions = new HashSet<>();
     private static final List<Pair<Range<Integer>, Protocol>> baseProtocols = Lists.newCopyOnWriteArrayList();
 
+    private static final Object MAPPING_LOADER_LOCK = new Object();
+    private static Map<Class<? extends Protocol>, CompletableFuture<Void>> mappingLoaderFutures = new HashMap<>();
+    private static ThreadPoolExecutor mappingLoaderExecutor;
+    private static boolean mappingsLoaded;
+
     static {
+        mappingLoaderExecutor = new ThreadPoolExecutor(5, 16, 45L, TimeUnit.SECONDS, new SynchronousQueue<>());
+        mappingLoaderExecutor.allowCoreThreadTimeOut(true);
+
         // Base Protocol
         registerBaseProtocol(BASE_PROTOCOL, Range.lessThan(Integer.MIN_VALUE));
-        registerBaseProtocol(new BaseProtocol1_7(), Range.<Integer>all());
+        registerBaseProtocol(new BaseProtocol1_7(), Range.all());
 
-        // Register built in protocols
-        registerProtocol(new Protocol1_9To1_8(), Collections.singletonList(ProtocolVersion.v1_9.getId()), ProtocolVersion.v1_8.getId());
+        registerProtocol(new Protocol1_9To1_8(), ProtocolVersion.v1_9, ProtocolVersion.v1_8);
         registerProtocol(new Protocol1_9_1To1_9(), Arrays.asList(ProtocolVersion.v1_9_1.getId(), ProtocolVersion.v1_9_2.getId()), ProtocolVersion.v1_9.getId());
-        registerProtocol(new Protocol1_9_3To1_9_1_2(), Collections.singletonList(ProtocolVersion.v1_9_3.getId()), ProtocolVersion.v1_9_2.getId());
-        // Only supported for 1.9.4 server to 1.9 (nothing else)
-        registerProtocol(new Protocol1_9To1_9_1(), Collections.singletonList(ProtocolVersion.v1_9.getId()), ProtocolVersion.v1_9_2.getId());
+        registerProtocol(new Protocol1_9_3To1_9_1_2(), ProtocolVersion.v1_9_3, ProtocolVersion.v1_9_2);
+
+        registerProtocol(new Protocol1_9To1_9_1(), ProtocolVersion.v1_9, ProtocolVersion.v1_9_2);
         registerProtocol(new Protocol1_9_1_2To1_9_3_4(), Arrays.asList(ProtocolVersion.v1_9_1.getId(), ProtocolVersion.v1_9_2.getId()), ProtocolVersion.v1_9_3.getId());
-        registerProtocol(new Protocol1_10To1_9_3_4(), Collections.singletonList(ProtocolVersion.v1_10.getId()), ProtocolVersion.v1_9_3.getId());
+        registerProtocol(new Protocol1_10To1_9_3_4(), ProtocolVersion.v1_10, ProtocolVersion.v1_9_3);
 
-        registerProtocol(new Protocol1_11To1_10(), Collections.singletonList(ProtocolVersion.v1_11.getId()), ProtocolVersion.v1_10.getId());
-        registerProtocol(new Protocol1_11_1To1_11(), Collections.singletonList(ProtocolVersion.v1_11_1.getId()), ProtocolVersion.v1_11.getId());
+        registerProtocol(new Protocol1_11To1_10(), ProtocolVersion.v1_11, ProtocolVersion.v1_10);
+        registerProtocol(new Protocol1_11_1To1_11(), ProtocolVersion.v1_11_1, ProtocolVersion.v1_11);
 
-        registerProtocol(new Protocol1_12To1_11_1(), Collections.singletonList(ProtocolVersion.v1_12.getId()), ProtocolVersion.v1_11_1.getId());
-        registerProtocol(new Protocol1_12_1To1_12(), Collections.singletonList(ProtocolVersion.v1_12_1.getId()), ProtocolVersion.v1_12.getId());
-        registerProtocol(new Protocol1_12_2To1_12_1(), Collections.singletonList(ProtocolVersion.v1_12_2.getId()), ProtocolVersion.v1_12_1.getId());
+        registerProtocol(new Protocol1_12To1_11_1(), ProtocolVersion.v1_12, ProtocolVersion.v1_11_1);
+        registerProtocol(new Protocol1_12_1To1_12(), ProtocolVersion.v1_12_1, ProtocolVersion.v1_12);
+        registerProtocol(new Protocol1_12_2To1_12_1(), ProtocolVersion.v1_12_2, ProtocolVersion.v1_12_1);
 
-        registerProtocol(new Protocol1_13To1_12_2(), Collections.singletonList(ProtocolVersion.v1_13.getId()), ProtocolVersion.v1_12_2.getId());
-        registerProtocol(new Protocol1_13_1To1_13(), Collections.singletonList(ProtocolVersion.v1_13_1.getId()), ProtocolVersion.v1_13.getId());
-        registerProtocol(new Protocol1_13_2To1_13_1(), Collections.singletonList(ProtocolVersion.v1_13_2.getId()), ProtocolVersion.v1_13_1.getId());
+        registerProtocol(new Protocol1_13To1_12_2(), ProtocolVersion.v1_13, ProtocolVersion.v1_12_2);
+        registerProtocol(new Protocol1_13_1To1_13(), ProtocolVersion.v1_13_1, ProtocolVersion.v1_13);
+        registerProtocol(new Protocol1_13_2To1_13_1(), ProtocolVersion.v1_13_2, ProtocolVersion.v1_13_1);
 
-        registerProtocol(new Protocol1_14To1_13_2(), Collections.singletonList(ProtocolVersion.v1_14.getId()), ProtocolVersion.v1_13_2.getId());
-        registerProtocol(new Protocol1_14_1To1_14(), Collections.singletonList(ProtocolVersion.v1_14_1.getId()), ProtocolVersion.v1_14.getId());
-        registerProtocol(new Protocol1_14_2To1_14_1(), Collections.singletonList(ProtocolVersion.v1_14_2.getId()), ProtocolVersion.v1_14_1.getId());
-        registerProtocol(new Protocol1_14_3To1_14_2(), Collections.singletonList(ProtocolVersion.v1_14_3.getId()), ProtocolVersion.v1_14_2.getId());
-        registerProtocol(new Protocol1_14_4To1_14_3(), Collections.singletonList(ProtocolVersion.v1_14_4.getId()), ProtocolVersion.v1_14_3.getId());
+        registerProtocol(new Protocol1_14To1_13_2(), ProtocolVersion.v1_14, ProtocolVersion.v1_13_2);
+        registerProtocol(new Protocol1_14_1To1_14(), ProtocolVersion.v1_14_1, ProtocolVersion.v1_14);
+        registerProtocol(new Protocol1_14_2To1_14_1(), ProtocolVersion.v1_14_2, ProtocolVersion.v1_14_1);
+        registerProtocol(new Protocol1_14_3To1_14_2(), ProtocolVersion.v1_14_3, ProtocolVersion.v1_14_2);
+        registerProtocol(new Protocol1_14_4To1_14_3(), ProtocolVersion.v1_14_4, ProtocolVersion.v1_14_3);
 
-        registerProtocol(new Protocol1_15To1_14_4(), Collections.singletonList(ProtocolVersion.v1_15.getId()), ProtocolVersion.v1_14_4.getId());
-        registerProtocol(new Protocol1_15_1To1_15(), Collections.singletonList(ProtocolVersion.v1_15_1.getId()), ProtocolVersion.v1_15.getId());
-        registerProtocol(new Protocol1_15_2To1_15_1(), Collections.singletonList(ProtocolVersion.v1_15_2.getId()), ProtocolVersion.v1_15_1.getId());
+        registerProtocol(new Protocol1_15To1_14_4(), ProtocolVersion.v1_15, ProtocolVersion.v1_14_4);
+        registerProtocol(new Protocol1_15_1To1_15(), ProtocolVersion.v1_15_1, ProtocolVersion.v1_15);
+        registerProtocol(new Protocol1_15_2To1_15_1(), ProtocolVersion.v1_15_2, ProtocolVersion.v1_15_1);
+
+        registerProtocol(new Protocol1_16To1_15_2(), ProtocolVersion.v1_16, ProtocolVersion.v1_15_2);
+    }
+
+    public static void init() {
+        // Empty method to trigger static initializer once
+    }
+
+    /**
+     * Register a protocol
+     *
+     * @param protocol  The protocol to register.
+     * @param supported Supported client versions.
+     * @param output    The output server version it converts to.
+     */
+    public static void registerProtocol(Protocol protocol, ProtocolVersion supported, ProtocolVersion output) {
+        registerProtocol(protocol, Collections.singletonList(supported.getId()), output.getId());
     }
 
     /**
@@ -88,23 +126,30 @@ public class ProtocolRegistry {
      */
     public static void registerProtocol(Protocol protocol, List<Integer> supported, Integer output) {
         // Clear cache as this may make new routes.
-        if (pathCache.size() > 0)
+        if (!pathCache.isEmpty()) {
             pathCache.clear();
+        }
 
         for (Integer version : supported) {
-            if (!registryMap.containsKey(version)) {
-                registryMap.put(version, new HashMap<Integer, Protocol>());
-            }
-
-            registryMap.get(version).put(output, protocol);
+            Map<Integer, Protocol> protocolMap = registryMap.computeIfAbsent(version, k -> new HashMap<>());
+            protocolMap.put(output, protocol);
         }
 
         if (Via.getPlatform().isPluginEnabled()) {
-            protocol.registerListeners();
             protocol.register(Via.getManager().getProviders());
             refreshVersions();
         } else {
             registerList.add(protocol);
+        }
+
+        if (protocol.hasMappingDataToLoad()) {
+            if (mappingLoaderExecutor != null) {
+                // Submit mapping data loading
+                addMappingLoaderFuture(protocol.getClass(), protocol::loadMappingData);
+            } else {
+                // Late protocol adding - just do it on the current thread
+                protocol.loadMappingData();
+            }
         }
     }
 
@@ -119,7 +164,6 @@ public class ProtocolRegistry {
     public static void registerBaseProtocol(Protocol baseProtocol, Range<Integer> supportedProtocols) {
         baseProtocols.add(new Pair<>(supportedProtocols, baseProtocol));
         if (Via.getPlatform().isPluginEnabled()) {
-            baseProtocol.registerListeners();
             baseProtocol.register(Via.getManager().getProviders());
             refreshVersions();
         } else {
@@ -135,8 +179,9 @@ public class ProtocolRegistry {
             List<Pair<Integer, Protocol>> paths = getProtocolPath(versions.getId(), ProtocolRegistry.SERVER_PROTOCOL);
             if (paths == null) continue;
             supportedVersions.add(versions.getId());
-            for (Pair<Integer, Protocol> path : paths)
+            for (Pair<Integer, Protocol> path : paths) {
                 supportedVersions.add(path.getKey());
+            }
         }
     }
 
@@ -166,7 +211,6 @@ public class ProtocolRegistry {
      */
     public static void onServerLoaded() {
         for (Protocol protocol : registerList) {
-            protocol.registerListeners();
             protocol.register(Via.getManager().getProviders());
         }
         registerList.clear();
@@ -237,7 +281,7 @@ public class ProtocolRegistry {
             return protocolList;
         }
         // Generate path
-        List<Pair<Integer, Protocol>> outputPath = getProtocolPath(new ArrayList<Pair<Integer, Protocol>>(), clientVersion, serverVersion);
+        List<Pair<Integer, Protocol>> outputPath = getProtocolPath(new ArrayList<>(), clientVersion, serverVersion);
         // If it found a path, cache it.
         if (outputPath != null) {
             pathCache.put(protocolKey, outputPath);
@@ -263,4 +307,70 @@ public class ProtocolRegistry {
         return false;
     }
 
+    /**
+     * Ensure that mapping data for that protocol has already been loaded, completes it otherwise.
+     *
+     * @param protocolClass protocol class
+     */
+    public static void completeMappingDataLoading(Class<? extends Protocol> protocolClass) throws Exception {
+        if (mappingsLoaded) return;
+
+        CompletableFuture<Void> future = getMappingLoaderFuture(protocolClass);
+        if (future == null) return;
+
+        future.get();
+    }
+
+    /**
+     * Shuts down the executor and uncaches mappings if all futures have been completed.
+     *
+     * @return true if the executor has now been shut down
+     */
+    public static boolean checkForMappingCompletion() {
+        synchronized (MAPPING_LOADER_LOCK) {
+            if (mappingsLoaded) return false;
+
+            for (CompletableFuture<Void> future : mappingLoaderFutures.values()) {
+                // Return if any future hasn't completed yet
+                if (!future.isDone()) {
+                    return false;
+                }
+            }
+
+            shutdownLoaderExecutor();
+            return true;
+        }
+    }
+
+    private static void shutdownLoaderExecutor() {
+        mappingsLoaded = true;
+        mappingLoaderExecutor.shutdown();
+        mappingLoaderExecutor = null;
+        mappingLoaderFutures.clear();
+        mappingLoaderFutures = null;
+        if (MappingDataLoader.isCacheJsonMappings()) {
+            MappingDataLoader.getMappingsCache().clear();
+        }
+    }
+
+    public static void addMappingLoaderFuture(Class<? extends Protocol> protocolClass, Runnable runnable) {
+        synchronized (MAPPING_LOADER_LOCK) {
+            CompletableFuture<Void> future = CompletableFuture.runAsync(runnable, mappingLoaderExecutor);
+            mappingLoaderFutures.put(protocolClass, future);
+        }
+    }
+
+    public static void addMappingLoaderFuture(Class<? extends Protocol> protocolClass, Class<? extends Protocol> dependsOn, Runnable runnable) {
+        synchronized (MAPPING_LOADER_LOCK) {
+            CompletableFuture<Void> future = getMappingLoaderFuture(dependsOn).whenCompleteAsync((v, throwable) -> runnable.run(), mappingLoaderExecutor);
+            mappingLoaderFutures.put(protocolClass, future);
+        }
+    }
+
+    public static CompletableFuture<Void> getMappingLoaderFuture(Class<? extends Protocol> protocolClass) {
+        synchronized (MAPPING_LOADER_LOCK) {
+            if (mappingsLoaded) return null;
+            return mappingLoaderFutures.get(protocolClass);
+        }
+    }
 }

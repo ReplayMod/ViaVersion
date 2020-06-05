@@ -1,9 +1,6 @@
 package us.myles.ViaVersion.boss;
 
 import com.google.common.base.Preconditions;
-import lombok.Getter;
-import lombok.NonNull;
-import lombok.RequiredArgsConstructor;
 import us.myles.ViaVersion.api.PacketWrapper;
 import us.myles.ViaVersion.api.Via;
 import us.myles.ViaVersion.api.boss.BossBar;
@@ -15,18 +12,21 @@ import us.myles.ViaVersion.api.protocol.ProtocolVersion;
 import us.myles.ViaVersion.api.type.Type;
 import us.myles.ViaVersion.protocols.protocol1_9to1_8.Protocol1_9To1_8;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
 
-@Getter
 public abstract class CommonBoss<T> extends BossBar<T> {
-    private UUID uuid;
+    private final UUID uuid;
     private String title;
     private float health;
     private BossColor color;
     private BossStyle style;
-    private Set<UUID> players;
+    private final Set<UUID> players;
     private boolean visible;
-    private Set<BossFlag> flags;
+    private final Set<BossFlag> flags;
 
     public CommonBoss(String title, float health, BossColor color, BossStyle style) {
         Preconditions.checkNotNull(title, "Title cannot be null");
@@ -43,7 +43,8 @@ public abstract class CommonBoss<T> extends BossBar<T> {
     }
 
     @Override
-    public BossBar setTitle(@NonNull String title) {
+    public BossBar setTitle(String title) {
+        Preconditions.checkNotNull(title);
         this.title = title;
         sendPacket(CommonBoss.UpdateAction.UPDATE_TITLE);
         return this;
@@ -63,14 +64,16 @@ public abstract class CommonBoss<T> extends BossBar<T> {
     }
 
     @Override
-    public BossBar setColor(@NonNull BossColor color) {
+    public BossBar setColor(BossColor color) {
+        Preconditions.checkNotNull(color);
         this.color = color;
         sendPacket(CommonBoss.UpdateAction.UPDATE_STYLE);
         return this;
     }
 
     @Override
-    public BossBar setStyle(@NonNull BossStyle style) {
+    public BossBar setStyle(BossStyle style) {
+        Preconditions.checkNotNull(style);
         this.style = style;
         sendPacket(CommonBoss.UpdateAction.UPDATE_STYLE);
         return this;
@@ -99,7 +102,8 @@ public abstract class CommonBoss<T> extends BossBar<T> {
     }
 
     @Override
-    public BossBar addFlag(@NonNull BossFlag flag) {
+    public BossBar addFlag(BossFlag flag) {
+        Preconditions.checkNotNull(flag);
         if (!hasFlag(flag))
             flags.add(flag);
         sendPacket(CommonBoss.UpdateAction.UPDATE_FLAGS);
@@ -107,7 +111,8 @@ public abstract class CommonBoss<T> extends BossBar<T> {
     }
 
     @Override
-    public BossBar removeFlag(@NonNull BossFlag flag) {
+    public BossBar removeFlag(BossFlag flag) {
+        Preconditions.checkNotNull(flag);
         if (hasFlag(flag))
             flags.remove(flag);
         sendPacket(CommonBoss.UpdateAction.UPDATE_FLAGS);
@@ -115,7 +120,8 @@ public abstract class CommonBoss<T> extends BossBar<T> {
     }
 
     @Override
-    public boolean hasFlag(@NonNull BossFlag flag) {
+    public boolean hasFlag(BossFlag flag) {
+        Preconditions.checkNotNull(flag);
         return flags.contains(flag);
     }
 
@@ -146,6 +152,29 @@ public abstract class CommonBoss<T> extends BossBar<T> {
         return uuid;
     }
 
+    public UUID getUuid() {
+        return uuid;
+    }
+
+    @Override
+    public String getTitle() {
+        return title;
+    }
+
+    @Override
+    public float getHealth() {
+        return health;
+    }
+
+    @Override
+    public BossStyle getStyle() {
+        return style;
+    }
+
+    public Set<BossFlag> getFlags() {
+        return flags;
+    }
+
     private void setVisible(boolean value) {
         if (visible != value) {
             visible = value;
@@ -162,7 +191,7 @@ public abstract class CommonBoss<T> extends BossBar<T> {
     }
 
     private void sendPacket(UUID uuid, PacketWrapper wrapper) {
-        if (!Via.getAPI().isPorted(uuid) || !(Via.getAPI().getPlayerVersion(uuid) >= ProtocolVersion.v1_9.getId())) {
+        if (!Via.getAPI().isInjected(uuid) || !(Via.getAPI().getPlayerVersion(uuid) >= ProtocolVersion.v1_9.getId())) {
             players.remove(uuid);
             return;
         }
@@ -217,8 +246,6 @@ public abstract class CommonBoss<T> extends BossBar<T> {
         return bitmask;
     }
 
-    @RequiredArgsConstructor
-    @Getter
     private enum UpdateAction {
         ADD(0),
         REMOVE(1),
@@ -228,5 +255,13 @@ public abstract class CommonBoss<T> extends BossBar<T> {
         UPDATE_FLAGS(5);
 
         private final int id;
+
+        UpdateAction(int id) {
+            this.id = id;
+        }
+
+        public int getId() {
+            return id;
+        }
     }
 }

@@ -1,6 +1,5 @@
 package us.myles.ViaVersion.protocols.protocol1_13to1_12_2.packets;
 
-import com.google.common.base.Optional;
 import us.myles.ViaVersion.api.PacketWrapper;
 import us.myles.ViaVersion.api.entities.Entity1_13Types;
 import us.myles.ViaVersion.api.protocol.Protocol;
@@ -10,13 +9,12 @@ import us.myles.ViaVersion.api.type.Type;
 import us.myles.ViaVersion.api.type.types.version.Types1_12;
 import us.myles.ViaVersion.api.type.types.version.Types1_13;
 import us.myles.ViaVersion.packets.State;
-import us.myles.ViaVersion.protocols.protocol1_13to1_12_2.MetadataRewriter;
-import us.myles.ViaVersion.protocols.protocol1_13to1_12_2.data.EntityTypeRewriter;
-import us.myles.ViaVersion.protocols.protocol1_13to1_12_2.storage.EntityTracker;
+import us.myles.ViaVersion.protocols.protocol1_13to1_12_2.metadata.MetadataRewriter1_13To1_12_2;
+import us.myles.ViaVersion.protocols.protocol1_13to1_12_2.storage.EntityTracker1_13;
 
 public class EntityPackets {
-    public static void register(Protocol protocol) {
-        // Outgoing packets
+    public static void register(final Protocol protocol) {
+        MetadataRewriter1_13To1_12_2 metadataRewriter = protocol.get(MetadataRewriter1_13To1_12_2.class);
 
         // Spawn Object
         protocol.registerOutgoing(State.PLAY, 0x0, 0x0, new PacketRemapper() {
@@ -68,11 +66,11 @@ public class EntityPackets {
                                 }
 
                                 wrapper.set(Type.INT, 0, data);
-                            }
 
+                                // Register Type ID
+                                wrapper.user().get(EntityTracker1_13.class).addEntity(entityId, entType);
+                            }
                         }
-                        // Register Type ID
-                        wrapper.user().get(EntityTracker.class).addEntity(entityId, entType);
                     }
                 });
             }
@@ -96,25 +94,7 @@ public class EntityPackets {
                 map(Type.SHORT); // 11 - Velocity Z
                 map(Types1_12.METADATA_LIST, Types1_13.METADATA_LIST); // 12 - Metadata
 
-                handler(new PacketHandler() {
-                    @Override
-                    public void handle(PacketWrapper wrapper) throws Exception {
-                        int entityId = wrapper.get(Type.VAR_INT, 0);
-                        int type = wrapper.get(Type.VAR_INT, 1);
-
-                        Optional<Integer> optNewType = EntityTypeRewriter.getNewId(type);
-                        type = optNewType.or(type);
-                        Entity1_13Types.EntityType entType = Entity1_13Types.getTypeFromId(type, false);
-
-                        wrapper.set(Type.VAR_INT, 1, type);
-
-
-                        // Register Type ID
-                        wrapper.user().get(EntityTracker.class).addEntity(entityId, entType);
-
-                        MetadataRewriter.handleMetadata(entityId, entType, wrapper.get(Types1_13.METADATA_LIST, 0), wrapper.user());
-                    }
-                });
+                handler(metadataRewriter.getTrackerAndRewriter(Types1_13.METADATA_LIST));
             }
         });
 
@@ -131,51 +111,14 @@ public class EntityPackets {
                 map(Type.BYTE); // 6 - Pitch
                 map(Types1_12.METADATA_LIST, Types1_13.METADATA_LIST); // 7 - Metadata
 
-                handler(new PacketHandler() {
-                    @Override
-                    public void handle(PacketWrapper wrapper) throws Exception {
-                        int entityId = wrapper.get(Type.VAR_INT, 0);
-
-                        Entity1_13Types.EntityType entType = Entity1_13Types.EntityType.PLAYER;
-                        // Register Type ID
-                        wrapper.user().get(EntityTracker.class).addEntity(entityId, entType);
-                        MetadataRewriter.handleMetadata(entityId, entType, wrapper.get(Types1_13.METADATA_LIST, 0), wrapper.user());
-                    }
-                });
+                handler(metadataRewriter.getTrackerAndRewriter(Types1_13.METADATA_LIST, Entity1_13Types.EntityType.PLAYER));
             }
         });
+
         // Destroy entities
-        protocol.registerOutgoing(State.PLAY, 0x32, 0x35, new PacketRemapper() {
-            @Override
-            public void registerMap() {
-                map(Type.VAR_INT_ARRAY); // 0 - Entity IDS
-
-                handler(new PacketHandler() {
-                    @Override
-                    public void handle(PacketWrapper wrapper) throws Exception {
-                        for (int entity : wrapper.get(Type.VAR_INT_ARRAY, 0))
-                            wrapper.user().get(EntityTracker.class).removeEntity(entity);
-                    }
-                });
-            }
-        });
+        metadataRewriter.registerEntityDestroy(0x32, 0x35);
 
         // Metadata packet
-        protocol.registerOutgoing(State.PLAY, 0x3C, 0x3F, new PacketRemapper() {
-            @Override
-            public void registerMap() {
-                map(Type.VAR_INT); // 0 - Entity ID
-                map(Types1_12.METADATA_LIST, Types1_13.METADATA_LIST); // 1 - Metadata list
-                handler(new PacketHandler() {
-                    @Override
-                    public void handle(PacketWrapper wrapper) throws Exception {
-                        int entityId = wrapper.get(Type.VAR_INT, 0);
-
-                        Optional<Entity1_13Types.EntityType> type = wrapper.user().get(EntityTracker.class).get(entityId);
-                        MetadataRewriter.handleMetadata(entityId, type.orNull(), wrapper.get(Types1_13.METADATA_LIST, 0), wrapper.user());
-                    }
-                });
-            }
-        });
+        metadataRewriter.registerMetadataRewriter(0x3C, 0x3F, Types1_12.METADATA_LIST, Types1_13.METADATA_LIST);
     }
 }

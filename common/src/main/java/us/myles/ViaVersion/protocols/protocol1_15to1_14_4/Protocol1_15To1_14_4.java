@@ -6,53 +6,40 @@ import us.myles.ViaVersion.api.data.UserConnection;
 import us.myles.ViaVersion.api.protocol.Protocol;
 import us.myles.ViaVersion.api.remapper.PacketHandler;
 import us.myles.ViaVersion.api.remapper.PacketRemapper;
+import us.myles.ViaVersion.api.rewriters.SoundRewriter;
+import us.myles.ViaVersion.api.rewriters.TagRewriter;
+import us.myles.ViaVersion.api.rewriters.TagType;
 import us.myles.ViaVersion.api.type.Type;
 import us.myles.ViaVersion.packets.State;
 import us.myles.ViaVersion.protocols.protocol1_15to1_14_4.data.MappingData;
+import us.myles.ViaVersion.protocols.protocol1_15to1_14_4.metadata.MetadataRewriter1_15To1_14_4;
 import us.myles.ViaVersion.protocols.protocol1_15to1_14_4.packets.EntityPackets;
 import us.myles.ViaVersion.protocols.protocol1_15to1_14_4.packets.InventoryPackets;
 import us.myles.ViaVersion.protocols.protocol1_15to1_14_4.packets.PlayerPackets;
 import us.myles.ViaVersion.protocols.protocol1_15to1_14_4.packets.WorldPackets;
-import us.myles.ViaVersion.protocols.protocol1_15to1_14_4.storage.EntityTracker;
+import us.myles.ViaVersion.protocols.protocol1_15to1_14_4.storage.EntityTracker1_15;
 import us.myles.ViaVersion.protocols.protocol1_9_3to1_9_1_2.storage.ClientWorld;
 
 public class Protocol1_15To1_14_4 extends Protocol {
 
+    private TagRewriter tagRewriter;
+
+    public Protocol1_15To1_14_4() {
+        super(true);
+    }
+
     @Override
     protected void registerPackets() {
-        MappingData.init();
+        new MetadataRewriter1_15To1_14_4(this);
+
         EntityPackets.register(this);
         PlayerPackets.register(this);
         WorldPackets.register(this);
         InventoryPackets.register(this);
 
-        // Entity Sound Effect (added somewhere in 1.14)
-        registerOutgoing(State.PLAY, 0x50, 0x51, new PacketRemapper() {
-            @Override
-            public void registerMap() {
-                map(Type.VAR_INT); // Sound Id
-                handler(new PacketHandler() {
-                    @Override
-                    public void handle(PacketWrapper wrapper) throws Exception {
-                        wrapper.set(Type.VAR_INT, 0, MappingData.soundMappings.getNewSound(wrapper.get(Type.VAR_INT, 0)));
-                    }
-                });
-            }
-        });
-
-        // Sound Effect
-        registerOutgoing(State.PLAY, 0x51, 0x52, new PacketRemapper() {
-            @Override
-            public void registerMap() {
-                map(Type.VAR_INT); // Sound Id
-                handler(new PacketHandler() {
-                    @Override
-                    public void handle(PacketWrapper wrapper) throws Exception {
-                        wrapper.set(Type.VAR_INT, 0, MappingData.soundMappings.getNewSound(wrapper.get(Type.VAR_INT, 0)));
-                    }
-                });
-            }
-        });
+        SoundRewriter soundRewriter = new SoundRewriter(this, id -> MappingData.soundMappings.getNewId(id));
+        soundRewriter.registerSound(0x50, 0x51); // Entity Sound Effect (added somewhere in 1.14)
+        soundRewriter.registerSound(0x51, 0x52);
 
         // Edit Book
         registerIncoming(State.PLAY, 0x0C, 0x0C, new PacketRemapper() {
@@ -110,50 +97,8 @@ public class Protocol1_15To1_14_4 extends Protocol {
         });
 
         // Tags
-        registerOutgoing(State.PLAY, 0x5B, 0x5C, new PacketRemapper() {
-            @Override
-            public void registerMap() {
-                handler(new PacketHandler() {
-                    @Override
-                    public void handle(PacketWrapper wrapper) throws Exception {
-                        //TODO do the new (flower) tags have to be sent?
-                        int blockTagsSize = wrapper.passthrough(Type.VAR_INT);
-                        for (int i = 0; i < blockTagsSize; i++) {
-                            wrapper.passthrough(Type.STRING);
-                            Integer[] blockIds = wrapper.passthrough(Type.VAR_INT_ARRAY);
-                            for (int j = 0; j < blockIds.length; j++) {
-                                blockIds[j] = getNewBlockId(blockIds[j]);
-                            }
-                        }
-
-                        int itemTagsSize = wrapper.passthrough(Type.VAR_INT);
-                        for (int i = 0; i < itemTagsSize; i++) {
-                            wrapper.passthrough(Type.STRING);
-                            Integer[] itemIds = wrapper.passthrough(Type.VAR_INT_ARRAY);
-                            for (int j = 0; j < itemIds.length; j++) {
-                                itemIds[j] = InventoryPackets.getNewItemId(itemIds[j]);
-                            }
-                        }
-
-                        int fluidTagsSize = wrapper.passthrough(Type.VAR_INT); // fluid tags
-                        for (int i = 0; i < fluidTagsSize; i++) {
-                            wrapper.passthrough(Type.STRING);
-                            wrapper.passthrough(Type.VAR_INT_ARRAY);
-                        }
-
-                        int entityTagsSize = wrapper.passthrough(Type.VAR_INT); // entity tags
-                        for (int i = 0; i < entityTagsSize; i++) {
-                            wrapper.passthrough(Type.STRING);
-                            Integer[] entitIds = wrapper.passthrough(Type.VAR_INT_ARRAY);
-                            for (int j = 0; j < entitIds.length; j++) {
-                                entitIds[j] = EntityPackets.getNewEntityId(entitIds[j]);
-                            }
-                        }
-                    }
-                });
-            }
-        });
-
+        tagRewriter = new TagRewriter(this, Protocol1_15To1_14_4::getNewBlockId, InventoryPackets::getNewItemId, EntityPackets::getNewEntityId);
+        tagRewriter.register(0x5B, 0x5C);
 
         registerOutgoing(State.PLAY, 0x08, 0x09);
         registerOutgoing(State.PLAY, 0x09, 0x0A);
@@ -168,7 +113,6 @@ public class Protocol1_15To1_14_4 extends Protocol {
 
         registerOutgoing(State.PLAY, 0x15, 0x16);
 
-        registerOutgoing(State.PLAY, 0x17, 0x18);
         registerOutgoing(State.PLAY, 0x18, 0x19);
         registerOutgoing(State.PLAY, 0x19, 0x1A);
         registerOutgoing(State.PLAY, 0x1A, 0x1B);
@@ -235,17 +179,20 @@ public class Protocol1_15To1_14_4 extends Protocol {
         registerOutgoing(State.PLAY, 0x59, 0x5A);
     }
 
-    public static int getNewSoundId(int id) {
-        int newId = MappingData.soundMappings.getNewSound(id);
-        if (newId == -1) {
-            Via.getPlatform().getLogger().warning("Missing 1.15 sound for 1.14.4 sound " + id);
-            return 0;
+    @Override
+    protected void loadMappingData() {
+        MappingData.init();
+
+        int[] shulkerBoxes = new int[17];
+        int shulkerBoxOffset = 501;
+        for (int i = 0; i < 17; i++) {
+            shulkerBoxes[i] = shulkerBoxOffset + i;
         }
-        return newId;
+        tagRewriter.addTag(TagType.BLOCK, "minecraft:shulker_boxes", shulkerBoxes);
     }
 
     public static int getNewBlockStateId(int id) {
-        int newId = MappingData.blockStateMappings.getNewBlock(id);
+        int newId = MappingData.blockStateMappings.getNewId(id);
         if (newId == -1) {
             Via.getPlatform().getLogger().warning("Missing 1.15 blockstate for 1.14.4 blockstate " + id);
             return 0;
@@ -254,7 +201,7 @@ public class Protocol1_15To1_14_4 extends Protocol {
     }
 
     public static int getNewBlockId(int id) {
-        int newId = MappingData.blockMappings.getNewBlock(id);
+        int newId = MappingData.blockMappings.getNewId(id);
         if (newId == -1) {
             Via.getPlatform().getLogger().warning("Missing 1.15 block for 1.14.4 block " + id);
             return 0;
@@ -264,7 +211,7 @@ public class Protocol1_15To1_14_4 extends Protocol {
 
     @Override
     public void init(UserConnection userConnection) {
-        userConnection.put(new EntityTracker(userConnection));
+        userConnection.put(new EntityTracker1_15(userConnection));
         if (!userConnection.has(ClientWorld.class))
             userConnection.put(new ClientWorld(userConnection));
     }

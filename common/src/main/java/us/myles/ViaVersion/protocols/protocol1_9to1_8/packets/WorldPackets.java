@@ -2,7 +2,6 @@ package us.myles.ViaVersion.protocols.protocol1_9to1_8.packets;
 
 import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
 import com.github.steveice10.opennbt.tag.builtin.StringTag;
-import com.google.common.base.Optional;
 import io.netty.buffer.ByteBuf;
 import us.myles.ViaVersion.api.PacketWrapper;
 import us.myles.ViaVersion.api.Via;
@@ -22,12 +21,13 @@ import us.myles.ViaVersion.protocols.protocol1_9to1_8.providers.CommandBlockProv
 import us.myles.ViaVersion.protocols.protocol1_9to1_8.sounds.Effect;
 import us.myles.ViaVersion.protocols.protocol1_9to1_8.sounds.SoundEffect;
 import us.myles.ViaVersion.protocols.protocol1_9to1_8.storage.ClientChunks;
-import us.myles.ViaVersion.protocols.protocol1_9to1_8.storage.EntityTracker;
+import us.myles.ViaVersion.protocols.protocol1_9to1_8.storage.EntityTracker1_9;
 import us.myles.ViaVersion.protocols.protocol1_9to1_8.storage.PlaceBlockTracker;
 import us.myles.ViaVersion.protocols.protocol1_9to1_8.types.Chunk1_9to1_8Type;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 
 public class WorldPackets {
     public static void register(Protocol protocol) {
@@ -99,7 +99,7 @@ public class WorldPackets {
                         wrapper.set(Type.STRING, 0, newname);
                         wrapper.write(Type.VAR_INT, catid); // Write Category ID
                         if (effect != null && effect.isBreaksound()) {
-                            EntityTracker tracker = wrapper.user().get(EntityTracker.class);
+                            EntityTracker1_9 tracker = wrapper.user().get(EntityTracker1_9.class);
                             int x = wrapper.passthrough(Type.INT); //Position X
                             int y = wrapper.passthrough(Type.INT); //Position Y
                             int z = wrapper.passthrough(Type.INT); //Position Z
@@ -268,7 +268,7 @@ public class WorldPackets {
                     public void handle(PacketWrapper wrapper) throws Exception {
                         int status = wrapper.get(Type.UNSIGNED_BYTE, 0);
                         if (status == 5 || status == 4 || status == 3) {
-                            EntityTracker entityTracker = wrapper.user().get(EntityTracker.class);
+                            EntityTracker1_9 entityTracker = wrapper.user().get(EntityTracker1_9.class);
                             if (entityTracker.isBlocking()) {
                                 entityTracker.setBlocking(false);
                                 entityTracker.setSecondHand(null);
@@ -291,19 +291,19 @@ public class WorldPackets {
                         wrapper.clearInputBuffer();
                         // First set this packet ID to Block placement
                         wrapper.setId(0x08);
-                        wrapper.write(Type.LONG, -1L);
-                        wrapper.write(Type.BYTE, (byte) 255);
+                        wrapper.write(Type.POSITION, new Position(-1, (short) -1, -1));
+                        wrapper.write(Type.UNSIGNED_BYTE, (short) 255);
                         // Write item in hand
                         Item item = Protocol1_9To1_8.getHandItem(wrapper.user());
                         // Blocking patch
                         if (Via.getConfig().isShieldBlocking()) {
-                            EntityTracker tracker = wrapper.user().get(EntityTracker.class);
+                            EntityTracker1_9 tracker = wrapper.user().get(EntityTracker1_9.class);
 
-                            if (item != null && Protocol1_9To1_8.isSword(item.getId())) {
+                            if (item != null && Protocol1_9To1_8.isSword(item.getIdentifier())) {
                                 if (hand == 0) {
                                     if (!tracker.isBlocking()) {
                                         tracker.setBlocking(true);
-                                        Item shield = new Item((short) 442, (byte) 1, (short) 0, null);
+                                        Item shield = new Item(442, (byte) 1, (short) 0, null);
                                         tracker.setSecondHand(shield);
                                     }
                                     wrapper.cancel();
@@ -315,9 +315,9 @@ public class WorldPackets {
                         }
                         wrapper.write(Type.ITEM, item);
 
-                        wrapper.write(Type.BYTE, (byte) 0);
-                        wrapper.write(Type.BYTE, (byte) 0);
-                        wrapper.write(Type.BYTE, (byte) 0);
+                        wrapper.write(Type.UNSIGNED_BYTE, (short) 0);
+                        wrapper.write(Type.UNSIGNED_BYTE, (short) 0);
+                        wrapper.write(Type.UNSIGNED_BYTE, (short) 0);
                     }
                 });
 
@@ -329,7 +329,7 @@ public class WorldPackets {
             @Override
             public void registerMap() {
                 map(Type.POSITION); // 0 - Position
-                map(Type.VAR_INT, Type.BYTE); // 1 - Block Face
+                map(Type.VAR_INT, Type.UNSIGNED_BYTE); // 1 - Block Face
                 map(Type.VAR_INT, Type.NOTHING); // 2 - Hand
                 create(new ValueCreator() {
                     @Override
@@ -359,13 +359,13 @@ public class WorldPackets {
                 handler(new PacketHandler() {
                     @Override
                     public void handle(PacketWrapper wrapper) throws Exception {
-                        int face = wrapper.get(Type.BYTE, 0);
+                        int face = wrapper.get(Type.UNSIGNED_BYTE, 0);
                         if (face == 255)
                             return;
                         Position p = wrapper.get(Type.POSITION, 0);
-                        long x = p.getX();
-                        long y = p.getY();
-                        long z = p.getZ();
+                        int x = p.getX();
+                        short y = p.getY();
+                        int z = p.getZ();
                         switch (face) {
                             case 0:
                                 y--;
@@ -386,7 +386,7 @@ public class WorldPackets {
                                 x++;
                                 break;
                         }
-                        EntityTracker tracker = wrapper.user().get(EntityTracker.class);
+                        EntityTracker1_9 tracker = wrapper.user().get(EntityTracker1_9.class);
                         tracker.addBlockInteraction(new Position(x, y, z));
                     }
                 });

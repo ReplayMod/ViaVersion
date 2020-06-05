@@ -10,11 +10,6 @@ import us.myles.ViaVersion.packets.State;
 public class InventoryPackets {
 
     public static void register(Protocol protocol) {
-
-		/*
-            Outgoing packets
-        */
-
         // Set slot packet
         protocol.registerOutgoing(State.PLAY, 0x17, 0x17, new PacketRemapper() {
             @Override
@@ -118,11 +113,6 @@ public class InventoryPackets {
             }
         });
 
-
-        /*
-            Incoming packets
-         */
-
         // Click window packet
         protocol.registerIncoming(State.PLAY, 0x08, 0x08, new PacketRemapper() {
                     @Override
@@ -147,5 +137,4 @@ public class InventoryPackets {
                 }
         );
     }
-
 }

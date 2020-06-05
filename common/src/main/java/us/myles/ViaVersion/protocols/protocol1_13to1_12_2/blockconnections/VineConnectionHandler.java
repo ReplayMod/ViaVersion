@@ -12,14 +12,11 @@ class VineConnectionHandler extends ConnectionHandler {
 
     static ConnectionData.ConnectorInitAction init() {
         final VineConnectionHandler connectionHandler = new VineConnectionHandler();
-        return new ConnectionData.ConnectorInitAction() {
-            @Override
-            public void check(WrappedBlockData blockData) {
-                if (!blockData.getMinecraftKey().equals("minecraft:vine")) return;
+        return blockData -> {
+            if (!blockData.getMinecraftKey().equals("minecraft:vine")) return;
 
-                vines.add(blockData.getSavedBlockStateId());
-                ConnectionData.connectionHandlerMap.put(blockData.getSavedBlockStateId(), connectionHandler);
-            }
+            vines.add(blockData.getSavedBlockStateId());
+            ConnectionData.connectionHandlerMap.put(blockData.getSavedBlockStateId(), connectionHandler);
         };
     }
 

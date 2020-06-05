@@ -5,7 +5,6 @@ import us.myles.ViaVersion.api.PacketWrapper;
 import us.myles.ViaVersion.api.Pair;
 import us.myles.ViaVersion.api.Triple;
 import us.myles.ViaVersion.api.Via;
-import us.myles.ViaVersion.api.entities.Entity1_10Types;
 import us.myles.ViaVersion.api.minecraft.item.Item;
 import us.myles.ViaVersion.api.minecraft.metadata.Metadata;
 import us.myles.ViaVersion.api.protocol.Protocol;
@@ -18,8 +17,8 @@ import us.myles.ViaVersion.api.type.types.version.Types1_9;
 import us.myles.ViaVersion.packets.State;
 import us.myles.ViaVersion.protocols.protocol1_9to1_8.ItemRewriter;
 import us.myles.ViaVersion.protocols.protocol1_9to1_8.Protocol1_9To1_8;
-import us.myles.ViaVersion.protocols.protocol1_9to1_8.metadata.MetadataRewriter;
-import us.myles.ViaVersion.protocols.protocol1_9to1_8.storage.EntityTracker;
+import us.myles.ViaVersion.protocols.protocol1_9to1_8.metadata.MetadataRewriter1_9To1_8;
+import us.myles.ViaVersion.protocols.protocol1_9to1_8.storage.EntityTracker1_9;
 
 import java.util.*;
 
@@ -31,7 +30,7 @@ public class EntityPackets {
         }
     };
 
-    public static void register(Protocol protocol) {
+    public static void register(final Protocol protocol) {
         // Attach Entity Packet
         protocol.registerOutgoing(State.PLAY, 0x1B, 0x3A, new PacketRemapper() {
 
@@ -44,7 +43,7 @@ public class EntityPackets {
                 map(Type.BOOLEAN, new ValueTransformer<Boolean, Void>(Type.NOTHING) {
                     @Override
                     public Void transform(PacketWrapper wrapper, Boolean inputValue) throws Exception {
-                        EntityTracker tracker = wrapper.user().get(EntityTracker.class);
+                        EntityTracker1_9 tracker = wrapper.user().get(EntityTracker1_9.class);
                         if (!inputValue) {
                             int passenger = wrapper.get(Type.INT, 0);
                             int vehicle = wrapper.get(Type.INT, 1);
@@ -56,10 +55,10 @@ public class EntityPackets {
                                 if (!tracker.getVehicleMap().containsKey(passenger))
                                     return null; // Cancel
                                 passengerPacket.write(Type.VAR_INT, tracker.getVehicleMap().remove(passenger));
-                                passengerPacket.write(Type.VAR_INT_ARRAY, new Integer[]{});
+                                passengerPacket.write(Type.VAR_INT_ARRAY_PRIMITIVE, new int[]{});
                             } else {
                                 passengerPacket.write(Type.VAR_INT, vehicle);
-                                passengerPacket.write(Type.VAR_INT_ARRAY, new Integer[]{passenger});
+                                passengerPacket.write(Type.VAR_INT_ARRAY_PRIMITIVE, new int[]{passenger});
                                 tracker.getVehicleMap().put(passenger, vehicle);
                             }
                             passengerPacket.send(Protocol1_9To1_8.class); // Send the packet
@@ -89,7 +88,7 @@ public class EntityPackets {
                     public void handle(PacketWrapper wrapper) throws Exception {
                         int entityID = wrapper.get(Type.VAR_INT, 0);
                         if (Via.getConfig().isHologramPatch()) {
-                            EntityTracker tracker = wrapper.user().get(EntityTracker.class);
+                            EntityTracker1_9 tracker = wrapper.user().get(EntityTracker1_9.class);
                             if (tracker.getKnownHolograms().contains(entityID)) {
                                 Double newValue = wrapper.get(Type.DOUBLE, 1);
                                 newValue += (Via.getConfig().getHologramYOffset());
@@ -142,7 +141,7 @@ public class EntityPackets {
                     @Override
                     public Integer transform(PacketWrapper wrapper, Short slot) throws Exception {
                         int entityId = wrapper.get(Type.VAR_INT, 0);
-                        int receiverId = wrapper.user().get(EntityTracker.class).getEntityID();
+                        int receiverId = wrapper.user().get(EntityTracker1_9.class).getClientEntityId();
                         // Normally, 0 = hand and 1-4 = armor
                         // ... but if the sent id is equal to the receiver's id, 0-3 will instead mark the armor slots
                         // (In 1.9+, every client treats the received the same: 0=hand, 1=offhand, 2-5=armor)
@@ -165,7 +164,7 @@ public class EntityPackets {
                 handler(new PacketHandler() {
                     @Override
                     public void handle(PacketWrapper wrapper) throws Exception {
-                        EntityTracker entityTracker = wrapper.user().get(EntityTracker.class);
+                        EntityTracker1_9 entityTracker = wrapper.user().get(EntityTracker1_9.class);
                         int entityID = wrapper.get(Type.VAR_INT, 0);
                         Item stack = wrapper.get(Type.ITEM, 0);
 
@@ -191,14 +190,13 @@ public class EntityPackets {
                     @Override
                     public void handle(PacketWrapper wrapper) throws Exception {
                         List<Metadata> metadataList = wrapper.get(Types1_9.METADATA_LIST, 0);
-                        int entityID = wrapper.get(Type.VAR_INT, 0);
-                        EntityTracker tracker = wrapper.user().get(EntityTracker.class);
-                        Entity1_10Types.EntityType type = tracker.getClientEntityTypes().get(entityID);
-                        if (type != null) {
-                            MetadataRewriter.transform(type, metadataList);
+                        int entityId = wrapper.get(Type.VAR_INT, 0);
+                        EntityTracker1_9 tracker = wrapper.user().get(EntityTracker1_9.class);
+                        if (tracker.hasEntity(entityId)) {
+                            protocol.get(MetadataRewriter1_9To1_8.class).handleMetadata(entityId, metadataList, wrapper.user());
                         } else {
                             // Buffer
-                            tracker.addMetadataToBuffer(entityID, metadataList);
+                            tracker.addMetadataToBuffer(entityId, metadataList);
                             wrapper.cancel();
                         }
                     }
@@ -210,7 +208,7 @@ public class EntityPackets {
                     public void handle(PacketWrapper wrapper) throws Exception {
                         List<Metadata> metadataList = wrapper.get(Types1_9.METADATA_LIST, 0);
                         int entityID = wrapper.get(Type.VAR_INT, 0);
-                        EntityTracker tracker = wrapper.user().get(EntityTracker.class);
+                        EntityTracker1_9 tracker = wrapper.user().get(EntityTracker1_9.class);
                         tracker.handleMetadata(entityID, metadataList);
                     }
                 });
@@ -251,17 +249,7 @@ public class EntityPackets {
 
 
         // Update Entity NBT
-        protocol.registerOutgoing(State.PLAY, 0x49, 0x49, new PacketRemapper() {
-            @Override
-            public void registerMap() {
-                handler(new PacketHandler() {
-                    @Override
-                    public void handle(PacketWrapper wrapper) throws Exception {
-                        wrapper.cancel();
-                    }
-                });
-            }
-        });
+        protocol.cancelOutgoing(State.PLAY, 0x49, 0x49);
 
         // Combat Event Packet
         protocol.registerOutgoing(State.PLAY, 0x42, 0x2C, new PacketRemapper() {
@@ -291,7 +279,7 @@ public class EntityPackets {
                     @Override
                     public void handle(PacketWrapper wrapper) throws Exception {
                         if (!Via.getConfig().isMinimizeCooldown()) return;
-                        if (wrapper.get(Type.VAR_INT, 0) != wrapper.user().get(EntityTracker.class).getProvidedEntityId()) {
+                        if (wrapper.get(Type.VAR_INT, 0) != wrapper.user().get(EntityTracker1_9.class).getProvidedEntityId()) {
                             return;
                         }
                         int propertiesToRead = wrapper.read(Type.INT);
