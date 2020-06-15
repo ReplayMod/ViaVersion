@@ -1,24 +1,31 @@
 package us.myles.ViaVersion.api.rewriters;
 
+import it.unimi.dsi.fastutil.ints.Int2IntMap;
+import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
+import org.jetbrains.annotations.Nullable;
 import us.myles.ViaVersion.api.Via;
 import us.myles.ViaVersion.api.data.UserConnection;
 import us.myles.ViaVersion.api.entities.EntityType;
 import us.myles.ViaVersion.api.minecraft.metadata.Metadata;
+import us.myles.ViaVersion.api.protocol.ClientboundPacketType;
 import us.myles.ViaVersion.api.protocol.Protocol;
 import us.myles.ViaVersion.api.remapper.PacketHandler;
 import us.myles.ViaVersion.api.remapper.PacketRemapper;
 import us.myles.ViaVersion.api.storage.EntityTracker;
 import us.myles.ViaVersion.api.type.Type;
-import us.myles.ViaVersion.packets.State;
 import us.myles.ViaVersion.protocols.protocol1_9_3to1_9_1_2.storage.ClientWorld;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.logging.Logger;
 
 public abstract class MetadataRewriter {
     private final Class<? extends EntityTracker> entityTrackerClass;
     private final Protocol protocol;
-    private Map<Integer, Integer> typeMapping;
+    private Int2IntMap typeMapping;
 
     protected MetadataRewriter(Protocol protocol, Class<? extends EntityTracker> entityTrackerClass) {
         this.protocol = protocol;
@@ -54,8 +61,8 @@ public abstract class MetadataRewriter {
         }
     }
 
-    public void registerJoinGame(int oldPacketId, int newPacketId, EntityType playerType) {
-        protocol.registerOutgoing(State.PLAY, oldPacketId, newPacketId, new PacketRemapper() {
+    public void registerJoinGame(ClientboundPacketType packetType, @Nullable EntityType playerType) {
+        protocol.registerOutgoing(packetType, new PacketRemapper() {
             @Override
             public void registerMap() {
                 map(Type.INT); // 0 - Entity ID
@@ -74,8 +81,8 @@ public abstract class MetadataRewriter {
         });
     }
 
-    public void registerRespawn(int oldPacketId, int newPacketId) {
-        protocol.registerOutgoing(State.PLAY, oldPacketId, newPacketId, new PacketRemapper() {
+    public void registerRespawn(ClientboundPacketType packetType) {
+        protocol.registerOutgoing(packetType, new PacketRemapper() {
             @Override
             public void registerMap() {
                 map(Type.INT);
@@ -88,8 +95,8 @@ public abstract class MetadataRewriter {
         });
     }
 
-    public void registerTracker(int oldPacketId, int newPacketId) {
-        protocol.registerOutgoing(State.PLAY, oldPacketId, newPacketId, new PacketRemapper() {
+    public void registerTracker(ClientboundPacketType packetType) {
+        protocol.registerOutgoing(packetType, new PacketRemapper() {
             @Override
             public void registerMap() {
                 map(Type.VAR_INT); // 0 - Entity ID
@@ -100,8 +107,8 @@ public abstract class MetadataRewriter {
         });
     }
 
-    public void registerSpawnTrackerWithData(int oldPacketId, int newPacketId, EntityType fallingBlockType, IdRewriteFunction itemRewriter) {
-        protocol.registerOutgoing(State.PLAY, oldPacketId, newPacketId, new PacketRemapper() {
+    public void registerSpawnTrackerWithData(ClientboundPacketType packetType, EntityType fallingBlockType, IdRewriteFunction itemRewriter) {
+        protocol.registerOutgoing(packetType, new PacketRemapper() {
             @Override
             public void registerMap() {
                 map(Type.VAR_INT); // 0 - Entity id
@@ -125,8 +132,8 @@ public abstract class MetadataRewriter {
         });
     }
 
-    public void registerTracker(int oldPacketId, int newPacketId, EntityType entityType) {
-        protocol.registerOutgoing(State.PLAY, oldPacketId, newPacketId, new PacketRemapper() {
+    public void registerTracker(ClientboundPacketType packetType, EntityType entityType) {
+        protocol.registerOutgoing(packetType, new PacketRemapper() {
             @Override
             public void registerMap() {
                 map(Type.VAR_INT); // 0 - Entity ID
@@ -138,8 +145,8 @@ public abstract class MetadataRewriter {
         });
     }
 
-    public void registerEntityDestroy(int oldPacketId, int newPacketId) {
-        protocol.registerOutgoing(State.PLAY, oldPacketId, newPacketId, new PacketRemapper() {
+    public void registerEntityDestroy(ClientboundPacketType packetType) {
+        protocol.registerOutgoing(packetType, new PacketRemapper() {
             @Override
             public void registerMap() {
                 map(Type.VAR_INT_ARRAY_PRIMITIVE); // 0 - Entity ids
@@ -153,8 +160,8 @@ public abstract class MetadataRewriter {
         });
     }
 
-    public void registerMetadataRewriter(int oldPacketId, int newPacketId, Type<List<Metadata>> oldMetaType, Type<List<Metadata>> newMetaType) {
-        protocol.registerOutgoing(State.PLAY, oldPacketId, newPacketId, new PacketRemapper() {
+    public void registerMetadataRewriter(ClientboundPacketType packetType, @Nullable Type<List<Metadata>> oldMetaType, Type<List<Metadata>> newMetaType) {
+        protocol.registerOutgoing(packetType, new PacketRemapper() {
             @Override
             public void registerMap() {
                 map(Type.VAR_INT); // 0 - Entity ID
@@ -172,12 +179,15 @@ public abstract class MetadataRewriter {
         });
     }
 
-    public void registerMetadataRewriter(int oldPacketId, int newPacketId, Type<List<Metadata>> metaType) {
-        registerMetadataRewriter(oldPacketId, newPacketId, null, metaType);
+    public void registerMetadataRewriter(ClientboundPacketType packetType, Type<List<Metadata>> metaType) {
+        registerMetadataRewriter(packetType, null, metaType);
     }
 
     public <T extends Enum<T> & EntityType> void mapTypes(EntityType[] oldTypes, Class<T> newTypeClass) {
-        if (typeMapping == null) typeMapping = new HashMap<>(oldTypes.length);
+        if (typeMapping == null) {
+            typeMapping = new Int2IntOpenHashMap(oldTypes.length, 1F);
+            typeMapping.defaultReturnValue(-1);
+        }
         for (EntityType oldType : oldTypes) {
             try {
                 T newType = Enum.valueOf(newTypeClass, oldType.name());
@@ -185,14 +195,17 @@ public abstract class MetadataRewriter {
             } catch (IllegalArgumentException notFound) {
                 if (!typeMapping.containsKey(oldType.getId())) {
                     Via.getPlatform().getLogger().warning("Could not find new entity type for " + oldType + "! " +
-                                                                  "Old type: " + oldType.getClass().getSimpleName() + " New type: " + newTypeClass.getSimpleName());
+                            "Old type: " + oldType.getClass().getEnclosingClass().getSimpleName() + ", new type: " + newTypeClass.getEnclosingClass().getSimpleName());
                 }
             }
         }
     }
 
     public void mapType(EntityType oldType, EntityType newType) {
-        if (typeMapping == null) typeMapping = new HashMap<>();
+        if (typeMapping == null) {
+            typeMapping = new Int2IntOpenHashMap();
+            typeMapping.defaultReturnValue(-1);
+        }
         typeMapping.put(oldType.getId(), newType.getId());
     }
 
@@ -209,7 +222,7 @@ public abstract class MetadataRewriter {
      * @param metaType type of the metadata list
      * @return handler for tracking and rewriting entities
      */
-    public PacketHandler getTrackerAndRewriter(Type<List<Metadata>> metaType) {
+    public PacketHandler getTrackerAndRewriter(@Nullable Type<List<Metadata>> metaType) {
         return wrapper -> {
             int entityId = wrapper.get(Type.VAR_INT, 0);
             int type = wrapper.get(Type.VAR_INT, 1);
@@ -229,7 +242,7 @@ public abstract class MetadataRewriter {
         };
     }
 
-    public PacketHandler getTrackerAndRewriter(Type<List<Metadata>> metaType, EntityType entityType) {
+    public PacketHandler getTrackerAndRewriter(@Nullable Type<List<Metadata>> metaType, EntityType entityType) {
         return wrapper -> {
             int entityId = wrapper.get(Type.VAR_INT, 0);
             // Register Type ID

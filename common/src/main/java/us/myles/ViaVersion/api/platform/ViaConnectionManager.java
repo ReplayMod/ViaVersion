@@ -1,6 +1,7 @@
 package us.myles.ViaVersion.api.platform;
 
 import io.netty.channel.ChannelFutureListener;
+import org.jetbrains.annotations.Nullable;
 import us.myles.ViaVersion.api.data.UserConnection;
 import us.myles.ViaVersion.protocols.base.ProtocolInfo;
 
@@ -16,7 +17,7 @@ public class ViaConnectionManager {
 
     public void onLoginSuccess(UserConnection connection) {
         Objects.requireNonNull(connection, "connection is null!");
-        UUID id = connection.get(ProtocolInfo.class).getUuid();
+        UUID id = connection.getProtocolInfo().getUuid();
         connections.add(connection);
         clients.put(id, connection);
 
@@ -27,7 +28,7 @@ public class ViaConnectionManager {
 
     public void onDisconnect(UserConnection connection) {
         Objects.requireNonNull(connection, "connection is null!");
-        UUID id = connection.get(ProtocolInfo.class).getUuid();
+        UUID id = connection.getProtocolInfo().getUuid();
         connections.remove(connection);
         clients.remove(id);
     }
@@ -51,6 +52,7 @@ public class ViaConnectionManager {
      * Note that connections are removed as soon as their channel is closed,
      * so avoid using this method during player quits for example.
      */
+    @Nullable
     public UserConnection getConnectedClient(UUID clientIdentifier) {
         return clients.get(clientIdentifier);
     }

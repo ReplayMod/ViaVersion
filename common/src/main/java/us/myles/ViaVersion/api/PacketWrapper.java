@@ -16,7 +16,11 @@ import us.myles.ViaVersion.protocols.base.ProtocolInfo;
 import us.myles.ViaVersion.util.PipelineUtil;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.NoSuchElementException;
 
 public class PacketWrapper {
     public static final int PASSTHROUGH_ID = 1000;
@@ -249,8 +253,9 @@ public class PacketWrapper {
      * Clear the input buffer / readable objects
      */
     public void clearInputBuffer() {
-        if (inputBuffer != null)
+        if (inputBuffer != null) {
             inputBuffer.clear();
+        }
         readableObjects.clear(); // :(
     }
 
@@ -314,7 +319,7 @@ public class PacketWrapper {
      */
     private ByteBuf constructPacket(Class<? extends Protocol> packetProtocol, boolean skipCurrentPipeline, Direction direction) throws Exception {
         // Apply current pipeline
-        List<Protocol> protocols = new ArrayList<>(user().get(ProtocolInfo.class).getPipeline().pipes());
+        List<Protocol> protocols = new ArrayList<>(user().getProtocolInfo().getPipeline().pipes());
         if (direction == Direction.OUTGOING) {
             // Other way if outgoing
             Collections.reverse(protocols);
@@ -332,7 +337,7 @@ public class PacketWrapper {
         resetReader();
 
         // Apply other protocols
-        apply(direction, user().get(ProtocolInfo.class).getState(), index, protocols);
+        apply(direction, user().getProtocolInfo().getState(), index, protocols);
         // Send
         ByteBuf output = inputBuffer == null ? user().getChannel().alloc().buffer() : inputBuffer.alloc().buffer();
         writeToBuffer(output);

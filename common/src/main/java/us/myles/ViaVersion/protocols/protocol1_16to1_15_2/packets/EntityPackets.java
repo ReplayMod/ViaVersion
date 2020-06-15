@@ -3,19 +3,18 @@ package us.myles.ViaVersion.protocols.protocol1_16to1_15_2.packets;
 import com.github.steveice10.opennbt.tag.builtin.ByteTag;
 import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
 import com.github.steveice10.opennbt.tag.builtin.FloatTag;
+import com.github.steveice10.opennbt.tag.builtin.IntTag;
 import com.github.steveice10.opennbt.tag.builtin.ListTag;
 import com.github.steveice10.opennbt.tag.builtin.LongTag;
 import com.github.steveice10.opennbt.tag.builtin.StringTag;
-import us.myles.ViaVersion.api.PacketWrapper;
 import us.myles.ViaVersion.api.Via;
 import us.myles.ViaVersion.api.entities.Entity1_16Types;
-import us.myles.ViaVersion.api.protocol.Protocol;
 import us.myles.ViaVersion.api.remapper.PacketHandler;
 import us.myles.ViaVersion.api.remapper.PacketRemapper;
-import us.myles.ViaVersion.api.remapper.ValueTransformer;
 import us.myles.ViaVersion.api.type.Type;
 import us.myles.ViaVersion.api.type.types.version.Types1_14;
-import us.myles.ViaVersion.packets.State;
+import us.myles.ViaVersion.protocols.protocol1_15to1_14_4.ClientboundPackets1_15;
+import us.myles.ViaVersion.protocols.protocol1_16to1_15_2.ClientboundPackets1_16;
 import us.myles.ViaVersion.protocols.protocol1_16to1_15_2.Protocol1_16To1_15_2;
 import us.myles.ViaVersion.protocols.protocol1_16to1_15_2.data.MappingData;
 import us.myles.ViaVersion.protocols.protocol1_16to1_15_2.metadata.MetadataRewriter1_16To1_15_2;
@@ -48,11 +47,12 @@ public class EntityPackets {
         wrapper.write(Type.STRING, dimensionName); // dimension
     };
     private static final CompoundTag DIMENSIONS_TAG = new CompoundTag("");
-    private static final String[] STRINGS = new String[0];
+    private static final String[] WORLD_NAMES = {"minecraft:overworld", "minecraft:the_nether", "minecraft:the_end"};
 
     static {
         ListTag list = new ListTag("dimension", CompoundTag.class);
         list.add(createOverworldEntry());
+        list.add(createOverworldCavesEntry());
         list.add(createNetherEntry());
         list.add(createEndEntry());
         DIMENSIONS_TAG.put(list);
@@ -60,53 +60,77 @@ public class EntityPackets {
 
     private static CompoundTag createOverworldEntry() {
         CompoundTag tag = new CompoundTag("");
-        tag.put(new StringTag("key", "minecraft:overworld"));
-        CompoundTag elementTag = new CompoundTag("element");
-        elementTag.put(new ByteTag("natural", (byte) 1));
-        elementTag.put(new FloatTag("ambient_light", 0));
-        elementTag.put(new ByteTag("shrunk", (byte) 0));
-        elementTag.put(new ByteTag("ultrawarm", (byte) 0));
-        elementTag.put(new ByteTag("has_ceiling", (byte) 0));
-        elementTag.put(new ByteTag("has_skylight", (byte) 1));
-        tag.put(elementTag);
+        tag.put(new StringTag("name", "minecraft:overworld"));
+        tag.put(new ByteTag("has_ceiling", (byte) 0));
+        addSharedOverwaldEntries(tag);
         return tag;
+    }
+
+    private static CompoundTag createOverworldCavesEntry() {
+        CompoundTag tag = new CompoundTag("");
+        tag.put(new StringTag("name", "minecraft:overworld_caves"));
+        tag.put(new ByteTag("has_ceiling", (byte) 1));
+        addSharedOverwaldEntries(tag);
+        return tag;
+    }
+
+    private static void addSharedOverwaldEntries(CompoundTag tag) {
+        tag.put(new ByteTag("piglin_safe", (byte) 0));
+        tag.put(new ByteTag("natural", (byte) 1));
+        tag.put(new FloatTag("ambient_light", 0));
+        tag.put(new StringTag("infiniburn", "minecraft:infiniburn_overworld"));
+        tag.put(new ByteTag("respawn_anchor_works", (byte) 0));
+        tag.put(new ByteTag("has_skylight", (byte) 1));
+        tag.put(new ByteTag("bed_works", (byte) 1));
+        tag.put(new ByteTag("has_raids", (byte) 1));
+        tag.put(new IntTag("logical_height", 256));
+        tag.put(new ByteTag("shrunk", (byte) 0));
+        tag.put(new ByteTag("ultrawarm", (byte) 0));
     }
 
     private static CompoundTag createNetherEntry() {
         CompoundTag tag = new CompoundTag("");
-        tag.put(new StringTag("key", "minecraft:the_nether"));
-        CompoundTag elementTag = new CompoundTag("element");
-        elementTag.put(new ByteTag("natural", (byte) 0));
-        elementTag.put(new LongTag("fixed_time", 18000));
-        elementTag.put(new FloatTag("ambient_light", 0.1F));
-        elementTag.put(new ByteTag("shrunk", (byte) 1));
-        elementTag.put(new ByteTag("ultrawarm", (byte) 1));
-        elementTag.put(new ByteTag("has_ceiling", (byte) 1));
-        elementTag.put(new ByteTag("has_skylight", (byte) 0));
-        tag.put(elementTag);
+        tag.put(new ByteTag("piglin_safe", (byte) 1));
+        tag.put(new ByteTag("natural", (byte) 0));
+        tag.put(new FloatTag("ambient_light", 0.1F));
+        tag.put(new StringTag("infiniburn", "minecraft:infiniburn_nether"));
+        tag.put(new ByteTag("respawn_anchor_works", (byte) 1));
+        tag.put(new ByteTag("has_skylight", (byte) 0));
+        tag.put(new ByteTag("bed_works", (byte) 0));
+        tag.put(new LongTag("fixed_time", 18000));
+        tag.put(new ByteTag("has_raids", (byte) 0));
+        tag.put(new StringTag("name", "minecraft:the_nether"));
+        tag.put(new IntTag("logical_height", 128));
+        tag.put(new ByteTag("shrunk", (byte) 1));
+        tag.put(new ByteTag("ultrawarm", (byte) 1));
+        tag.put(new ByteTag("has_ceiling", (byte) 1));
         return tag;
     }
 
     private static CompoundTag createEndEntry() {
         CompoundTag tag = new CompoundTag("");
-        tag.put(new StringTag("key", "minecraft:the_nether"));
-        CompoundTag elementTag = new CompoundTag("element");
-        elementTag.put(new ByteTag("natural", (byte) 0));
-        elementTag.put(new LongTag("fixed_time", 60000));
-        elementTag.put(new FloatTag("ambient_light", 0));
-        elementTag.put(new ByteTag("shrunk", (byte) 0));
-        elementTag.put(new ByteTag("ultrawarm", (byte) 0));
-        elementTag.put(new ByteTag("has_ceiling", (byte) 0));
-        elementTag.put(new ByteTag("has_skylight", (byte) 0));
-        tag.put(elementTag);
+        tag.put(new ByteTag("piglin_safe", (byte) 0));
+        tag.put(new ByteTag("natural", (byte) 0));
+        tag.put(new FloatTag("ambient_light", 0));
+        tag.put(new StringTag("infiniburn", "minecraft:infiniburn_end"));
+        tag.put(new ByteTag("respawn_anchor_works", (byte) 0));
+        tag.put(new ByteTag("has_skylight", (byte) 0));
+        tag.put(new ByteTag("bed_works", (byte) 0));
+        tag.put(new LongTag("fixed_time", 6000));
+        tag.put(new ByteTag("has_raids", (byte) 1));
+        tag.put(new StringTag("name", "minecraft:the_end"));
+        tag.put(new IntTag("logical_height", 256));
+        tag.put(new ByteTag("shrunk", (byte) 0));
+        tag.put(new ByteTag("ultrawarm", (byte) 0));
+        tag.put(new ByteTag("has_ceiling", (byte) 0));
         return tag;
     }
 
-    public static void register(Protocol protocol) {
+    public static void register(Protocol1_16To1_15_2 protocol) {
         MetadataRewriter1_16To1_15_2 metadataRewriter = protocol.get(MetadataRewriter1_16To1_15_2.class);
 
         // Spawn lightning -> Spawn entity
-        protocol.registerOutgoing(State.PLAY, 0x02, 0x00, new PacketRemapper() {
+        protocol.registerOutgoing(ClientboundPackets1_15.SPAWN_GLOBAL_ENTITY, ClientboundPackets1_16.SPAWN_ENTITY, new PacketRemapper() {
             @Override
             public void registerMap() {
                 handler(wrapper -> {
@@ -131,23 +155,13 @@ public class EntityPackets {
             }
         });
 
-        // Spawn entity
-        metadataRewriter.registerSpawnTrackerWithData(0x00, 0x00, Entity1_16Types.EntityType.FALLING_BLOCK, Protocol1_16To1_15_2::getNewBlockStateId);
+        metadataRewriter.registerSpawnTrackerWithData(ClientboundPackets1_15.SPAWN_ENTITY, Entity1_16Types.EntityType.FALLING_BLOCK, Protocol1_16To1_15_2::getNewBlockStateId);
+        metadataRewriter.registerTracker(ClientboundPackets1_15.SPAWN_MOB);
+        metadataRewriter.registerTracker(ClientboundPackets1_15.SPAWN_PLAYER, Entity1_16Types.EntityType.PLAYER);
+        metadataRewriter.registerMetadataRewriter(ClientboundPackets1_15.ENTITY_METADATA, Types1_14.METADATA_LIST);
+        metadataRewriter.registerEntityDestroy(ClientboundPackets1_15.DESTROY_ENTITIES);
 
-        // Spawn mob packet
-        metadataRewriter.registerTracker(0x03, 0x02);
-
-        // Spawn player packet
-        metadataRewriter.registerTracker(0x05, 0x04, Entity1_16Types.EntityType.PLAYER);
-
-        // Metadata
-        metadataRewriter.registerMetadataRewriter(0x44, 0x44, Types1_14.METADATA_LIST);
-
-        // Entity Destroy
-        metadataRewriter.registerEntityDestroy(0x38, 0x37);
-
-        // Respawn
-        protocol.registerOutgoing(State.PLAY, 0x3B, 0x3A, new PacketRemapper() {
+        protocol.registerOutgoing(ClientboundPackets1_15.RESPAWN, new PacketRemapper() {
             @Override
             public void registerMap() {
                 handler(DIMENSION_HANDLER);
@@ -166,23 +180,14 @@ public class EntityPackets {
             }
         });
 
-        // Join Game
-        protocol.registerOutgoing(State.PLAY, 0x26, 0x25, new PacketRemapper() {
+        protocol.registerOutgoing(ClientboundPackets1_15.JOIN_GAME, new PacketRemapper() {
             @Override
             public void registerMap() {
                 map(Type.INT); // Entity ID
                 map(Type.UNSIGNED_BYTE); //  Gamemode
-                map(Type.NOTHING, new ValueTransformer<Void, String[]>(Type.STRING_ARRAY) { // World list - only used for command completion
-                    @Override
-                    public String[] transform(PacketWrapper wrapper, Void input) throws Exception {
-                        return STRINGS;
-                    }
-                });
-                map(Type.NOTHING, new ValueTransformer<Void, CompoundTag>(Type.NBT) { // whatever this is
-                    @Override
-                    public CompoundTag transform(PacketWrapper wrapper, Void input) throws Exception {
-                        return DIMENSIONS_TAG;
-                    }
+                handler(wrapper -> {
+                    wrapper.write(Type.STRING_ARRAY, WORLD_NAMES); // World list - only used for command completion
+                    wrapper.write(Type.NBT, DIMENSIONS_TAG); // Dimension registry
                 });
                 handler(DIMENSION_HANDLER); // Dimension
                 map(Type.LONG); // Seed
@@ -205,8 +210,7 @@ public class EntityPackets {
             }
         });
 
-        // Entity Properties
-        protocol.registerOutgoing(State.PLAY, 0x59, 0x58, new PacketRemapper() {
+        protocol.registerOutgoing(ClientboundPackets1_15.ENTITY_PROPERTIES, new PacketRemapper() {
             @Override
             public void registerMap() {
                 handler(wrapper -> {

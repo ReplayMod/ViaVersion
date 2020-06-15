@@ -1,16 +1,16 @@
 package us.myles.ViaVersion.api.rewriters;
 
 import us.myles.ViaVersion.api.PacketWrapper;
+import us.myles.ViaVersion.api.protocol.ClientboundPacketType;
 import us.myles.ViaVersion.api.protocol.Protocol;
 import us.myles.ViaVersion.api.remapper.PacketRemapper;
 import us.myles.ViaVersion.api.type.Type;
-import us.myles.ViaVersion.packets.State;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class TagRewriter {
-    public static final int[] EMPTY_ARRAY = {};
+    private static final int[] EMPTY_ARRAY = {};
     private final Protocol protocol;
     private final IdRewriteFunction blockRewriter;
     private final IdRewriteFunction itemRewriter;
@@ -26,6 +26,9 @@ public class TagRewriter {
         this.entityRewriter = entityRewriter;
     }
 
+    /**
+     * Adds an empty tag (since the client crashes if a checked tag is not registered.)
+     */
     public void addEmptyTag(TagType tagType, String id) {
         getNewTags(tagType).add(new TagData(id, EMPTY_ARRAY));
     }
@@ -40,8 +43,8 @@ public class TagRewriter {
         newTags.add(new TagData(id, oldIds));
     }
 
-    public void register(int oldId, int newId) {
-        protocol.registerOutgoing(State.PLAY, oldId, newId, new PacketRemapper() {
+    public void register(ClientboundPacketType packetType) {
+        protocol.registerOutgoing(packetType, new PacketRemapper() {
             @Override
             public void registerMap() {
                 handler(wrapper -> {

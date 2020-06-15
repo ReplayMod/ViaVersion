@@ -8,6 +8,7 @@ import us.myles.ViaVersion.api.platform.providers.ViaProviders;
 import us.myles.ViaVersion.api.protocol.Protocol;
 import us.myles.ViaVersion.api.protocol.ProtocolPipeline;
 import us.myles.ViaVersion.api.protocol.ProtocolRegistry;
+import us.myles.ViaVersion.api.protocol.SimpleProtocol;
 import us.myles.ViaVersion.api.remapper.PacketHandler;
 import us.myles.ViaVersion.api.remapper.PacketRemapper;
 import us.myles.ViaVersion.api.type.Type;
@@ -16,7 +17,7 @@ import us.myles.ViaVersion.packets.State;
 
 import java.util.List;
 
-public class BaseProtocol extends Protocol {
+public class BaseProtocol extends SimpleProtocol {
 
     @Override
     protected void registerPackets() {
@@ -37,7 +38,7 @@ public class BaseProtocol extends Protocol {
                         int protVer = wrapper.get(Type.VAR_INT, 0);
                         int state = wrapper.get(Type.VAR_INT, 1);
 
-                        ProtocolInfo info = wrapper.user().get(ProtocolInfo.class);
+                        ProtocolInfo info = wrapper.user().getProtocolInfo();
                         info.setProtocolVersion(protVer);
                         // Ensure the server has a version provider
                         if (Via.getManager().getProviders().get(VersionProvider.class) == null) {
@@ -54,7 +55,7 @@ public class BaseProtocol extends Protocol {
                             protocols = ProtocolRegistry.getProtocolPath(info.getProtocolVersion(), protocol);
                         }
 
-                        ProtocolPipeline pipeline = wrapper.user().get(ProtocolInfo.class).getPipeline();
+                        ProtocolPipeline pipeline = wrapper.user().getProtocolInfo().getPipeline();
                         if (protocols != null) {
                             for (Pair<Integer, Protocol> prot : protocols) {
                                 pipeline.add(prot.getValue());
