@@ -29,7 +29,8 @@ public class Chunk1_16Type extends PartialType<Chunk, ClientWorld> {
         int chunkZ = input.readInt();
 
         boolean fullChunk = input.readBoolean();
-        int primaryBitmask = Type.VAR_INT.read(input);
+        boolean ignoreOldLightData = input.readBoolean();
+        int primaryBitmask = Type.VAR_INT.readPrimitive(input);
         CompoundTag heightMap = Type.NBT.read(input);
 
         int[] biomeData = fullChunk ? new int[1024] : null;
@@ -39,7 +40,7 @@ public class Chunk1_16Type extends PartialType<Chunk, ClientWorld> {
             }
         }
 
-        Type.VAR_INT.read(input); // data size in bytes
+        Type.VAR_INT.readPrimitive(input); // data size in bytes
 
         // Read sections
         ChunkSection[] sections = new ChunkSection[16];
@@ -62,7 +63,7 @@ public class Chunk1_16Type extends PartialType<Chunk, ClientWorld> {
             }
         }
 
-        return new BaseChunk(chunkX, chunkZ, fullChunk, primaryBitmask, sections, biomeData, heightMap, nbtData);
+        return new BaseChunk(chunkX, chunkZ, fullChunk, ignoreOldLightData, primaryBitmask, sections, biomeData, heightMap, nbtData);
     }
 
     @Override
@@ -71,7 +72,8 @@ public class Chunk1_16Type extends PartialType<Chunk, ClientWorld> {
         output.writeInt(chunk.getZ());
 
         output.writeBoolean(chunk.isFullChunk());
-        Type.VAR_INT.write(output, chunk.getBitmask());
+        output.writeBoolean(chunk.isIgnoreOldLightData());
+        Type.VAR_INT.writePrimitive(output, chunk.getBitmask());
         Type.NBT.write(output, chunk.getHeightMap());
 
         // Write biome data
@@ -91,7 +93,7 @@ public class Chunk1_16Type extends PartialType<Chunk, ClientWorld> {
                 Types1_16.CHUNK_SECTION.write(buf, section);
             }
             buf.readerIndex(0);
-            Type.VAR_INT.write(output, buf.readableBytes());
+            Type.VAR_INT.writePrimitive(output, buf.readableBytes());
             output.writeBytes(buf);
         } finally {
             buf.release(); // release buffer

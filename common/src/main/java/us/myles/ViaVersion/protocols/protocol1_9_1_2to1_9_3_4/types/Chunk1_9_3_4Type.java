@@ -29,8 +29,8 @@ public class Chunk1_9_3_4Type extends PartialType<Chunk, ClientWorld> {
         int chunkZ = input.readInt();
 
         boolean fullChunk = input.readBoolean();
-        int primaryBitmask = Type.VAR_INT.read(input);
-        Type.VAR_INT.read(input);
+        int primaryBitmask = Type.VAR_INT.readPrimitive(input);
+        Type.VAR_INT.readPrimitive(input);
 
         // Read sections
         ChunkSection[] sections = new ChunkSection[16];
@@ -62,7 +62,7 @@ public class Chunk1_9_3_4Type extends PartialType<Chunk, ClientWorld> {
             }
         }
 
-        return new BaseChunk(chunkX, chunkZ, fullChunk, primaryBitmask, sections, biomeData, nbtData);
+        return new BaseChunk(chunkX, chunkZ, fullChunk, false, primaryBitmask, sections, biomeData, nbtData);
     }
 
     @Override
@@ -71,7 +71,7 @@ public class Chunk1_9_3_4Type extends PartialType<Chunk, ClientWorld> {
         output.writeInt(chunk.getZ());
 
         output.writeBoolean(chunk.isFullChunk());
-        Type.VAR_INT.write(output, chunk.getBitmask());
+        Type.VAR_INT.writePrimitive(output, chunk.getBitmask());
 
         ByteBuf buf = output.alloc().buffer();
         try {
@@ -85,7 +85,7 @@ public class Chunk1_9_3_4Type extends PartialType<Chunk, ClientWorld> {
                 section.writeSkyLight(buf);
             }
             buf.readerIndex(0);
-            Type.VAR_INT.write(output, buf.readableBytes() + (chunk.isBiomeData() ? 256 : 0));
+            Type.VAR_INT.writePrimitive(output, buf.readableBytes() + (chunk.isBiomeData() ? 256 : 0));
             output.writeBytes(buf);
         } finally {
             buf.release(); // release buffer
