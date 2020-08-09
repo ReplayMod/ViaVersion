@@ -2,6 +2,7 @@ package us.myles.ViaVersion.api.protocol;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Range;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import org.jetbrains.annotations.Nullable;
@@ -29,6 +30,7 @@ import us.myles.ViaVersion.protocols.protocol1_15_1to1_15.Protocol1_15_1To1_15;
 import us.myles.ViaVersion.protocols.protocol1_15_2to1_15_1.Protocol1_15_2To1_15_1;
 import us.myles.ViaVersion.protocols.protocol1_15to1_14_4.Protocol1_15To1_14_4;
 import us.myles.ViaVersion.protocols.protocol1_16_1to1_16.Protocol1_16_1To1_16;
+import us.myles.ViaVersion.protocols.protocol1_16_2to1_16_1.Protocol1_16_2To1_16_1;
 import us.myles.ViaVersion.protocols.protocol1_16to1_15_2.Protocol1_16To1_15_2;
 import us.myles.ViaVersion.protocols.protocol1_9_1_2to1_9_3_4.Protocol1_9_1_2To1_9_3_4;
 import us.myles.ViaVersion.protocols.protocol1_9_1to1_9.Protocol1_9_1To1_9;
@@ -49,6 +51,7 @@ import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
@@ -69,7 +72,8 @@ public class ProtocolRegistry {
     private static boolean mappingsLoaded;
 
     static {
-        mappingLoaderExecutor = new ThreadPoolExecutor(5, 16, 45L, TimeUnit.SECONDS, new SynchronousQueue<>());
+        ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat("Via-Mappingloader-%d").build();
+        mappingLoaderExecutor = new ThreadPoolExecutor(5, 16, 45L, TimeUnit.SECONDS, new SynchronousQueue<>(), threadFactory);
         mappingLoaderExecutor.allowCoreThreadTimeOut(true);
 
         // Base Protocol
@@ -108,6 +112,7 @@ public class ProtocolRegistry {
 
         registerProtocol(new Protocol1_16To1_15_2(), ProtocolVersion.v1_16, ProtocolVersion.v1_15_2);
         registerProtocol(new Protocol1_16_1To1_16(), ProtocolVersion.v1_16_1, ProtocolVersion.v1_16);
+        registerProtocol(new Protocol1_16_2To1_16_1(), ProtocolVersion.v1_16_2, ProtocolVersion.v1_16_1);
     }
 
     public static void init() {
@@ -379,14 +384,23 @@ public class ProtocolRegistry {
 
     public static void addMappingLoaderFuture(Class<? extends Protocol> protocolClass, Runnable runnable) {
         synchronized (MAPPING_LOADER_LOCK) {
-            CompletableFuture<Void> future = CompletableFuture.runAsync(runnable, mappingLoaderExecutor);
+            CompletableFuture<Void> future = CompletableFuture.runAsync(runnable, mappingLoaderExecutor).exceptionally(throwable -> {
+                Via.getPlatform().getLogger().severe("Error during mapping loading of " + protocolClass.getSimpleName());
+                throwable.printStackTrace();
+                return null;
+            });
             mappingLoaderFutures.put(protocolClass, future);
         }
     }
 
     public static void addMappingLoaderFuture(Class<? extends Protocol> protocolClass, Class<? extends Protocol> dependsOn, Runnable runnable) {
         synchronized (MAPPING_LOADER_LOCK) {
-            CompletableFuture<Void> future = getMappingLoaderFuture(dependsOn).whenCompleteAsync((v, throwable) -> runnable.run(), mappingLoaderExecutor);
+            CompletableFuture<Void> future = getMappingLoaderFuture(dependsOn)
+                    .whenCompleteAsync((v, throwable) -> runnable.run(), mappingLoaderExecutor).exceptionally(throwable -> {
+                        Via.getPlatform().getLogger().severe("Error during mapping loading of " + protocolClass.getSimpleName());
+                        throwable.printStackTrace();
+                        return null;
+                    });
             mappingLoaderFutures.put(protocolClass, future);
         }
     }

@@ -49,14 +49,15 @@ public class Protocol1_13_2To1_13_1 extends Protocol<ClientboundPackets1_13, Cli
 
                             // Display data
                             if (wrapper.passthrough(Type.BOOLEAN)) {
-                                wrapper.passthrough(Type.STRING); // Title
-                                wrapper.passthrough(Type.STRING); // Description
+                                wrapper.passthrough(Type.COMPONENT); // Title
+                                wrapper.passthrough(Type.COMPONENT); // Description
                                 Item icon = wrapper.read(Type.FLAT_ITEM);
                                 wrapper.write(Type.FLAT_VAR_INT_ITEM, icon);
                                 wrapper.passthrough(Type.VAR_INT); // Frame type
                                 int flags = wrapper.passthrough(Type.INT); // Flags
-                                if ((flags & 1) != 0)
+                                if ((flags & 1) != 0) {
                                     wrapper.passthrough(Type.STRING); // Background texture
+                                }
                                 wrapper.passthrough(Type.FLOAT); // X
                                 wrapper.passthrough(Type.FLOAT); // Y
                             }

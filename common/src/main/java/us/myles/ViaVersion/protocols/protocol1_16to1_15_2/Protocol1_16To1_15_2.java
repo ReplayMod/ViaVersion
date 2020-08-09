@@ -1,5 +1,6 @@
 package us.myles.ViaVersion.protocols.protocol1_16to1_15_2;
 
+import com.google.common.base.Joiner;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -25,6 +26,9 @@ import us.myles.ViaVersion.protocols.protocol1_16to1_15_2.storage.EntityTracker1
 import us.myles.ViaVersion.protocols.protocol1_9_3to1_9_1_2.storage.ClientWorld;
 import us.myles.ViaVersion.util.GsonUtil;
 
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 public class Protocol1_16To1_15_2 extends Protocol<ClientboundPackets1_15, ClientboundPackets1_16, ServerboundPackets1_14, ServerboundPackets1_16> {
@@ -120,44 +124,6 @@ public class Protocol1_16To1_15_2 extends Protocol<ClientboundPackets1_15, Clien
         soundRewriter.registerSound(ClientboundPackets1_15.SOUND);
         soundRewriter.registerSound(ClientboundPackets1_15.ENTITY_SOUND);
 
-        registerOutgoing(ClientboundPackets1_15.ADVANCEMENTS, new PacketRemapper() {
-            @Override
-            public void registerMap() {
-                handler(wrapper -> {
-                    wrapper.passthrough(Type.BOOLEAN); // Reset/clear
-                    int size = wrapper.passthrough(Type.VAR_INT); // Mapping size
-
-                    for (int i = 0; i < size; i++) {
-                        wrapper.passthrough(Type.STRING); // Identifier
-
-                        // Parent
-                        if (wrapper.passthrough(Type.BOOLEAN))
-                            wrapper.passthrough(Type.STRING);
-
-                        // Display data
-                        if (wrapper.passthrough(Type.BOOLEAN)) {
-                            wrapper.passthrough(Type.STRING); // Title
-                            wrapper.passthrough(Type.STRING); // Description
-                            InventoryPackets.toClient(wrapper.passthrough(Type.FLAT_VAR_INT_ITEM)); // Icon
-                            wrapper.passthrough(Type.VAR_INT); // Frame type
-                            int flags = wrapper.passthrough(Type.INT); // Flags
-                            if ((flags & 1) != 0)
-                                wrapper.passthrough(Type.STRING); // Background texture
-                            wrapper.passthrough(Type.FLOAT); // X
-                            wrapper.passthrough(Type.FLOAT); // Y
-                        }
-
-                        wrapper.passthrough(Type.STRING_ARRAY); // Criteria
-
-                        int arrayLength = wrapper.passthrough(Type.VAR_INT);
-                        for (int array = 0; array < arrayLength; array++) {
-                            wrapper.passthrough(Type.STRING_ARRAY); // String array
-                        }
-                    }
-                });
-            }
-        });
-
         registerIncoming(ServerboundPackets1_16.INTERACT_ENTITY, new PacketRemapper() {
             @Override
             public void registerMap() {
@@ -180,6 +146,44 @@ public class Protocol1_16To1_15_2 extends Protocol<ClientboundPackets1_15, Clien
                 });
             }
         });
+
+        if (Via.getConfig().isIgnoreLong1_16ChannelNames()) {
+            registerIncoming(ServerboundPackets1_16.PLUGIN_MESSAGE, new PacketRemapper() {
+                @Override
+                public void registerMap() {
+                    handler(wrapper -> {
+                        String channel = wrapper.passthrough(Type.STRING);
+                        if (channel.length() > 32) {
+                            if (!Via.getConfig().isSuppressConversionWarnings()) {
+                                Via.getPlatform().getLogger().warning("Ignoring incoming plugin channel, as it is longer than 32 characters: " + channel);
+                            }
+                            wrapper.cancel();
+                        } else if (channel.equals("minecraft:register") || channel.equals("minecraft:unregister")) {
+                            String[] channels = new String(wrapper.read(Type.REMAINING_BYTES), StandardCharsets.UTF_8).split("\0");
+                            List<String> checkedChannels = new ArrayList<>(channels.length);
+                            for (String registeredChannel : channels) {
+                                if (registeredChannel.length() > 32) {
+                                    if (!Via.getConfig().isSuppressConversionWarnings()) {
+                                        Via.getPlatform().getLogger().warning("Ignoring incoming plugin channel register of '"
+                                                + registeredChannel + "', as it is longer than 32 characters");
+                                    }
+                                    continue;
+                                }
+
+                                checkedChannels.add(registeredChannel);
+                            }
+
+                            if (checkedChannels.isEmpty()) {
+                                wrapper.cancel();
+                                return;
+                            }
+
+                            wrapper.write(Type.REMAINING_BYTES, Joiner.on('\0').join(checkedChannels).getBytes(StandardCharsets.UTF_8));
+                        }
+                    });
+                }
+            });
+        }
 
         registerIncoming(ServerboundPackets1_16.PLAYER_ABILITIES, new PacketRemapper() {
             @Override

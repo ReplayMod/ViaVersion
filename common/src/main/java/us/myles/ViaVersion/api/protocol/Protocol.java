@@ -8,6 +8,7 @@ import us.myles.ViaVersion.api.data.UserConnection;
 import us.myles.ViaVersion.api.platform.providers.ViaProviders;
 import us.myles.ViaVersion.api.remapper.PacketRemapper;
 import us.myles.ViaVersion.exception.CancelException;
+import us.myles.ViaVersion.exception.InformativeException;
 import us.myles.ViaVersion.packets.Direction;
 import us.myles.ViaVersion.packets.State;
 
@@ -417,8 +418,9 @@ public abstract class Protocol<C1 extends ClientboundPacketType, C2 extends Clie
         // Remap
         try {
             protocolPacket.getRemapper().remap(packetWrapper);
-        } catch (Exception e) {
-            if (e instanceof CancelException) {
+        } catch (InformativeException e) { // Catch InformativeExceptions, pass through CancelExceptions
+            // Don't print errors during handshake
+            if (state == State.HANDSHAKE) {
                 throw e;
             }
 

@@ -3,6 +3,8 @@ package us.myles.ViaVersion.api.rewriters;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
+import com.google.gson.JsonSyntaxException;
+import us.myles.ViaVersion.api.Via;
 import us.myles.ViaVersion.api.protocol.ClientboundPacketType;
 import us.myles.ViaVersion.api.protocol.Protocol;
 import us.myles.ViaVersion.api.remapper.PacketRemapper;
@@ -42,6 +44,15 @@ public class ComponentRewriter {
      */
     public ComponentRewriter() {
         this.protocol = null;
+    }
+
+    public void registerChatMessage(ClientboundPacketType packetType) {
+        protocol.registerOutgoing(packetType, new PacketRemapper() {
+            @Override
+            public void registerMap() {
+                handler(wrapper -> processText(wrapper.passthrough(Type.COMPONENT)));
+            }
+        });
     }
 
     public void registerBossBar(ClientboundPacketType packetType) {
@@ -90,9 +101,18 @@ public class ComponentRewriter {
     }
 
     public JsonElement processText(String value) {
-        JsonElement root = GsonUtil.getJsonParser().parse(value);
-        processText(root);
-        return root;
+        try {
+            JsonElement root = GsonUtil.getJsonParser().parse(value);
+            processText(root);
+            return root;
+        } catch (JsonSyntaxException e) {
+            if (Via.getManager().isDebug()) {
+                Via.getPlatform().getLogger().severe("Error when trying to parse json: " + value);
+                throw e;
+            }
+            // Yay to malformed json being accepted
+            return new JsonPrimitive(value);
+        }
     }
 
     public void processText(JsonElement element) {

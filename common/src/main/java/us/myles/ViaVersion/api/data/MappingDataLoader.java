@@ -134,7 +134,10 @@ public class MappingDataLoader {
         if (value == null) {
             // Search in diff mappings
             if (diffIdentifiers != null) {
-                value = findValue(newIdentifiers, diffIdentifiers.get(entry.getKey()).getAsString());
+                JsonElement diffElement = diffIdentifiers.get(entry.getKey());
+                if (diffElement != null) {
+                    value = findValue(newIdentifiers, diffElement.getAsString());
+                }
             }
             if (value == null) {
                 if (!Via.getConfig().isSuppressConversionWarnings() || Via.getManager().isDebug()) {
@@ -205,7 +208,7 @@ public class MappingDataLoader {
         return null;
     }
 
-    private static InputStream getResource(String name) {
+    public static InputStream getResource(String name) {
         return MappingDataLoader.class.getClassLoader().getResourceAsStream("assets/viaversion/data/" + name);
     }
 }

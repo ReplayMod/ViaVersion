@@ -1,14 +1,13 @@
 package us.myles.ViaVersion.protocols.protocol1_13to1_12_2;
 
 import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.chat.BaseComponent;
 import net.md_5.bungee.api.chat.ClickEvent;
 import net.md_5.bungee.api.chat.TextComponent;
 import net.md_5.bungee.chat.ComponentSerializer;
 import us.myles.ViaVersion.api.rewriters.ComponentRewriter;
-import us.myles.ViaVersion.protocols.protocol1_13to1_12_2.data.MappingData;
+import us.myles.ViaVersion.protocols.protocol1_13to1_12_2.data.ComponentRewriter1_13;
 import us.myles.ViaVersion.util.GsonUtil;
 
 import java.util.ArrayList;
@@ -19,20 +18,7 @@ import java.util.regex.Pattern;
 public class ChatRewriter {
     private static final Pattern URL = Pattern.compile("^(?:(https?)://)?([-\\w_.]{2,}\\.[a-z]{2,4})(/\\S*)?$");
     private static final BaseComponent[] EMPTY_COMPONENTS = new BaseComponent[0];
-    private static final ComponentRewriter COMPONENT_REWRITER = new ComponentRewriter() {
-        @Override
-        protected void handleTranslate(JsonObject object, String translate) {
-            super.handleTranslate(object, translate);
-            String newTranslate;
-            newTranslate = MappingData.translateMapping.get(translate);
-            if (newTranslate == null) {
-                newTranslate = MappingData.mojangTranslation.get(translate);
-            }
-            if (newTranslate != null) {
-                object.addProperty("translate", newTranslate);
-            }
-        }
-    };
+    private static final ComponentRewriter COMPONENT_REWRITER = new ComponentRewriter1_13();
 
     // Based on https://github.com/SpigotMC/BungeeCord/blob/master/chat/src/main/java/net/md_5/bungee/api/chat/TextComponent.java
     public static JsonElement fromLegacyText(String message, ChatColor defaultColor) {
@@ -77,7 +63,7 @@ public class ChatRewriter {
 
                     component = new TextComponent();
                     component.setColor(format);
-                    // ViaVersion start
+                    // ViaVersion start - Items have style default to italic
                     component.setBold(false);
                     component.setItalic(false);
                     component.setUnderlined(false);
@@ -87,7 +73,7 @@ public class ChatRewriter {
                 } else {
                     component = new TextComponent();
                     component.setColor(format);
-                    // ViaVersion start
+                    // ViaVersion start- Items have style default to italic
                     component.setBold(false);
                     component.setItalic(false);
                     component.setUnderlined(false);
