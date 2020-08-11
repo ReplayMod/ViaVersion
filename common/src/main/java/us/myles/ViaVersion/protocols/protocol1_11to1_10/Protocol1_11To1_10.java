@@ -3,6 +3,7 @@ package us.myles.ViaVersion.protocols.protocol1_11to1_10;
 import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
 import com.github.steveice10.opennbt.tag.builtin.StringTag;
 import us.myles.ViaVersion.api.PacketWrapper;
+import us.myles.ViaVersion.api.Pair;
 import us.myles.ViaVersion.api.Via;
 import us.myles.ViaVersion.api.data.UserConnection;
 import us.myles.ViaVersion.api.entities.Entity1_11Types;
@@ -15,12 +16,13 @@ import us.myles.ViaVersion.api.remapper.ValueTransformer;
 import us.myles.ViaVersion.api.rewriters.SoundRewriter;
 import us.myles.ViaVersion.api.type.Type;
 import us.myles.ViaVersion.api.type.types.version.Types1_9;
-import us.myles.ViaVersion.protocols.protocol1_9_3to1_9_1_2.ClientboundPackets1_9_3;
-import us.myles.ViaVersion.protocols.protocol1_9_3to1_9_1_2.ServerboundPackets1_9_3;
+import us.myles.ViaVersion.protocols.protocol1_11to1_10.data.PotionColorMapping;
 import us.myles.ViaVersion.protocols.protocol1_11to1_10.metadata.MetadataRewriter1_11To1_10;
 import us.myles.ViaVersion.protocols.protocol1_11to1_10.packets.InventoryPackets;
 import us.myles.ViaVersion.protocols.protocol1_11to1_10.storage.EntityTracker1_11;
 import us.myles.ViaVersion.protocols.protocol1_9_1_2to1_9_3_4.types.Chunk1_9_3_4Type;
+import us.myles.ViaVersion.protocols.protocol1_9_3to1_9_1_2.ClientboundPackets1_9_3;
+import us.myles.ViaVersion.protocols.protocol1_9_3to1_9_1_2.ServerboundPackets1_9_3;
 import us.myles.ViaVersion.protocols.protocol1_9_3to1_9_1_2.storage.ClientWorld;
 
 public class Protocol1_11To1_10 extends Protocol<ClientboundPackets1_9_3, ClientboundPackets1_9_3, ServerboundPackets1_9_3, ServerboundPackets1_9_3> {
@@ -235,9 +237,59 @@ public class Protocol1_11To1_10 extends Protocol<ClientboundPackets1_9_3, Client
             }
         });
 
-        metadataRewriter.registerJoinGame(ClientboundPackets1_9_3.JOIN_GAME, null);
+        registerOutgoing(ClientboundPackets1_9_3.JOIN_GAME, new PacketRemapper() {
+            @Override
+            public void registerMap() {
+                map(Type.INT); // 0 - Entity ID
+                map(Type.UNSIGNED_BYTE); // 1 - Gamemode
+                map(Type.INT); // 2 - Dimension
+                handler(wrapper -> {
+                    ClientWorld clientChunks = wrapper.user().get(ClientWorld.class);
+                    int dimensionId = wrapper.get(Type.INT, 1);
+                    clientChunks.setEnvironment(dimensionId);
+                });
+            }
+        });
+        registerOutgoing(ClientboundPackets1_9_3.RESPAWN, new PacketRemapper() {
+            @Override
+            public void registerMap() {
+                map(Type.INT);
+                handler(wrapper -> {
+                    ClientWorld clientWorld = wrapper.user().get(ClientWorld.class);
+                    int dimensionId = wrapper.get(Type.INT, 0);
+                    clientWorld.setEnvironment(dimensionId);
+                });
+            }
+        });
 
-        metadataRewriter.registerRespawn(ClientboundPackets1_9_3.RESPAWN);
+        this.registerOutgoing(ClientboundPackets1_9_3.EFFECT, new PacketRemapper() {
+            @Override
+            public void registerMap() {
+                this.map(Type.INT); //effectID
+                this.map(Type.POSITION); //pos
+                this.map(Type.INT); //effectData
+                this.map(Type.BOOLEAN); //serverwide / global
+                handler(packetWrapper -> {
+                    int effectID = packetWrapper.get(Type.INT, 0);
+                    if (effectID == 2002) {
+                        int data = packetWrapper.get(Type.INT, 1);
+                        boolean isInstant = false;
+                        Pair<Integer, Boolean> newData = PotionColorMapping.getNewData(data);
+                        if (newData == null) {
+                            Via.getPlatform().getLogger().warning("Received unknown 1.11 -> 1.10.2 potion data (" + data + ")");
+                            data = 0;
+                        } else {
+                            data = newData.getKey();
+                            isInstant = newData.getValue();
+                        }
+                        if (isInstant) {
+                            packetWrapper.set(Type.INT, 0, 2007);
+                        }
+                        packetWrapper.set(Type.INT, 1, data);
+                    }
+                });
+            }
+        });
 
         /*
             INCOMING PACKETS
