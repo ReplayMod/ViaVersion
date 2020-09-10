@@ -1,6 +1,7 @@
 package us.myles.ViaVersion.protocols.protocol1_13to1_12_2;
 
 import com.google.common.collect.Sets;
+import com.google.common.primitives.Ints;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import net.md_5.bungee.api.ChatColor;
@@ -24,10 +25,7 @@ import us.myles.ViaVersion.protocols.protocol1_12_1to1_12.ServerboundPackets1_12
 import us.myles.ViaVersion.protocols.protocol1_13to1_12_2.blockconnections.ConnectionData;
 import us.myles.ViaVersion.protocols.protocol1_13to1_12_2.blockconnections.providers.BlockConnectionProvider;
 import us.myles.ViaVersion.protocols.protocol1_13to1_12_2.blockconnections.providers.PacketBlockConnectionProvider;
-import us.myles.ViaVersion.protocols.protocol1_13to1_12_2.data.BlockIdData;
-import us.myles.ViaVersion.protocols.protocol1_13to1_12_2.data.MappingData;
-import us.myles.ViaVersion.protocols.protocol1_13to1_12_2.data.RecipeData;
-import us.myles.ViaVersion.protocols.protocol1_13to1_12_2.data.StatisticMappings;
+import us.myles.ViaVersion.protocols.protocol1_13to1_12_2.data.*;
 import us.myles.ViaVersion.protocols.protocol1_13to1_12_2.metadata.MetadataRewriter1_13To1_12_2;
 import us.myles.ViaVersion.protocols.protocol1_13to1_12_2.packets.EntityPackets;
 import us.myles.ViaVersion.protocols.protocol1_13to1_12_2.packets.InventoryPackets;
@@ -41,9 +39,7 @@ import us.myles.ViaVersion.protocols.protocol1_13to1_12_2.storage.TabCompleteTra
 import us.myles.ViaVersion.protocols.protocol1_9_3to1_9_1_2.storage.ClientWorld;
 import us.myles.ViaVersion.util.GsonUtil;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 public class Protocol1_13To1_12_2 extends Protocol<ClientboundPackets1_12_1, ClientboundPackets1_13, ServerboundPackets1_12_1, ServerboundPackets1_13> {
 
@@ -189,18 +185,22 @@ public class Protocol1_13To1_12_2 extends Protocol<ClientboundPackets1_12_1, Cli
                 handler(new PacketHandler() {
                     @Override
                     public void handle(PacketWrapper wrapper) throws Exception {
-                        int size = wrapper.passthrough(Type.VAR_INT);
+                        int size = wrapper.read(Type.VAR_INT);
+                        List<StatisticData> remappedStats = new ArrayList<>();
                         for (int i = 0; i < size; i++) {
                             String name = wrapper.read(Type.STRING);
                             String[] split = name.split("\\.");
                             int categoryId = 0;
-                            int newId = 0;
+                            int newId = -1;
+                            int value = wrapper.read(Type.VAR_INT);
                             if (split.length == 2) {
                                 // Custom types
                                 categoryId = 8;
-                                Integer newIdRaw = StatisticMappings.statistics.get(name);
+                                Integer newIdRaw = StatisticMappings.CUSTOM_STATS.get(name);
                                 if (newIdRaw != null) {
                                     newId = newIdRaw;
+                                } else {
+                                    Via.getPlatform().getLogger().warning("Could not find 1.13 -> 1.12.2 statistic mapping for " + name);
                                 }
                             } else {
                                 String category = split[1];
@@ -232,10 +232,15 @@ public class Protocol1_13To1_12_2 extends Protocol<ClientboundPackets1_12_1, Cli
                                         break;
                                 }
                             }
+                            if (newId != -1)
+                                remappedStats.add(new StatisticData(categoryId, newId, value));
+                        }
 
-                            wrapper.write(Type.VAR_INT, categoryId); // category id
-                            wrapper.write(Type.VAR_INT, newId); // statistics id
-                            wrapper.passthrough(Type.VAR_INT); // value
+                        wrapper.write(Type.VAR_INT, remappedStats.size()); // size
+                        for (StatisticData stat : remappedStats) {
+                            wrapper.write(Type.VAR_INT, stat.getCategoryId()); // category id
+                            wrapper.write(Type.VAR_INT, stat.getNewId()); // statistics id
+                            wrapper.write(Type.VAR_INT, stat.getValue()); // value
                         }
                     }
                 });
@@ -821,7 +826,17 @@ public class Protocol1_13To1_12_2 extends Protocol<ClientboundPackets1_12_1, Cli
             @Override
             public void registerMap() {
                 map(Type.BYTE); // Window id
-                handler(wrapper -> wrapper.write(Type.VAR_INT, Integer.parseInt(wrapper.read(Type.STRING).substring(18))));
+
+                handler(wrapper -> {
+                    String s = wrapper.read(Type.STRING);
+                    Integer id;
+                    if (s.length() < 19 || (id = Ints.tryParse(s.substring(18))) == null) {
+                        wrapper.cancel();
+                        return;
+                    }
+
+                    wrapper.write(Type.VAR_INT, id);
+                });
             }
         });
 
@@ -836,7 +851,15 @@ public class Protocol1_13To1_12_2 extends Protocol<ClientboundPackets1_12_1, Cli
                         int type = wrapper.get(Type.VAR_INT, 0);
 
                         if (type == 0) {
-                            wrapper.write(Type.INT, Integer.parseInt(wrapper.read(Type.STRING).substring(18)));
+                            String s = wrapper.read(Type.STRING);
+                            Integer id;
+                            // Custom recipes
+                            if (s.length() < 19 || (id = Ints.tryParse(s.substring(18))) == null) {
+                                wrapper.cancel();
+                                return;
+                            }
+
+                            wrapper.write(Type.INT, id);
                         }
                         if (type == 1) {
                             wrapper.passthrough(Type.BOOLEAN); // Crafting Recipe Book Open

@@ -65,7 +65,7 @@ public class ProtocolPipeline extends SimpleProtocol {
             protocolList.removeAll(toMove);
             protocolList.addAll(toMove);
         } else {
-            throw new NullPointerException("Tried to add protocol to early");
+            throw new NullPointerException("Tried to add protocol too early");
         }
     }
 
