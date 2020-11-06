@@ -83,7 +83,7 @@ public class ViaManager {
     public void onServerLoaded() {
         // Load Server Protocol
         try {
-            ProtocolRegistry.SERVER_PROTOCOL = injector.getServerProtocolVersion();
+            ProtocolRegistry.SERVER_PROTOCOL = ProtocolVersion.getProtocol(injector.getServerProtocolVersion()).getVersion();
         } catch (Exception e) {
             platform.getLogger().severe("ViaVersion failed to get the server protocol!");
             e.printStackTrace();
@@ -91,12 +91,15 @@ public class ViaManager {
         // Check if there are any pipes to this version
         if (ProtocolRegistry.SERVER_PROTOCOL != -1) {
             platform.getLogger().info("ViaVersion detected server version: " + ProtocolVersion.getProtocol(ProtocolRegistry.SERVER_PROTOCOL));
-            if (!ProtocolRegistry.isWorkingPipe()) {
+            if (!ProtocolRegistry.isWorkingPipe() && !platform.isProxy()) {
                 platform.getLogger().warning("ViaVersion does not have any compatible versions for this server version!");
                 platform.getLogger().warning("Please remember that ViaVersion only adds support for versions newer than the server version.");
                 platform.getLogger().warning("If you need support for older versions you may need to use one or more ViaVersion addons too.");
                 platform.getLogger().warning("In that case please read the ViaVersion resource page carefully or use https://jo0001.github.io/ViaSetup");
                 platform.getLogger().warning("and if you're still unsure, feel free to join our Discord-Server for further assistance.");
+            } else if (ProtocolRegistry.SERVER_PROTOCOL == ProtocolVersion.v1_8.getVersion() && !platform.isProxy()) {
+                platform.getLogger().warning("This version of Minecraft is over half a decade old and support for it will be fully dropped eventually. "
+                        + "Please upgrade to a newer version to avoid encountering bugs and stability issues that have long been fixed.");
             }
         }
         // Load Listeners / Tasks
@@ -111,12 +114,12 @@ public class ViaManager {
                 mappingLoadingTask = null;
             }
         }, 10L);
-        if (ProtocolRegistry.SERVER_PROTOCOL < ProtocolVersion.v1_9.getId()) {
+        if (ProtocolRegistry.SERVER_PROTOCOL < ProtocolVersion.v1_9.getVersion()) {
             if (Via.getConfig().isSimulatePlayerTick()) {
                 Via.getPlatform().runRepeatingSync(new ViaIdleThread(), 1L);
             }
         }
-        if (ProtocolRegistry.SERVER_PROTOCOL < ProtocolVersion.v1_13.getId()) {
+        if (ProtocolRegistry.SERVER_PROTOCOL < ProtocolVersion.v1_13.getVersion()) {
             if (Via.getConfig().get1_13TabCompleteDelay() > 0) {
                 Via.getPlatform().runRepeatingSync(new TabCompleteThread(), 1L);
             }

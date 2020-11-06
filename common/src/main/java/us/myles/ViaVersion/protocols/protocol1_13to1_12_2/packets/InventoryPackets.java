@@ -9,10 +9,10 @@ import com.github.steveice10.opennbt.tag.builtin.StringTag;
 import com.github.steveice10.opennbt.tag.builtin.Tag;
 import com.google.common.base.Joiner;
 import com.google.common.primitives.Ints;
+import net.md_5.bungee.api.ChatColor;
 import us.myles.ViaVersion.api.PacketWrapper;
 import us.myles.ViaVersion.api.Via;
 import us.myles.ViaVersion.api.minecraft.item.Item;
-import us.myles.ViaVersion.api.protocol.Protocol;
 import us.myles.ViaVersion.api.remapper.PacketHandler;
 import us.myles.ViaVersion.api.remapper.PacketRemapper;
 import us.myles.ViaVersion.api.rewriters.ItemRewriter;
@@ -35,7 +35,7 @@ import java.util.Optional;
 public class InventoryPackets {
     private static final String NBT_TAG_NAME = "ViaVersion|" + Protocol1_13To1_12_2.class.getSimpleName();
 
-    public static void register(Protocol protocol) {
+    public static void register(Protocol1_13To1_12_2 protocol) {
         ItemRewriter itemRewriter = new ItemRewriter(protocol, InventoryPackets::toClient, InventoryPackets::toServer);
 
         protocol.registerOutgoing(ClientboundPackets1_12_1.SET_SLOT, new PacketRemapper() {
@@ -69,7 +69,7 @@ public class InventoryPackets {
                     public void handle(PacketWrapper wrapper) throws Exception {
                         short property = wrapper.get(Type.SHORT, 0);
                         if (property >= 4 && property <= 6) { // Enchantment id
-                            wrapper.set(Type.SHORT, 1, (short) MappingData.enchantmentMappings.getNewId(wrapper.get(Type.SHORT, 1)));
+                            wrapper.set(Type.SHORT, 1, (short) protocol.getMappingData().getEnchantmentMappings().getNewId(wrapper.get(Type.SHORT, 1)));
                         }
                     }
                 });
@@ -304,7 +304,7 @@ public class InventoryPackets {
                 if (display.get("Name") instanceof StringTag) {
                     StringTag name = display.get("Name");
                     display.put(new StringTag(NBT_TAG_NAME + "|Name", name.getValue()));
-                    name.setValue(ChatRewriter.legacyTextToJson(name.getValue()).toString());
+                    name.setValue(ChatRewriter.fromLegacyTextAsString(name.getValue(), ChatColor.WHITE, true));
                 }
             }
             // ench is now Enchantments and now uses identifiers
@@ -315,7 +315,7 @@ public class InventoryPackets {
                     if (enchEntry instanceof CompoundTag) {
                         CompoundTag enchantmentEntry = new CompoundTag("");
                         short oldId = ((Number) ((CompoundTag) enchEntry).get("id").getValue()).shortValue();
-                        String newId = MappingData.oldEnchantmentsIds.get(oldId);
+                        String newId = Protocol1_13To1_12_2.MAPPINGS.getOldEnchantmentsIds().get(oldId);
                         if (newId == null) {
                             newId = "viaversion:legacy/" + oldId;
                         }
@@ -334,7 +334,7 @@ public class InventoryPackets {
                     if (enchEntry instanceof CompoundTag) {
                         CompoundTag enchantmentEntry = new CompoundTag("");
                         short oldId = ((Number) ((CompoundTag) enchEntry).get("id").getValue()).shortValue();
-                        String newId = MappingData.oldEnchantmentsIds.get(oldId);
+                        String newId = Protocol1_13To1_12_2.MAPPINGS.getOldEnchantmentsIds().get(oldId);
                         if (newId == null) {
                             newId = "viaversion:legacy/" + oldId;
                         }
@@ -420,14 +420,14 @@ public class InventoryPackets {
             }
         }
 
-        if (!MappingData.oldToNewItems.containsKey(rawId)) {
+        if (!Protocol1_13To1_12_2.MAPPINGS.getItemMappings().containsKey(rawId)) {
             if (!isDamageable(item.getIdentifier()) && item.getIdentifier() != 358) { // Map
                 if (tag == null) item.setTag(tag = new CompoundTag("tag"));
                 tag.put(new IntTag(NBT_TAG_NAME, originalId)); // Data will be lost, saving original id
             }
             if (item.getIdentifier() == 31 && item.getData() == 0) { // Shrub was removed
                 rawId = 32 << 4; // Dead Bush
-            } else if (MappingData.oldToNewItems.containsKey(rawId & ~0xF)) {
+            } else if (Protocol1_13To1_12_2.MAPPINGS.getItemMappings().containsKey(rawId & ~0xF)) {
                 rawId &= ~0xF; // Remove data
             } else {
                 if (!Via.getConfig().isSuppressConversionWarnings() || Via.getManager().isDebug()) {
@@ -437,7 +437,7 @@ public class InventoryPackets {
             }
         }
 
-        item.setIdentifier(MappingData.oldToNewItems.get(rawId));
+        item.setIdentifier(Protocol1_13To1_12_2.MAPPINGS.getItemMappings().get(rawId));
         item.setData((short) 0);
     }
 
@@ -463,7 +463,7 @@ public class InventoryPackets {
             case "bungeecord:main":
                 return null;
             default:
-                String mappedChannel = MappingData.channelMappings.get(old);
+                String mappedChannel = Protocol1_13To1_12_2.MAPPINGS.getChannelMappings().get(old);
                 if (mappedChannel != null) return mappedChannel;
                 return MappingData.isValid1_13Channel(old) ? old : null;
         }
@@ -489,7 +489,7 @@ public class InventoryPackets {
         }
 
         if (rawId == null) {
-            int oldId = MappingData.oldToNewItems.inverse().get(item.getIdentifier());
+            int oldId = Protocol1_13To1_12_2.MAPPINGS.getItemMappings().inverse().get(item.getIdentifier());
             if (oldId != -1) {
                 // Handle spawn eggs
                 Optional<String> eggEntityId = SpawnEggRewriter.getEntityId(oldId);
@@ -522,16 +522,18 @@ public class InventoryPackets {
         if (tag != null) {
             if (isDamageable(item.getIdentifier())) {
                 if (tag.get("Damage") instanceof IntTag) {
-                    if (!gotRawIdFromTag)
+                    if (!gotRawIdFromTag) {
                         item.setData((short) (int) tag.get("Damage").getValue());
+                    }
                     tag.remove("Damage");
                 }
             }
 
             if (item.getIdentifier() == 358) { // map
                 if (tag.get("map") instanceof IntTag) {
-                    if (!gotRawIdFromTag)
+                    if (!gotRawIdFromTag) {
                         item.setData((short) (int) tag.get("map").getValue());
+                    }
                     tag.remove("map");
                 }
             }
@@ -556,15 +558,10 @@ public class InventoryPackets {
             // Display Name now uses JSON
             if (tag.get("display") instanceof CompoundTag) {
                 CompoundTag display = tag.get("display");
-                if (((CompoundTag) tag.get("display")).get("Name") instanceof StringTag) {
+                if (display.get("Name") instanceof StringTag) {
                     StringTag name = display.get("Name");
-                    StringTag via = display.get(NBT_TAG_NAME + "|Name");
-                    name.setValue(
-                            via != null ? via.getValue() : ChatRewriter.jsonTextToLegacy(
-                                    name.getValue()
-                            )
-                    );
-                    display.remove(NBT_TAG_NAME + "|Name");
+                    StringTag via = display.remove(NBT_TAG_NAME + "|Name");
+                    name.setValue(via != null ? via.getValue() : ChatRewriter.jsonTextToLegacy(name.getValue()));
                 }
             }
 
@@ -576,17 +573,12 @@ public class InventoryPackets {
                     if (enchantmentEntry instanceof CompoundTag) {
                         CompoundTag enchEntry = new CompoundTag("");
                         String newId = (String) ((CompoundTag) enchantmentEntry).get("id").getValue();
-                        Short oldId = MappingData.oldEnchantmentsIds.inverse().get(newId);
+                        Short oldId = Protocol1_13To1_12_2.MAPPINGS.getOldEnchantmentsIds().inverse().get(newId);
                         if (oldId == null && newId.startsWith("viaversion:legacy/")) {
                             oldId = Short.valueOf(newId.substring(18));
                         }
                         if (oldId != null) {
-                            enchEntry.put(
-                                    new ShortTag(
-                                            "id",
-                                            oldId
-                                    )
-                            );
+                            enchEntry.put(new ShortTag("id", oldId));
                             enchEntry.put(new ShortTag("lvl", (Short) ((CompoundTag) enchantmentEntry).get("lvl").getValue()));
                             ench.add(enchEntry);
                         }
@@ -602,17 +594,12 @@ public class InventoryPackets {
                     if (enchantmentEntry instanceof CompoundTag) {
                         CompoundTag enchEntry = new CompoundTag("");
                         String newId = (String) ((CompoundTag) enchantmentEntry).get("id").getValue();
-                        Short oldId = MappingData.oldEnchantmentsIds.inverse().get(newId);
+                        Short oldId = Protocol1_13To1_12_2.MAPPINGS.getOldEnchantmentsIds().inverse().get(newId);
                         if (oldId == null && newId.startsWith("viaversion:legacy/")) {
                             oldId = Short.valueOf(newId.substring(18));
                         }
                         if (oldId != null) {
-                            enchEntry.put(
-                                    new ShortTag(
-                                            "id",
-                                            oldId
-                                    )
-                            );
+                            enchEntry.put(new ShortTag("id", oldId));
                             enchEntry.put(new ShortTag("lvl", (Short) ((CompoundTag) enchantmentEntry).get("lvl").getValue()));
                             newStoredEnch.add(enchEntry);
                         }
@@ -695,7 +682,7 @@ public class InventoryPackets {
             case "bungeecord:main":
                 return "BungeeCord";
             default:
-                String mappedChannel = MappingData.channelMappings.inverse().get(newId);
+                String mappedChannel = Protocol1_13To1_12_2.MAPPINGS.getChannelMappings().inverse().get(newId);
                 if (mappedChannel != null) return mappedChannel;
                 return newId.length() > 20 ? newId.substring(0, 20) : newId;
         }

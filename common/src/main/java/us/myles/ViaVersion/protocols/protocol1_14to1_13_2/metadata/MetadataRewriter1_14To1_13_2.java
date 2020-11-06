@@ -38,7 +38,7 @@ public class MetadataRewriter1_14To1_13_2 extends MetadataRewriter {
         } else if (metadata.getMetaType() == MetaType1_14.BlockID) {
             // Convert to new block id
             int data = (int) metadata.getValue();
-            metadata.setValue(Protocol1_14To1_13_2.getNewBlockStateId(data));
+            metadata.setValue(protocol.getMappingData().getNewBlockStateId(data));
         }
 
         if (type == null) return;
@@ -95,7 +95,7 @@ public class MetadataRewriter1_14To1_13_2 extends MetadataRewriter {
             if (metadata.getId() == 10) {
                 // New block format
                 int data = (int) metadata.getValue();
-                metadata.setValue(Protocol1_14To1_13_2.getNewBlockStateId(data));
+                metadata.setValue(protocol.getMappingData().getNewBlockStateId(data));
             }
         } else if (type.is(Entity1_14Types.EntityType.HORSE)) {
             if (metadata.getId() == 18) {
@@ -104,11 +104,11 @@ public class MetadataRewriter1_14To1_13_2 extends MetadataRewriter {
                 int armorType = (int) metadata.getValue();
                 Item armorItem = null;
                 if (armorType == 1) {  //iron armor
-                    armorItem = new Item(InventoryPackets.getNewItemId(727), (byte) 1, (short) 0, null);
+                    armorItem = new Item(protocol.getMappingData().getNewItemId(727), (byte) 1, (short) 0, null);
                 } else if (armorType == 2) {  //gold armor
-                    armorItem = new Item(InventoryPackets.getNewItemId(728), (byte) 1, (short) 0, null);
+                    armorItem = new Item(protocol.getMappingData().getNewItemId(728), (byte) 1, (short) 0, null);
                 } else if (armorType == 3) {  //diamond armor
-                    armorItem = new Item(InventoryPackets.getNewItemId(729), (byte) 1, (short) 0, null);
+                    armorItem = new Item(protocol.getMappingData().getNewItemId(729), (byte) 1, (short) 0, null);
                 }
 
                 PacketWrapper equipmentPacket = new PacketWrapper(0x46, null, connection);
@@ -148,8 +148,7 @@ public class MetadataRewriter1_14To1_13_2 extends MetadataRewriter {
             }
         } else if (type.is(Entity1_14Types.EntityType.AREA_EFFECT_CLOUD)) {
             if (metadata.getId() == 10) {
-                Particle particle = (Particle) metadata.getValue();
-                particle.setId(getNewParticleId(particle.getId()));
+                rewriteParticle((Particle) metadata.getValue());
             }
         }
 
@@ -223,24 +222,5 @@ public class MetadataRewriter1_14To1_13_2 extends MetadataRewriter {
             pose = 5;
         }
         return pose;
-    }
-
-    public static int getNewParticleId(int id) {
-        if (id >= 10) {
-            id += 2; // new lava drips 10, 11
-        }
-        if (id >= 13) {
-            id += 1; // new water drip 11 -> 13
-        }
-        if (id >= 27) {
-            id += 1; // new 24 -> 27
-        }
-        if (id >= 29) {
-            id += 1; // skip new short happy villager
-        }
-        if (id >= 44) {
-            id += 1; // new 39 -> 44
-        }
-        return id;
     }
 }

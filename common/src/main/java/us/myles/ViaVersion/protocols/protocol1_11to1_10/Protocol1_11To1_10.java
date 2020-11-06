@@ -13,6 +13,7 @@ import us.myles.ViaVersion.api.remapper.PacketHandler;
 import us.myles.ViaVersion.api.remapper.PacketRemapper;
 import us.myles.ViaVersion.api.remapper.ValueCreator;
 import us.myles.ViaVersion.api.remapper.ValueTransformer;
+import us.myles.ViaVersion.api.rewriters.MetadataRewriter;
 import us.myles.ViaVersion.api.rewriters.SoundRewriter;
 import us.myles.ViaVersion.api.type.Type;
 import us.myles.ViaVersion.api.type.types.version.Types1_9;
@@ -39,7 +40,7 @@ public class Protocol1_11To1_10 extends Protocol<ClientboundPackets1_9_3, Client
 
     @Override
     protected void registerPackets() {
-        MetadataRewriter1_11To1_10 metadataRewriter = new MetadataRewriter1_11To1_10(this);
+        MetadataRewriter metadataRewriter = new MetadataRewriter1_11To1_10(this);
 
         InventoryPackets.register(this);
 
@@ -336,7 +337,7 @@ public class Protocol1_11To1_10 extends Protocol<ClientboundPackets1_9_3, Client
             id += 1;
         if (id >= 197) // evocation things
             id += 8;
-        if (id >= 196) // Rip the Experience orb touch sound :'(
+        if (id >= 207) // Rip the Experience orb touch sound :'(
             id -= 1;
         if (id >= 279) // Liama's
             id += 9;

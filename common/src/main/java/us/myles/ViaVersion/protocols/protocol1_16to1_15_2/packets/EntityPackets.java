@@ -17,7 +17,6 @@ import us.myles.ViaVersion.protocols.protocol1_15to1_14_4.ClientboundPackets1_15
 import us.myles.ViaVersion.protocols.protocol1_16to1_15_2.ClientboundPackets1_16;
 import us.myles.ViaVersion.protocols.protocol1_16to1_15_2.Protocol1_16To1_15_2;
 import us.myles.ViaVersion.protocols.protocol1_16to1_15_2.ServerboundPackets1_16;
-import us.myles.ViaVersion.protocols.protocol1_16to1_15_2.data.MappingData;
 import us.myles.ViaVersion.protocols.protocol1_16to1_15_2.metadata.MetadataRewriter1_16To1_15_2;
 import us.myles.ViaVersion.protocols.protocol1_16to1_15_2.storage.EntityTracker1_16;
 import us.myles.ViaVersion.protocols.protocol1_16to1_15_2.storage.InventoryTracker1_16;
@@ -156,7 +155,7 @@ public class EntityPackets {
             }
         });
 
-        metadataRewriter.registerSpawnTrackerWithData(ClientboundPackets1_15.SPAWN_ENTITY, Entity1_16Types.EntityType.FALLING_BLOCK, Protocol1_16To1_15_2::getNewBlockStateId);
+        metadataRewriter.registerSpawnTrackerWithData(ClientboundPackets1_15.SPAWN_ENTITY, Entity1_16Types.EntityType.FALLING_BLOCK);
         metadataRewriter.registerTracker(ClientboundPackets1_15.SPAWN_MOB);
         metadataRewriter.registerTracker(ClientboundPackets1_15.SPAWN_PLAYER, Entity1_16Types.EntityType.PLAYER);
         metadataRewriter.registerMetadataRewriter(ClientboundPackets1_15.ENTITY_METADATA, Types1_14.METADATA_LIST);
@@ -212,14 +211,18 @@ public class EntityPackets {
                 handler(wrapper -> {
                     wrapper.passthrough(Type.VAR_INT);
                     int size = wrapper.passthrough(Type.INT);
+                    int actualSize = size;
                     for (int i = 0; i < size; i++) {
                         // Attributes have been renamed and are now namespaced identifiers
                         String key = wrapper.read(Type.STRING);
-                        String attributeIdentifier = MappingData.attributeMappings.get(key);
+                        String attributeIdentifier = protocol.getMappingData().getAttributeMappings().get(key);
                         if (attributeIdentifier == null) {
                             attributeIdentifier = "minecraft:" + key;
                             if (!us.myles.ViaVersion.protocols.protocol1_13to1_12_2.data.MappingData.isValid1_13Channel(attributeIdentifier)) {
-                                Via.getPlatform().getLogger().warning("Invalid attribute: " + key);
+                                if (!Via.getConfig().isSuppressConversionWarnings()) {
+                                    Via.getPlatform().getLogger().warning("Invalid attribute: " + key);
+                                }
+                                actualSize--;
                                 wrapper.read(Type.DOUBLE);
                                 int modifierSize = wrapper.read(Type.VAR_INT);
                                 for (int j = 0; j < modifierSize; j++) {
@@ -240,6 +243,9 @@ public class EntityPackets {
                             wrapper.passthrough(Type.DOUBLE);
                             wrapper.passthrough(Type.BYTE);
                         }
+                    }
+                    if (size != actualSize) {
+                        wrapper.set(Type.INT, 0, actualSize);
                     }
                 });
             }

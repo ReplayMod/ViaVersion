@@ -37,10 +37,10 @@ public class ProtocolDetectorService implements Runnable {
         }
         // Step 4: Use bungee lowest supported... *cries*
         try {
-            return Via.getManager().getInjector().getServerProtocolVersion();
+            return ProtocolVersion.getProtocol(Via.getManager().getInjector().getServerProtocolVersion()).getVersion();
         } catch (Exception e) {
             e.printStackTrace();
-            return ProtocolVersion.v1_8.getId();
+            return ProtocolVersion.v1_8.getVersion();
         }
     }
 

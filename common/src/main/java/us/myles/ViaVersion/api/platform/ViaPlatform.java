@@ -1,10 +1,13 @@
 package us.myles.ViaVersion.api.platform;
 
 import com.google.gson.JsonObject;
+import us.myles.ViaVersion.api.Via;
 import us.myles.ViaVersion.api.ViaAPI;
 import us.myles.ViaVersion.api.ViaVersionConfig;
 import us.myles.ViaVersion.api.command.ViaCommandSender;
 import us.myles.ViaVersion.api.configuration.ConfigurationProvider;
+import us.myles.ViaVersion.api.data.UserConnection;
+import us.myles.ViaVersion.protocols.base.ProtocolInfo;
 
 import java.io.File;
 import java.util.UUID;
@@ -16,6 +19,7 @@ import java.util.logging.Logger;
  * @param <T> - The player type for the platform, used for API related methods
  */
 public interface ViaPlatform<T> {
+
     /**
      * Get the logger for this platform
      *
@@ -33,9 +37,18 @@ public interface ViaPlatform<T> {
     /**
      * Get the platform version
      *
-     * @return Platforn version
+     * @return Platform version
      */
     String getPlatformVersion();
+
+    /**
+     * Returns true if the server Via is running on is a proxy server.
+     *
+     * @return true if the platform is a proxy
+     */
+    default boolean isProxy() {
+        return false;
+    }
 
     /**
      * Get the plugin version
@@ -110,6 +123,20 @@ public interface ViaPlatform<T> {
      * @return True if it was successful
      */
     boolean kickPlayer(UUID uuid, String message);
+
+    /**
+     * Disconnects an UserConnection for a reason
+     *
+     * @param connection    The UserConnection
+     * @param message The message to kick them with
+     * @return True if it was successful
+     */
+    default boolean disconnect(UserConnection connection, String message) {
+        if (connection.isClientSide()) return false;
+        UUID uuid = connection.get(ProtocolInfo.class).getUuid();
+        if (uuid == null) return false;
+        return kickPlayer(uuid, message);
+    }
 
     /**
      * Check if the plugin is enabled.

@@ -40,7 +40,7 @@ public class BungeePlugin extends Plugin implements ViaPlatform<ProxiedPlayer>, 
     @Override
     public void onLoad() {
         try {
-            ProtocolConstants.class.getField("MINECRAFT_1_15_2");
+            ProtocolConstants.class.getField("MINECRAFT_1_16_3");
         } catch (NoSuchFieldException e) {
             getLogger().warning("      / \\");
             getLogger().warning("     /   \\");
@@ -83,6 +83,11 @@ public class BungeePlugin extends Plugin implements ViaPlatform<ProxiedPlayer>, 
     @Override
     public String getPlatformVersion() {
         return getProxy().getVersion();
+    }
+
+    @Override
+    public boolean isProxy() {
+        return true;
     }
 
     @Override
@@ -136,8 +141,9 @@ public class BungeePlugin extends Plugin implements ViaPlatform<ProxiedPlayer>, 
 
     @Override
     public boolean kickPlayer(UUID uuid, String message) {
-        if (getProxy().getPlayer(uuid) != null) {
-            getProxy().getPlayer(uuid).disconnect(message);
+        ProxiedPlayer player = getProxy().getPlayer(uuid);
+        if (player != null) {
+            player.disconnect(message);
             return true;
         }
         return false;

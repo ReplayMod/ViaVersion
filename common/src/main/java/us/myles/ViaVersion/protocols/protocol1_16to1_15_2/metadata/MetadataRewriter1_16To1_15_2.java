@@ -11,7 +11,6 @@ import us.myles.ViaVersion.api.rewriters.MetadataRewriter;
 import us.myles.ViaVersion.api.type.types.Particle;
 import us.myles.ViaVersion.protocols.protocol1_16to1_15_2.Protocol1_16To1_15_2;
 import us.myles.ViaVersion.protocols.protocol1_16to1_15_2.packets.InventoryPackets;
-import us.myles.ViaVersion.protocols.protocol1_16to1_15_2.packets.WorldPackets;
 import us.myles.ViaVersion.protocols.protocol1_16to1_15_2.storage.EntityTracker1_16;
 
 import java.util.List;
@@ -30,15 +29,14 @@ public class MetadataRewriter1_16To1_15_2 extends MetadataRewriter {
             InventoryPackets.toClient((Item) metadata.getValue());
         } else if (metadata.getMetaType() == MetaType1_14.BlockID) {
             int data = (int) metadata.getValue();
-            metadata.setValue(Protocol1_16To1_15_2.getNewBlockStateId(data));
+            metadata.setValue(protocol.getMappingData().getNewBlockStateId(data));
         }
 
         if (type == null) return;
 
         if (type == Entity1_16Types.EntityType.AREA_EFFECT_CLOUD) {
             if (metadata.getId() == 10) {
-                Particle particle = (Particle) metadata.getValue();
-                particle.setId(WorldPackets.getNewParticleId(particle.getId()));
+                rewriteParticle((Particle) metadata.getValue());
             }
         } else if (type.isOrHasParent(Entity1_16Types.EntityType.ABSTRACT_ARROW)) {
             if (metadata.getId() == 8) {

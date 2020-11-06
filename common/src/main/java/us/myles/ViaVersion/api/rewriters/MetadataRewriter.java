@@ -4,6 +4,7 @@ import it.unimi.dsi.fastutil.ints.Int2IntMap;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import org.jetbrains.annotations.Nullable;
 import us.myles.ViaVersion.api.Via;
+import us.myles.ViaVersion.api.data.ParticleMappings;
 import us.myles.ViaVersion.api.data.UserConnection;
 import us.myles.ViaVersion.api.entities.EntityType;
 import us.myles.ViaVersion.api.minecraft.metadata.Metadata;
@@ -13,6 +14,7 @@ import us.myles.ViaVersion.api.remapper.PacketHandler;
 import us.myles.ViaVersion.api.remapper.PacketRemapper;
 import us.myles.ViaVersion.api.storage.EntityTracker;
 import us.myles.ViaVersion.api.type.Type;
+import us.myles.ViaVersion.api.type.types.Particle;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,7 +22,7 @@ import java.util.logging.Logger;
 
 public abstract class MetadataRewriter {
     private final Class<? extends EntityTracker> entityTrackerClass;
-    private final Protocol protocol;
+    protected final Protocol protocol;
     private Int2IntMap typeMapping;
 
     protected MetadataRewriter(Protocol protocol, Class<? extends EntityTracker> entityTrackerClass) {
@@ -50,6 +52,20 @@ public abstract class MetadataRewriter {
         }
     }
 
+    protected void rewriteParticle(Particle particle) {
+        ParticleMappings mappings = protocol.getMappingData().getParticleMappings();
+        int id = particle.getId();
+        if (id == mappings.getBlockId() || id == mappings.getFallingDustId()) {
+            Particle.ParticleData data = particle.getArguments().get(0);
+            data.setValue(protocol.getMappingData().getNewBlockStateId(data.get()));
+        } else if (id == mappings.getItemId()) {
+            Particle.ParticleData data = particle.getArguments().get(0);
+            data.setValue(protocol.getMappingData().getNewItemId(data.get()));
+        }
+
+        particle.setId(protocol.getMappingData().getNewParticleId(id));
+    }
+
     //TODO add respawn/join once they stop changing too much
 
     public void registerTracker(ClientboundPacketType packetType) {
@@ -64,7 +80,7 @@ public abstract class MetadataRewriter {
         });
     }
 
-    public void registerSpawnTrackerWithData(ClientboundPacketType packetType, EntityType fallingBlockType, IdRewriteFunction itemRewriter) {
+    public void registerSpawnTrackerWithData(ClientboundPacketType packetType, EntityType fallingBlockType) {
         protocol.registerOutgoing(packetType, new PacketRemapper() {
             @Override
             public void registerMap() {
@@ -82,7 +98,7 @@ public abstract class MetadataRewriter {
                     int entityId = wrapper.get(Type.VAR_INT, 0);
                     EntityType entityType = wrapper.user().get(entityTrackerClass).getEntity(entityId);
                     if (entityType == fallingBlockType) {
-                        wrapper.set(Type.INT, 0, itemRewriter.rewrite(wrapper.get(Type.INT, 0)));
+                        wrapper.set(Type.INT, 0, protocol.getMappingData().getNewBlockStateId(wrapper.get(Type.INT, 0)));
                     }
                 });
             }

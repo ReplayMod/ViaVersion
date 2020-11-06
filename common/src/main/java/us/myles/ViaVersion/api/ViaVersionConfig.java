@@ -1,6 +1,6 @@
 package us.myles.ViaVersion.api;
 
-import java.util.Set;
+import it.unimi.dsi.fastutil.ints.IntSet;
 
 public interface ViaVersionConfig {
 
@@ -10,6 +10,14 @@ public interface ViaVersionConfig {
      * @return true if update checking is enabled
      */
     boolean isCheckForUpdates();
+
+    /**
+     * Sets whether to check for updates. This updates the internally cached value
+     * as well as the config, but does not save the config to disk.
+     *
+     * @param checkForUpdates true to check for updates on server start and joins
+     */
+    void setCheckForUpdates(boolean checkForUpdates);
 
     /**
      * Get if collision preventing for players is enabled
@@ -213,7 +221,7 @@ public interface ViaVersionConfig {
      *
      * @return An Integer list
      */
-    Set<Integer> getBlockedProtocols();
+    IntSet getBlockedProtocols();
 
     /**
      * Get the custom disconnect message

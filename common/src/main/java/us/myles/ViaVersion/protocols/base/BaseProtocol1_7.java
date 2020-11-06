@@ -11,6 +11,7 @@ import us.myles.ViaVersion.api.Pair;
 import us.myles.ViaVersion.api.Via;
 import us.myles.ViaVersion.api.protocol.Protocol;
 import us.myles.ViaVersion.api.protocol.ProtocolRegistry;
+import us.myles.ViaVersion.api.protocol.ProtocolVersion;
 import us.myles.ViaVersion.api.protocol.SimpleProtocol;
 import us.myles.ViaVersion.api.remapper.PacketHandler;
 import us.myles.ViaVersion.api.remapper.PacketRemapper;
@@ -51,26 +52,30 @@ public class BaseProtocol1_7 extends SimpleProtocol {
                                         protocolVersion = ((Long) version.get("protocol").getAsLong()).intValue();
                                     }
                                 } else {
-                                    version = new JsonObject();
-                                    json.getAsJsonObject().add("version", version);
+                                    json.getAsJsonObject().add("version", version = new JsonObject());
                                 }
                             } else {
                                 // Format properly
                                 json = new JsonObject();
-                                version = new JsonObject();
-                                json.getAsJsonObject().add("version", version);
+                                json.getAsJsonObject().add("version", version = new JsonObject());
                             }
-                            if (Via.getConfig().isSendSupportedVersions()) //Send supported versions
-                                version.add("supportedVersions", GsonUtil.getGson().toJsonTree(Via.getAPI().getSupportedVersions()));
 
-                            if (ProtocolRegistry.SERVER_PROTOCOL == -1) // Set the Server protocol if the detection on startup failed
-                                ProtocolRegistry.SERVER_PROTOCOL = protocolVersion;
+                            if (Via.getConfig().isSendSupportedVersions()) { // Send supported versions
+                                version.add("supportedVersions", GsonUtil.getGson().toJsonTree(Via.getAPI().getSupportedVersions()));
+                            }
+
+                            if (ProtocolRegistry.SERVER_PROTOCOL == -1) { // Set the Server protocol if the detection on startup failed
+                                ProtocolRegistry.SERVER_PROTOCOL = ProtocolVersion.getProtocol(protocolVersion).getVersion();
+                            }
+
                             // Ensure the server has a version provider
-                            if (Via.getManager().getProviders().get(VersionProvider.class) == null) {
+                            VersionProvider versionProvider = Via.getManager().getProviders().get(VersionProvider.class);
+                            if (versionProvider == null) {
                                 wrapper.user().setActive(false);
                                 return;
                             }
-                            int protocol = Via.getManager().getProviders().get(VersionProvider.class).getServerProtocol(wrapper.user());
+
+                            int protocol = versionProvider.getServerProtocol(wrapper.user());
                             List<Pair<Integer, Protocol>> protocols = null;
 
                             // Only allow newer clients or (1.9.2 on 1.9.4 server if the server supports it)
@@ -79,17 +84,18 @@ public class BaseProtocol1_7 extends SimpleProtocol {
                             }
 
                             if (protocols != null) {
-                                if (protocolVersion == protocol || protocolVersion == 0) {
-                                    //Fix ServerListPlus
-                                    version.addProperty("protocol", info.getProtocolVersion());
+                                if (protocolVersion == protocol || protocolVersion == 0) { // Fix ServerListPlus
+                                    ProtocolVersion prot = ProtocolVersion.getProtocol(info.getProtocolVersion());
+                                    version.addProperty("protocol", prot.getOriginalVersion());
                                 }
                             } else {
                                 // not compatible :(, *plays very sad violin*
                                 wrapper.user().setActive(false);
                             }
 
-                            if (Via.getConfig().getBlockedProtocols().contains(info.getProtocolVersion()))
+                            if (Via.getConfig().getBlockedProtocols().contains(info.getProtocolVersion())) {
                                 version.addProperty("protocol", -1); // Show blocked versions as outdated
+                            }
 
                             wrapper.set(Type.STRING, 0, GsonUtil.getGson().toJson(json)); // Update value
                         } catch (JsonParseException e) {
@@ -159,6 +165,7 @@ public class BaseProtocol1_7 extends SimpleProtocol {
                         int protocol = wrapper.user().getProtocolInfo().getProtocolVersion();
                         if (Via.getConfig().getBlockedProtocols().contains(protocol)) {
                             if (!wrapper.user().getChannel().isOpen()) return;
+                            if (!wrapper.user().shouldApplyBlockProtocol()) return;
 
                             PacketWrapper disconnectPacket = new PacketWrapper(0x00, null, wrapper.user()); // Disconnect Packet
                             Protocol1_9To1_8.FIX_JSON.write(disconnectPacket, ChatColor.translateAlternateColorCodes('&', Via.getConfig().getBlockedDisconnectMsg()));
