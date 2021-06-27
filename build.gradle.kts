@@ -12,6 +12,7 @@ allprojects {
 }
 
 val platforms = setOf(
+    projects.viaversionCommon,
     projects.viaversionBukkit,
     projects.viaversionBungee,
     projects.viaversionFabric,
