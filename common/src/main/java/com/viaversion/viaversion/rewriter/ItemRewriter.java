@@ -30,7 +30,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 
 public abstract class ItemRewriter<T extends Protocol> extends RewriterBase<T> implements com.viaversion.viaversion.api.rewriter.ItemRewriter<T> {
 
-    public ItemRewriter(T protocol) {
+    protected ItemRewriter(T protocol) {
         super(protocol);
     }
 
@@ -70,7 +70,7 @@ public abstract class ItemRewriter<T extends Protocol> extends RewriterBase<T> i
         protocol.registerClientbound(packetType, new PacketRemapper() {
             @Override
             public void registerMap() {
-                map(Type.BYTE); // 0 - Window ID
+                map(Type.UNSIGNED_BYTE); // 0 - Window ID
                 map(Type.SHORT); // 1 - Slot ID
                 map(type); // 2 - Slot Value
 

@@ -20,15 +20,22 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package com.viaversion.viaversion.api.type.types.version;
+package com.viaversion.viaversion.api.minecraft;
 
-import com.viaversion.viaversion.api.minecraft.metadata.Metadata;
-import com.viaversion.viaversion.api.type.Type;
-import com.viaversion.viaversion.api.type.types.minecraft.ModernMetaListType;
+public final class TagData {
+    private final String identifier;
+    private final int[] entries;
 
-public class MetadataList1_12Type extends ModernMetaListType {
-    @Override
-    protected Type<Metadata> getType() {
-        return Types1_12.METADATA;
+    public TagData(String identifier, int[] entries) {
+        this.identifier = identifier;
+        this.entries = entries;
+    }
+
+    public String identifier() {
+        return identifier;
+    }
+
+    public int[] entries() {
+        return entries;
     }
 }

@@ -20,15 +20,45 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package com.viaversion.viaversion.api.type.types.version;
+package com.viaversion.viaversion.api.minecraft;
 
-import com.viaversion.viaversion.api.minecraft.metadata.Metadata;
-import com.viaversion.viaversion.api.type.Type;
-import com.viaversion.viaversion.api.type.types.minecraft.ModernMetaListType;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
-public class MetadataList1_13_2Type extends ModernMetaListType {
-    @Override
-    protected Type<Metadata> getType() {
-        return Types1_13_2.METADATA;
+import java.util.HashMap;
+import java.util.Map;
+
+public enum RegistryType {
+
+    BLOCK("block"),
+    ITEM("item"),
+    FLUID("fluid"),
+    ENTITY("entity_type"),
+    GAME_EVENT("game_event");
+
+    private static final Map<String, RegistryType> MAP = new HashMap<>();
+    private static final RegistryType[] VALUES = values();
+
+    static {
+        for (RegistryType type : getValues()) {
+            MAP.put(type.resourceLocation, type);
+        }
+    }
+
+    public static RegistryType[] getValues() {
+        return VALUES;
+    }
+
+    public static @Nullable RegistryType getByKey(String resourceKey) {
+        return MAP.get(resourceKey);
+    }
+
+    private final String resourceLocation;
+
+    RegistryType(final String resourceLocation) {
+        this.resourceLocation = resourceLocation;
+    }
+
+    public String getResourceLocation() {
+        return resourceLocation;
     }
 }

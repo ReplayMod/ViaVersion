@@ -39,11 +39,11 @@ import com.viaversion.viaversion.util.GsonUtil;
 import com.viaversion.viaversion.util.VersionInfo;
 import com.viaversion.viaversion.velocity.command.VelocityCommandHandler;
 import com.viaversion.viaversion.velocity.command.VelocityCommandSender;
-import com.viaversion.viaversion.velocity.platform.VelocityViaTask;
 import com.viaversion.viaversion.velocity.platform.VelocityViaAPI;
 import com.viaversion.viaversion.velocity.platform.VelocityViaConfig;
 import com.viaversion.viaversion.velocity.platform.VelocityViaInjector;
 import com.viaversion.viaversion.velocity.platform.VelocityViaLoader;
+import com.viaversion.viaversion.velocity.platform.VelocityViaTask;
 import com.viaversion.viaversion.velocity.service.ProtocolDetectorService;
 import com.viaversion.viaversion.velocity.util.LoggerWrapper;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
@@ -82,6 +82,18 @@ public class VelocityPlugin implements ViaPlatform<Player> {
 
     @Subscribe
     public void onProxyInit(ProxyInitializeEvent e) {
+        if (!hasConnectionEvent()) {
+            // No way to disable the plugin :(
+            Logger logger = this.loggerslf4j;
+            logger.error("      / \\");
+            logger.error("     /   \\");
+            logger.error("    /  |  \\");
+            logger.error("   /   |   \\        VELOCITY 3.0.0 IS REQUIRED");
+            logger.error("  /         \\   VIAVERSION WILL NOT WORK AS INTENDED");
+            logger.error(" /     o     \\");
+            logger.error("/_____________\\");
+        }
+
         PROXY = proxy;
         VelocityCommandHandler commandHandler = new VelocityCommandHandler();
         PROXY.getCommandManager().register("viaver", commandHandler, "vvvelocity", "viaversion");
@@ -230,5 +242,14 @@ public class VelocityPlugin implements ViaPlatform<Player> {
     @Override
     public java.util.logging.Logger getLogger() {
         return logger;
+    }
+
+    private boolean hasConnectionEvent() {
+        try {
+            Class.forName("com.velocitypowered.proxy.protocol.VelocityConnectionEvent");
+            return true;
+        } catch (ClassNotFoundException ignored) {
+            return false;
+        }
     }
 }

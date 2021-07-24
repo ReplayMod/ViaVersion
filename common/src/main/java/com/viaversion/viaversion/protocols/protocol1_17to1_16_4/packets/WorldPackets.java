@@ -42,7 +42,7 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.List;
 
-public class WorldPackets {
+public final class WorldPackets {
 
     public static void register(Protocol1_17To1_16_4 protocol) {
         BlockRewriter blockRewriter = new BlockRewriter(protocol, Type.POSITION1_14);
@@ -109,7 +109,7 @@ public class WorldPackets {
 
             private void writeLightArrays(PacketWrapper wrapper, int bitMask) throws Exception {
                 List<byte[]> light = new ArrayList<>();
-                for (int i = 0; i <= 17; i++) {
+                for (int i = 0; i < 18; i++) {
                     if (isSet(bitMask, i)) {
                         light.add(wrapper.read(Type.BYTE_ARRAY_PRIMITIVE));
                     }
