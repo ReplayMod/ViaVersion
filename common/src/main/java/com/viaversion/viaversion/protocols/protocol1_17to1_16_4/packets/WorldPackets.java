@@ -123,6 +123,12 @@ public final class WorldPackets {
             }
 
             private long[] toBitSetLongArray(int bitmask) {
+                // There appear to be some broken server implementations which write the lower 31 bits as they should be
+                // but then have the 32nd bit set (i.e. the whole number is negative).
+                // Pre-1.18 only ever reads the first 18 bits, so this issue does not affect vanilla. Post-1.18 does
+                // take the masks at face value though.
+                // So, to work around these broken masks, we ignore the highest bit.
+                bitmask = bitmask & ~0x80000000;
                 return new long[]{bitmask};
             }
 
