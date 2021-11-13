@@ -17,11 +17,13 @@
  */
 package com.viaversion.viaversion.protocols.protocol1_10to1_9_3;
 
+import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.connection.UserConnection;
+import com.viaversion.viaversion.api.minecraft.chunks.Chunk;
+import com.viaversion.viaversion.api.minecraft.chunks.ChunkSection;
 import com.viaversion.viaversion.api.minecraft.metadata.Metadata;
 import com.viaversion.viaversion.api.protocol.AbstractProtocol;
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
-import com.viaversion.viaversion.api.protocol.packet.State;
 import com.viaversion.viaversion.api.protocol.remapper.PacketHandler;
 import com.viaversion.viaversion.api.protocol.remapper.PacketRemapper;
 import com.viaversion.viaversion.api.protocol.remapper.ValueTransformer;
@@ -30,8 +32,10 @@ import com.viaversion.viaversion.api.type.Type;
 import com.viaversion.viaversion.api.type.types.version.Types1_9;
 import com.viaversion.viaversion.protocols.protocol1_10to1_9_3.packets.InventoryPackets;
 import com.viaversion.viaversion.protocols.protocol1_10to1_9_3.storage.ResourcePackTracker;
+import com.viaversion.viaversion.protocols.protocol1_9_1_2to1_9_3_4.types.Chunk1_9_3_4Type;
 import com.viaversion.viaversion.protocols.protocol1_9_3to1_9_1_2.ClientboundPackets1_9_3;
 import com.viaversion.viaversion.protocols.protocol1_9_3to1_9_1_2.ServerboundPackets1_9_3;
+import com.viaversion.viaversion.protocols.protocol1_9_3to1_9_1_2.storage.ClientWorld;
 
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -66,7 +70,7 @@ public class Protocol1_10To1_9_3_4 extends AbstractProtocol<ClientboundPackets1_
         itemRewriter.register();
 
         // Named sound effect
-        registerClientbound(State.PLAY, 0x19, 0x19, new PacketRemapper() {
+        registerClientbound(ClientboundPackets1_9_3.NAMED_SOUND, new PacketRemapper() {
             @Override
             public void registerMap() {
                 map(Type.STRING); // 0 - Sound name
@@ -80,7 +84,7 @@ public class Protocol1_10To1_9_3_4 extends AbstractProtocol<ClientboundPackets1_
         });
 
         // Sound effect
-        registerClientbound(State.PLAY, 0x46, 0x46, new PacketRemapper() {
+        registerClientbound(ClientboundPackets1_9_3.SOUND, new PacketRemapper() {
             @Override
             public void registerMap() {
                 map(Type.VAR_INT); // 0 - Sound name
@@ -102,7 +106,7 @@ public class Protocol1_10To1_9_3_4 extends AbstractProtocol<ClientboundPackets1_
         });
 
         // Metadata packet
-        registerClientbound(State.PLAY, 0x39, 0x39, new PacketRemapper() {
+        registerClientbound(ClientboundPackets1_9_3.ENTITY_METADATA, new PacketRemapper() {
             @Override
             public void registerMap() {
                 map(Type.VAR_INT); // 0 - Entity ID
@@ -111,7 +115,7 @@ public class Protocol1_10To1_9_3_4 extends AbstractProtocol<ClientboundPackets1_
         });
 
         // Spawn Mob
-        registerClientbound(State.PLAY, 0x03, 0x03, new PacketRemapper() {
+        registerClientbound(ClientboundPackets1_9_3.SPAWN_MOB, new PacketRemapper() {
             @Override
             public void registerMap() {
                 map(Type.VAR_INT); // 0 - Entity id
@@ -131,7 +135,7 @@ public class Protocol1_10To1_9_3_4 extends AbstractProtocol<ClientboundPackets1_
         });
 
         // Spawn Player
-        registerClientbound(State.PLAY, 0x05, 0x05, new PacketRemapper() {
+        registerClientbound(ClientboundPackets1_9_3.SPAWN_PLAYER, new PacketRemapper() {
             @Override
             public void registerMap() {
                 map(Type.VAR_INT); // 0 - Entity ID
@@ -145,8 +149,68 @@ public class Protocol1_10To1_9_3_4 extends AbstractProtocol<ClientboundPackets1_
             }
         });
 
+        // Join Game
+        registerClientbound(ClientboundPackets1_9_3.JOIN_GAME, new PacketRemapper() {
+            @Override
+            public void registerMap() {
+                map(Type.INT); // 0 - Entity ID
+                map(Type.UNSIGNED_BYTE); // 1 - Gamemode
+                map(Type.INT); // 2 - Dimension
+
+                handler(new PacketHandler() {
+                    @Override
+                    public void handle(PacketWrapper wrapper) throws Exception {
+                        ClientWorld clientWorld = wrapper.user().get(ClientWorld.class);
+
+                        int dimensionId = wrapper.get(Type.INT, 1);
+                        clientWorld.setEnvironment(dimensionId);
+                    }
+                });
+            }
+        });
+
+        // Respawn
+        registerClientbound(ClientboundPackets1_9_3.RESPAWN, new PacketRemapper() {
+            @Override
+            public void registerMap() {
+                map(Type.INT); // 0 - Dimension ID
+
+                handler(new PacketHandler() {
+                    @Override
+                    public void handle(PacketWrapper wrapper) throws Exception {
+                        ClientWorld clientWorld = wrapper.user().get(ClientWorld.class);
+
+                        int dimensionId = wrapper.get(Type.INT, 0);
+                        clientWorld.setEnvironment(dimensionId);
+                    }
+                });
+            }
+        });
+
+        // Chunk Data
+        registerClientbound(ClientboundPackets1_9_3.CHUNK_DATA, new PacketRemapper() {
+            @Override
+            public void registerMap() {
+                handler(new PacketHandler() {
+                    @Override
+                    public void handle(PacketWrapper wrapper) throws Exception {
+                        ClientWorld clientWorld = wrapper.user().get(ClientWorld.class);
+                        Chunk chunk = wrapper.passthrough(new Chunk1_9_3_4Type(clientWorld));
+
+                        if (Via.getConfig().isReplacePistons()) {
+                            int replacementId = Via.getConfig().getPistonReplacementId();
+                            for (ChunkSection section : chunk.getSections()) {
+                                if (section == null) continue;
+                                section.replacePaletteEntry(36, replacementId);
+                            }
+                        }
+                    }
+                });
+            }
+        });
+
         // Packet Send ResourcePack
-        registerClientbound(State.PLAY, 0x32, 0x32, new PacketRemapper() {
+        registerClientbound(ClientboundPackets1_9_3.RESOURCE_PACK, new PacketRemapper() {
             @Override
             public void registerMap() {
                 map(Type.STRING); // 0 - URL
@@ -163,7 +227,7 @@ public class Protocol1_10To1_9_3_4 extends AbstractProtocol<ClientboundPackets1_
         });
 
         // Packet ResourcePack status
-        registerServerbound(State.PLAY, 0x16, 0x16, new PacketRemapper() {
+        registerServerbound(ServerboundPackets1_9_3.RESOURCE_PACK_STATUS, new PacketRemapper() {
             @Override
             public void registerMap() {
                 handler(new PacketHandler() {
@@ -178,7 +242,7 @@ public class Protocol1_10To1_9_3_4 extends AbstractProtocol<ClientboundPackets1_
         });
     }
 
-    public int getNewSoundId(int id) { //TODO Make it better, suggestions are welcome. It's ugly and hardcoded now.
+    public int getNewSoundId(int id) {
         int newId = id;
         if (id >= 24) //Blame the enchantment table sound
             newId += 1;
@@ -196,6 +260,10 @@ public class Protocol1_10To1_9_3_4 extends AbstractProtocol<ClientboundPackets1_
     @Override
     public void init(UserConnection userConnection) {
         userConnection.put(new ResourcePackTracker());
+
+        if (!userConnection.has(ClientWorld.class)) {
+            userConnection.put(new ClientWorld(userConnection));
+        }
     }
 
     @Override

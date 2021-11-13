@@ -19,9 +19,8 @@ package com.viaversion.viaversion.protocols.base;
 
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.connection.ProtocolInfo;
-import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.platform.providers.ViaProviders;
-import com.viaversion.viaversion.api.protocol.AbstractSimpleProtocol;
+import com.viaversion.viaversion.api.protocol.AbstractProtocol;
 import com.viaversion.viaversion.api.protocol.Protocol;
 import com.viaversion.viaversion.api.protocol.ProtocolPathEntry;
 import com.viaversion.viaversion.api.protocol.ProtocolPipeline;
@@ -36,14 +35,12 @@ import com.viaversion.viaversion.api.type.Type;
 import java.util.ArrayList;
 import java.util.List;
 
-public class BaseProtocol extends AbstractSimpleProtocol {
+public class BaseProtocol extends AbstractProtocol {
 
     @Override
     protected void registerPackets() {
-        /* Incoming Packets */
-
         // Handshake Packet
-        registerServerbound(State.HANDSHAKE, 0x00, 0x00, new PacketRemapper() {
+        registerServerbound(ServerboundHandshakePackets.CLIENT_INTENTION, new PacketRemapper() {
             @Override
             public void registerMap() {
                 handler(wrapper -> {
@@ -75,10 +72,10 @@ public class BaseProtocol extends AbstractSimpleProtocol {
                     if (protocolPath != null) {
                         List<Protocol> protocols = new ArrayList<>(protocolPath.size());
                         for (ProtocolPathEntry entry : protocolPath) {
-                            protocols.add(entry.getProtocol());
+                            protocols.add(entry.protocol());
 
                             // Ensure mapping data has already been loaded
-                            Via.getManager().getProtocolManager().completeMappingDataLoading(entry.getProtocol().getClass());
+                            Via.getManager().getProtocolManager().completeMappingDataLoading(entry.protocol().getClass());
                         }
 
                         // Add protocols to pipeline
@@ -106,11 +103,6 @@ public class BaseProtocol extends AbstractSimpleProtocol {
     @Override
     public boolean isBaseProtocol() {
         return true;
-    }
-
-    @Override
-    public void init(UserConnection userConnection) {
-        // Nothing gets added, ProtocolPipeline handles ProtocolInfo
     }
 
     @Override

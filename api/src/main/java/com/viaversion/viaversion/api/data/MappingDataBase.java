@@ -47,6 +47,7 @@ public class MappingDataBase implements MappingData {
     protected ParticleMappings particleMappings;
     protected Mappings blockMappings;
     protected Mappings blockStateMappings;
+    protected Mappings blockEntityMappings;
     protected Mappings soundMappings;
     protected Mappings statisticsMappings;
     protected Map<RegistryType, List<TagData>> tags;
@@ -71,6 +72,7 @@ public class MappingDataBase implements MappingData {
 
         blockMappings = loadFromObject(oldMappings, newMappings, diffmapping, "blocks");
         blockStateMappings = loadFromObject(oldMappings, newMappings, diffmapping, "blockstates");
+        blockEntityMappings = loadFromArray(oldMappings, newMappings, diffmapping, "blockentities");
         soundMappings = loadFromArray(oldMappings, newMappings, diffmapping, "sounds");
         statisticsMappings = loadFromArray(oldMappings, newMappings, diffmapping, "statistics");
 
@@ -89,10 +91,10 @@ public class MappingDataBase implements MappingData {
         if (diffmapping != null && diffmapping.has("tags")) {
             this.tags = new EnumMap<>(RegistryType.class);
             JsonObject tags = diffmapping.getAsJsonObject("tags");
-            if (tags.has(RegistryType.ITEM.getResourceLocation())) {
+            if (tags.has(RegistryType.ITEM.resourceLocation())) {
                 loadTags(RegistryType.ITEM, tags, MappingDataLoader.indexedObjectToMap(newMappings.getAsJsonObject("items")));
             }
-            if (tags.has(RegistryType.BLOCK.getResourceLocation())) {
+            if (tags.has(RegistryType.BLOCK.resourceLocation())) {
                 loadTags(RegistryType.BLOCK, tags, MappingDataLoader.indexedObjectToMap(newMappings.getAsJsonObject("blocks")));
             }
         }
@@ -101,7 +103,7 @@ public class MappingDataBase implements MappingData {
     }
 
     private void loadTags(RegistryType type, JsonObject object, Object2IntMap<String> typeMapping) {
-        JsonObject tags = object.getAsJsonObject(type.getResourceLocation());
+        JsonObject tags = object.getAsJsonObject(type.resourceLocation());
         List<TagData> tagsList = new ArrayList<>(tags.size());
         for (Map.Entry<String, JsonElement> entry : tags.entrySet()) {
             JsonArray array = entry.getValue().getAsJsonArray();
@@ -167,6 +169,11 @@ public class MappingDataBase implements MappingData {
     @Override
     public @Nullable Mappings getBlockMappings() {
         return blockMappings;
+    }
+
+    @Override
+    public @Nullable Mappings getBlockEntityMappings() {
+        return blockEntityMappings;
     }
 
     @Override

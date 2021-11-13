@@ -68,11 +68,17 @@ public interface EntityTracker {
     void removeEntity(int id);
 
     /**
+     * Clears stored entity types and data.
+     */
+    void clearEntities();
+
+    /**
      * Returns the stored entity data if an entity with the id is tracked, else null.
      * If no data has been initialized yet, it will be done and returned by this method.
      *
      * @param id entity id
      * @return stored entity data if an entity with the id is tracked, else null
+     * @throws IllegalArgumentException if entitiy data storage has not been enabled via the implementation
      */
     @Nullable StoredEntityData entityData(int id);
 
@@ -81,6 +87,7 @@ public interface EntityTracker {
      *
      * @param id entity id
      * @return stored entity data if it has previously been initialized by {@link #entityData(int)}
+     * @throws IllegalArgumentException if entitiy data storage has not been enabled via the implementation
      */
     @Nullable StoredEntityData entityDataIfPresent(int id);
 
@@ -99,8 +106,8 @@ public interface EntityTracker {
     void setClientEntityId(int clientEntityId);
 
     /**
-     * Returns the current world section height.
-     * Always 16 for sub 1.17 worlds.
+     * Returns the current world section height (block height / 16).
+     * This is always 16 for sub 1.17 worlds.
      *
      * @return current world section height
      */
@@ -126,4 +133,22 @@ public interface EntityTracker {
      * @param currentMinY minimum y of the current world
      */
     void setCurrentMinY(int currentMinY);
+
+    /**
+     * Returns the name of the world the player is currently in.
+     *
+     * @return world name of the current world
+     */
+    @Nullable String currentWorld();
+
+    /**
+     * Sets the name of the world the player is currently in.
+     *
+     * @param currentWorld name of the current world
+     */
+    void setCurrentWorld(String currentWorld);
+
+    int biomesSent();
+
+    void setBiomesSent(int biomesSent);
 }

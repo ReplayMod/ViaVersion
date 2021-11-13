@@ -22,19 +22,14 @@
  */
 package com.viaversion.viaversion.api.type.types.version;
 
-import com.viaversion.viaversion.api.minecraft.metadata.Metadata;
-import com.viaversion.viaversion.api.type.Type;
-import com.viaversion.viaversion.api.type.types.minecraft.AbstractMetaListType;
-import io.netty.buffer.ByteBuf;
+import com.viaversion.viaversion.api.minecraft.metadata.MetaType;
+import com.viaversion.viaversion.api.type.types.minecraft.ModernMetaType;
 
-public class MetadataList1_8Type extends AbstractMetaListType {
-    @Override
-    protected Type<Metadata> getType() {
-        return Types1_8.METADATA;
-    }
+@Deprecated/*(forRemoval = true)*/
+public class Metadata1_18Type extends ModernMetaType {
 
     @Override
-    protected void writeEnd(final Type<Metadata> type, final ByteBuf buffer) throws Exception {
-        buffer.writeByte(0x7f);
+    protected MetaType getType(final int index) {
+        return Types1_18.META_TYPES.byId(index);
     }
 }

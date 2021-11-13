@@ -77,8 +77,9 @@ public final class InventoryPackets extends ItemRewriter<Protocol1_17To1_16_4> {
                     // 1.17 clients send the then carried item, but 1.16 expects the clicked one
                     Item item = wrapper.read(Type.FLAT_VAR_INT_ITEM);
                     int action = wrapper.get(Type.VAR_INT, 0);
-                    if (action == 5) {
+                    if (action == 5 || action == 1) {
                         // Quick craft (= dragging / mouse movement while clicking on an empty slot)
+                        // OR Quick move (= shift click to move a whole stack to the other inventory)
                         // The server always expects an empty item here
                         item = null;
                     } else {
@@ -127,7 +128,7 @@ public final class InventoryPackets extends ItemRewriter<Protocol1_17To1_16_4> {
                         PacketWrapper packet = wrapper.create(ServerboundPackets1_16_2.WINDOW_CONFIRMATION);
                         packet.write(Type.UNSIGNED_BYTE, inventoryId);
                         packet.write(Type.SHORT, confirmationId);
-                        packet.write(Type.BYTE, (byte) 1); // Accept
+                        packet.write(Type.BOOLEAN, true); // Accept
                         packet.sendToServer(Protocol1_17To1_16_4.class);
                     }
 

@@ -20,8 +20,11 @@ package com.viaversion.viaversion.protocols.protocol1_9to1_8.packets;
 import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
 import com.github.steveice10.opennbt.tag.builtin.StringTag;
 import com.viaversion.viaversion.api.Via;
+import com.viaversion.viaversion.api.minecraft.BlockFace;
 import com.viaversion.viaversion.api.minecraft.Position;
-import com.viaversion.viaversion.api.minecraft.chunks.Chunk1_8;
+import com.viaversion.viaversion.api.minecraft.chunks.BaseChunk;
+import com.viaversion.viaversion.api.minecraft.chunks.Chunk;
+import com.viaversion.viaversion.api.minecraft.chunks.ChunkSection;
 import com.viaversion.viaversion.api.minecraft.item.DataItem;
 import com.viaversion.viaversion.api.minecraft.item.Item;
 import com.viaversion.viaversion.api.protocol.Protocol;
@@ -29,8 +32,9 @@ import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.protocol.remapper.PacketHandler;
 import com.viaversion.viaversion.api.protocol.remapper.PacketRemapper;
 import com.viaversion.viaversion.api.type.Type;
-import com.viaversion.viaversion.api.type.types.CustomByteType;
 import com.viaversion.viaversion.protocols.protocol1_8.ClientboundPackets1_8;
+import com.viaversion.viaversion.protocols.protocol1_9_3to1_9_1_2.storage.ClientWorld;
+import com.viaversion.viaversion.protocols.protocol1_9_3to1_9_1_2.types.Chunk1_9_1_2Type;
 import com.viaversion.viaversion.protocols.protocol1_9to1_8.ClientboundPackets1_9;
 import com.viaversion.viaversion.protocols.protocol1_9to1_8.ItemRewriter;
 import com.viaversion.viaversion.protocols.protocol1_9to1_8.Protocol1_9To1_8;
@@ -40,10 +44,11 @@ import com.viaversion.viaversion.protocols.protocol1_9to1_8.sounds.Effect;
 import com.viaversion.viaversion.protocols.protocol1_9to1_8.sounds.SoundEffect;
 import com.viaversion.viaversion.protocols.protocol1_9to1_8.storage.ClientChunks;
 import com.viaversion.viaversion.protocols.protocol1_9to1_8.storage.EntityTracker1_9;
-import com.viaversion.viaversion.protocols.protocol1_9to1_8.types.Chunk1_9to1_8Type;
-import io.netty.buffer.ByteBuf;
+import com.viaversion.viaversion.protocols.protocol1_9to1_8.types.Chunk1_8Type;
+import com.viaversion.viaversion.protocols.protocol1_9to1_8.types.ChunkBulk1_8Type;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
+import java.util.ArrayList;
 import java.util.Optional;
 
 public class WorldPackets {
@@ -132,22 +137,57 @@ public class WorldPackets {
                 handler(new PacketHandler() {
                     @Override
                     public void handle(PacketWrapper wrapper) throws Exception {
+                        ClientWorld clientWorld = wrapper.user().get(ClientWorld.class);
                         ClientChunks clientChunks = wrapper.user().get(ClientChunks.class);
-                        Chunk1_9to1_8Type type = new Chunk1_9to1_8Type(clientChunks);
-                        Chunk1_8 chunk = (Chunk1_8) wrapper.read(type);
-                        if (chunk.isUnloadPacket()) {
-                            wrapper.setId(ClientboundPackets1_9.UNLOAD_CHUNK);
+                        Chunk chunk = wrapper.read(new Chunk1_8Type(clientWorld));
 
+                        long chunkHash = ClientChunks.toLong(chunk.getX(), chunk.getZ());
+
+                        // Check if the chunk should be handled as an unload packet
+                        if (chunk.isFullChunk() && chunk.getBitmask() == 0) {
+                            wrapper.setPacketType(ClientboundPackets1_9.UNLOAD_CHUNK);
                             wrapper.write(Type.INT, chunk.getX());
                             wrapper.write(Type.INT, chunk.getZ());
+
                             // Remove commandBlocks on chunk unload
                             CommandBlockProvider provider = Via.getManager().getProviders().get(CommandBlockProvider.class);
                             provider.unloadChunk(wrapper.user(), chunk.getX(), chunk.getZ());
+
+                            clientChunks.getLoadedChunks().remove(chunkHash);
+
+                            // Unload the empty chunks
+                            if (Via.getConfig().isChunkBorderFix()) {
+                                for (BlockFace face : BlockFace.HORIZONTAL) {
+                                    int chunkX = chunk.getX() + face.modX();
+                                    int chunkZ = chunk.getZ() + face.modZ();
+                                    if (!clientChunks.getLoadedChunks().contains(ClientChunks.toLong(chunkX, chunkZ))) {
+                                        PacketWrapper unloadChunk = wrapper.create(ClientboundPackets1_9.UNLOAD_CHUNK);
+                                        unloadChunk.write(Type.INT, chunkX);
+                                        unloadChunk.write(Type.INT, chunkZ);
+                                        unloadChunk.send(Protocol1_9To1_8.class);
+                                    }
+                                }
+                            }
                         } else {
-                            wrapper.write(type, chunk);
-                            // eat any other data (Usually happens with unload packets)
+                            Type<Chunk> chunkType = new Chunk1_9_1_2Type(clientWorld);
+                            wrapper.write(chunkType, chunk);
+
+                            clientChunks.getLoadedChunks().add(chunkHash);
+
+                            // Send empty chunks surrounding the loaded chunk to force 1.9+ clients to render the new chunk
+                            if (Via.getConfig().isChunkBorderFix()) {
+                                for (BlockFace face : BlockFace.HORIZONTAL) {
+                                    int chunkX = chunk.getX() + face.modX();
+                                    int chunkZ = chunk.getZ() + face.modZ();
+                                    if (!clientChunks.getLoadedChunks().contains(ClientChunks.toLong(chunkX, chunkZ))) {
+                                        PacketWrapper emptyChunk = wrapper.create(ClientboundPackets1_9.CHUNK_DATA);
+                                        Chunk c = new BaseChunk(chunkX, chunkZ, true, false, 0, new ChunkSection[16], new int[256], new ArrayList<>());
+                                        emptyChunk.write(chunkType, c);
+                                        emptyChunk.send(Protocol1_9To1_8.class);
+                                    }
+                                }
+                            }
                         }
-                        wrapper.read(Type.REMAINING_BYTES);
                     }
                 });
             }
@@ -158,41 +198,30 @@ public class WorldPackets {
             public void registerMap() {
                 handler(wrapper -> {
                     wrapper.cancel(); // Cancel the packet from being sent
-
-                    boolean skyLight = wrapper.read(Type.BOOLEAN);
-                    int count = wrapper.read(Type.VAR_INT);
-
-                    ChunkBulkSection[] chunks = new ChunkBulkSection[count];
-                    for (int i = 0; i < count; i++) {
-                        chunks[i] = new ChunkBulkSection(wrapper, skyLight);
-                    }
-
+                    ClientWorld clientWorld = wrapper.user().get(ClientWorld.class);
                     ClientChunks clientChunks = wrapper.user().get(ClientChunks.class);
-                    for (ChunkBulkSection chunk : chunks) {
-                        // Data is at the end
-                        CustomByteType customByteType = new CustomByteType(chunk.getLength());
-                        chunk.setData(wrapper.read(customByteType));
+                    Chunk[] chunks = wrapper.read(new ChunkBulk1_8Type(clientWorld));
 
-                        clientChunks.getBulkChunks().add(ClientChunks.toLong(chunk.getX(), chunk.getZ())); // Store for later
+                    Type<Chunk> chunkType = new Chunk1_9_1_2Type(clientWorld);
+                    // Split into multiple chunk packets
+                    for (Chunk chunk : chunks) {
+                        PacketWrapper chunkData = wrapper.create(ClientboundPackets1_9.CHUNK_DATA);
+                        chunkData.write(chunkType, chunk);
+                        chunkData.send(Protocol1_9To1_8.class);
 
-                        // Construct chunk packet
-                        ByteBuf buffer = null;
-                        try {
-                            buffer = wrapper.user().getChannel().alloc().buffer();
+                        clientChunks.getLoadedChunks().add(ClientChunks.toLong(chunk.getX(), chunk.getZ()));
 
-                            Type.INT.write(buffer, chunk.getX());
-                            Type.INT.write(buffer, chunk.getZ());
-                            Type.BOOLEAN.write(buffer, true); // Always ground-up
-                            Type.UNSIGNED_SHORT.write(buffer, chunk.getBitMask());
-                            Type.VAR_INT.writePrimitive(buffer, chunk.getLength());
-                            customByteType.write(buffer, chunk.getData());
-
-                            // Send through this protocol again
-                            PacketWrapper chunkPacket = PacketWrapper.create(ClientboundPackets1_8.CHUNK_DATA, buffer, wrapper.user());
-                            chunkPacket.send(Protocol1_9To1_8.class, false);
-                        } finally {
-                            if (buffer != null) {
-                                buffer.release();
+                        // Send empty chunks surrounding the loaded chunk to force 1.9+ clients to render the new chunk
+                        if (Via.getConfig().isChunkBorderFix()) {
+                            for (BlockFace face : BlockFace.HORIZONTAL) {
+                                int chunkX = chunk.getX() + face.modX();
+                                int chunkZ = chunk.getZ() + face.modZ();
+                                if (!clientChunks.getLoadedChunks().contains(ClientChunks.toLong(chunkX, chunkZ))) {
+                                    PacketWrapper emptyChunk = wrapper.create(ClientboundPackets1_9.CHUNK_DATA);
+                                    Chunk c = new BaseChunk(chunkX, chunkZ, true, false, 0, new ChunkSection[16], new int[256], new ArrayList<>());
+                                    emptyChunk.write(chunkType, c);
+                                    emptyChunk.send(Protocol1_9To1_8.class);
+                                }
                             }
                         }
                     }
@@ -237,14 +266,6 @@ public class WorldPackets {
             }
         });
 
-        protocol.registerClientbound(ClientboundPackets1_8.BLOCK_CHANGE, new PacketRemapper() {
-            @Override
-            public void registerMap() {
-                map(Type.POSITION);
-                map(Type.VAR_INT);
-            }
-        });
-
 
         /* Incoming Packets */
         protocol.registerServerbound(ServerboundPackets1_9.UPDATE_SIGN, new PacketRemapper() {
@@ -261,13 +282,12 @@ public class WorldPackets {
         protocol.registerServerbound(ServerboundPackets1_9.PLAYER_DIGGING, new PacketRemapper() {
             @Override
             public void registerMap() {
-                map(Type.VAR_INT, Type.UNSIGNED_BYTE); // 0 - Status
-                map(Type.POSITION); // 1 - Position
-                map(Type.BYTE); // 2 - Face
+                map(Type.VAR_INT); // Action
+                map(Type.POSITION); // Position
                 handler(new PacketHandler() {
                     @Override
                     public void handle(PacketWrapper wrapper) throws Exception {
-                        int status = wrapper.get(Type.UNSIGNED_BYTE, 0);
+                        int status = wrapper.get(Type.VAR_INT, 0);
                         if (status == 6)
                             wrapper.cancel();
                     }
@@ -276,7 +296,7 @@ public class WorldPackets {
                 handler(new PacketHandler() {
                     @Override
                     public void handle(PacketWrapper wrapper) throws Exception {
-                        int status = wrapper.get(Type.UNSIGNED_BYTE, 0);
+                        int status = wrapper.get(Type.VAR_INT, 0);
                         if (status == 5 || status == 4 || status == 3) {
                             EntityTracker1_9 entityTracker = wrapper.user().getEntityTracker(Protocol1_9To1_8.class);
                             if (entityTracker.isBlocking()) {
@@ -389,9 +409,9 @@ public class WorldPackets {
                         if (face == 255)
                             return;
                         Position p = wrapper.get(Type.POSITION, 0);
-                        int x = p.getX();
-                        int y = p.getY();
-                        int z = p.getZ();
+                        int x = p.x();
+                        int y = p.y();
+                        int z = p.z();
                         switch (face) {
                             case 0:
                                 y--;
@@ -427,7 +447,7 @@ public class WorldPackets {
                         Optional<CompoundTag> tag = provider.get(wrapper.user(), pos);
                         // Send the Update Block Entity packet if present
                         if (tag.isPresent()) {
-                            PacketWrapper updateBlockEntity = PacketWrapper.create(0x09, null, wrapper.user());
+                            PacketWrapper updateBlockEntity = PacketWrapper.create(ClientboundPackets1_9.BLOCK_ENTITY_DATA, null, wrapper.user());
 
                             updateBlockEntity.write(Type.POSITION, pos);
                             updateBlockEntity.write(Type.UNSIGNED_BYTE, (short) 2);
@@ -442,44 +462,4 @@ public class WorldPackets {
         });
     }
 
-    public static final class ChunkBulkSection {
-        private final int x;
-        private final int z;
-        private final int bitMask;
-        private final int length;
-        private byte[] data;
-
-        public ChunkBulkSection(PacketWrapper wrapper, boolean skylight) throws Exception {
-            x = wrapper.read(Type.INT);
-            z = wrapper.read(Type.INT);
-            bitMask = wrapper.read(Type.UNSIGNED_SHORT);
-
-            int bitCount = Integer.bitCount(bitMask);
-            length = (bitCount * ((4096 * 2) + 2048)) + (skylight ? bitCount * 2048 : 0) + 256; // Thanks MCProtocolLib
-        }
-
-        public int getX() {
-            return x;
-        }
-
-        public int getZ() {
-            return z;
-        }
-
-        public int getBitMask() {
-            return bitMask;
-        }
-
-        public int getLength() {
-            return length;
-        }
-
-        public byte @Nullable [] getData() {
-            return data;
-        }
-
-        public void setData(byte[] data) {
-            this.data = data;
-        }
-    }
 }

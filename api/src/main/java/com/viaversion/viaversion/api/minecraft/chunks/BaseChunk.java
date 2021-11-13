@@ -23,6 +23,7 @@
 package com.viaversion.viaversion.api.minecraft.chunks;
 
 import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
+import com.viaversion.viaversion.api.minecraft.blockentity.BlockEntity;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 import java.util.BitSet;
@@ -146,5 +147,10 @@ public class BaseChunk implements Chunk {
     @Override
     public List<CompoundTag> getBlockEntities() {
         return blockEntities;
+    }
+
+    @Override
+    public List<BlockEntity> blockEntities() {
+        throw new UnsupportedOperationException();
     }
 }

@@ -28,10 +28,15 @@ import com.viaversion.viaversion.api.protocol.Protocol;
 import com.viaversion.viaversion.api.protocol.ProtocolManager;
 import com.viaversion.viaversion.api.protocol.ProtocolPathEntry;
 import com.viaversion.viaversion.api.protocol.ProtocolPathKey;
+import com.viaversion.viaversion.api.protocol.packet.ClientboundPacketType;
+import com.viaversion.viaversion.api.protocol.packet.PacketType;
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
+import com.viaversion.viaversion.api.protocol.packet.ServerboundPacketType;
+import com.viaversion.viaversion.api.protocol.packet.VersionedPacketTransformer;
 import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import com.viaversion.viaversion.api.protocol.version.ServerProtocolVersion;
 import com.viaversion.viaversion.protocol.packet.PacketWrapperImpl;
+import com.viaversion.viaversion.protocol.packet.VersionedPacketTransformerImpl;
 import com.viaversion.viaversion.protocols.base.BaseProtocol;
 import com.viaversion.viaversion.protocols.base.BaseProtocol1_16;
 import com.viaversion.viaversion.protocols.base.BaseProtocol1_7;
@@ -59,6 +64,7 @@ import com.viaversion.viaversion.protocols.protocol1_16_4to1_16_3.Protocol1_16_4
 import com.viaversion.viaversion.protocols.protocol1_16to1_15_2.Protocol1_16To1_15_2;
 import com.viaversion.viaversion.protocols.protocol1_17_1to1_17.Protocol1_17_1To1_17;
 import com.viaversion.viaversion.protocols.protocol1_17to1_16_4.Protocol1_17To1_16_4;
+import com.viaversion.viaversion.protocols.protocol1_18to1_17_1.Protocol1_18To1_17_1;
 import com.viaversion.viaversion.protocols.protocol1_9_1_2to1_9_3_4.Protocol1_9_1_2To1_9_3_4;
 import com.viaversion.viaversion.protocols.protocol1_9_1to1_9.Protocol1_9_1To1_9;
 import com.viaversion.viaversion.protocols.protocol1_9_3to1_9_1_2.Protocol1_9_3To1_9_1_2;
@@ -162,6 +168,7 @@ public class ProtocolManagerImpl implements ProtocolManager {
 
         registerProtocol(new Protocol1_17To1_16_4(), ProtocolVersion.v1_17, ProtocolVersion.v1_16_4);
         registerProtocol(new Protocol1_17_1To1_17(), ProtocolVersion.v1_17_1, ProtocolVersion.v1_17);
+        registerProtocol(new Protocol1_18To1_17_1(), ProtocolVersion.v1_18, ProtocolVersion.v1_17_1);
     }
 
     @Override
@@ -231,7 +238,7 @@ public class ProtocolManagerImpl implements ProtocolManager {
 
             supportedVersions.add(version.getVersion());
             for (ProtocolPathEntry pathEntry : protocolPath) {
-                supportedVersions.add(pathEntry.getOutputProtocolVersion());
+                supportedVersions.add(pathEntry.outputProtocolVersion());
             }
         }
     }
@@ -261,6 +268,16 @@ public class ProtocolManagerImpl implements ProtocolManager {
         return path;
     }
 
+    @Override
+    public <C extends ClientboundPacketType,
+            S extends ServerboundPacketType
+            > VersionedPacketTransformer<C, S> createPacketTransformer(ProtocolVersion inputVersion,
+                                                                       @Nullable Class<C> clientboundPacketsClass,
+                                                                       @Nullable Class<S> serverboundPacketsClass) {
+        Preconditions.checkArgument(clientboundPacketsClass != ClientboundPacketType.class && serverboundPacketsClass != ServerboundPacketType.class);
+        return new VersionedPacketTransformerImpl<>(inputVersion, clientboundPacketsClass, serverboundPacketsClass);
+    }
+
     /**
      * Calculates a path to get from an input protocol to the server's protocol.
      *
@@ -270,7 +287,7 @@ public class ProtocolManagerImpl implements ProtocolManager {
      * @return path that has been generated, null if failed
      */
     private @Nullable Int2ObjectSortedMap<Protocol> getProtocolPath(Int2ObjectSortedMap<Protocol> current, int clientVersion, int serverVersion) {
-        if (current.size() > maxProtocolPathSize) return null; // Fail safe, protocol too complicated.
+        if (current.size() > maxProtocolPathSize) return null; // Fail-safe, protocol too complicated.
 
         // First, check if there is any protocols for this
         Int2ObjectMap<Protocol> toServerProtocolMap = registryMap.get(clientVersion);
@@ -325,8 +342,8 @@ public class ProtocolManagerImpl implements ProtocolManager {
     @Override
     public Protocol getBaseProtocol(int serverVersion) {
         for (Pair<Range<Integer>, Protocol> rangeProtocol : Lists.reverse(baseProtocols)) {
-            if (rangeProtocol.getKey().contains(serverVersion)) {
-                return rangeProtocol.getValue();
+            if (rangeProtocol.key().contains(serverVersion)) {
+                return rangeProtocol.value();
             }
         }
         throw new IllegalStateException("No Base Protocol for " + serverVersion);
@@ -452,6 +469,12 @@ public class ProtocolManagerImpl implements ProtocolManager {
     }
 
     @Override
+    public PacketWrapper createPacketWrapper(@Nullable PacketType packetType, @Nullable ByteBuf buf, UserConnection connection) {
+        return new PacketWrapperImpl(packetType, buf, connection);
+    }
+
+    @Override
+    @Deprecated
     public PacketWrapper createPacketWrapper(int packetId, @Nullable ByteBuf buf, UserConnection connection) {
         return new PacketWrapperImpl(packetId, buf, connection);
     }

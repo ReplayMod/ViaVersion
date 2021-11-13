@@ -24,19 +24,20 @@ import com.viaversion.viaversion.api.data.entity.ClientEntityIdChangeListener;
 import com.viaversion.viaversion.api.data.entity.EntityTracker;
 import com.viaversion.viaversion.api.data.entity.StoredEntityData;
 import com.viaversion.viaversion.api.minecraft.entities.EntityType;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import org.checkerframework.checker.nullness.qual.Nullable;
-
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import space.vectrix.flare.fastutil.Int2ObjectSyncMap;
 
 public class EntityTrackerBase implements EntityTracker, ClientEntityIdChangeListener {
-    private final Map<Integer, EntityType> entityTypes = new ConcurrentHashMap<>();
-    private final Map<Integer, StoredEntityData> entityData;
+    private final Int2ObjectMap<EntityType> entityTypes = Int2ObjectSyncMap.hashmap();
+    private final Int2ObjectMap<StoredEntityData> entityData;
     private final UserConnection connection;
     private final EntityType playerType;
     private int clientEntityId = -1;
     private int currentWorldSectionHeight = 16;
     private int currentMinY;
+    private String currentWorld;
+    private int biomesSent = -1;
 
     public EntityTrackerBase(UserConnection connection, @Nullable EntityType playerType) {
         this(connection, playerType, false);
@@ -45,7 +46,7 @@ public class EntityTrackerBase implements EntityTracker, ClientEntityIdChangeLis
     public EntityTrackerBase(UserConnection connection, @Nullable EntityType playerType, boolean storesEntityData) {
         this.connection = connection;
         this.playerType = playerType;
-        this.entityData = storesEntityData ? new ConcurrentHashMap<>() : null;
+        this.entityData = storesEntityData ? Int2ObjectSyncMap.hashmap() : null;
     }
 
     @Override
@@ -70,20 +71,31 @@ public class EntityTrackerBase implements EntityTracker, ClientEntityIdChangeLis
 
     @Override
     public @Nullable StoredEntityData entityData(int id) {
+        Preconditions.checkArgument(entityData != null, "Entity data storage has to be explicitly enabled via the constructor");
         EntityType type = entityType(id);
         return type != null ? entityData.computeIfAbsent(id, s -> new StoredEntityImpl(type)) : null;
     }
 
     @Override
     public @Nullable StoredEntityData entityDataIfPresent(int id) {
+        Preconditions.checkArgument(entityData != null, "Entity data storage has to be explicitly enabled via the constructor");
         return entityData.get(id);
     }
 
+    //TODO Soft memory leak: Remove entities on respawn in protocols prior to 1.18 (1.16+ only when the worldname is different)
     @Override
     public void removeEntity(int id) {
         entityTypes.remove(id);
         if (entityData != null) {
             entityData.remove(id);
+        }
+    }
+
+    @Override
+    public void clearEntities() {
+        entityTypes.clear();
+        if (entityData != null) {
+            entityData.clear();
         }
     }
 
@@ -106,9 +118,6 @@ public class EntityTrackerBase implements EntityTracker, ClientEntityIdChangeLis
         this.clientEntityId = clientEntityId;
     }
 
-    /**
-     * @return amount of chunk sections of the current world (block height / 16)
-     */
     @Override
     public int currentWorldSectionHeight() {
         return currentWorldSectionHeight;
@@ -119,9 +128,6 @@ public class EntityTrackerBase implements EntityTracker, ClientEntityIdChangeLis
         this.currentWorldSectionHeight = currentWorldSectionHeight;
     }
 
-    /**
-     * @return absolute minimum y coordinate of the current world
-     */
     @Override
     public int currentMinY() {
         return currentMinY;
@@ -130,5 +136,25 @@ public class EntityTrackerBase implements EntityTracker, ClientEntityIdChangeLis
     @Override
     public void setCurrentMinY(int currentMinY) {
         this.currentMinY = currentMinY;
+    }
+
+    @Override
+    public @Nullable String currentWorld() {
+        return currentWorld;
+    }
+
+    @Override
+    public void setCurrentWorld(final String currentWorld) {
+        this.currentWorld = currentWorld;
+    }
+
+    @Override
+    public int biomesSent() {
+        return biomesSent;
+    }
+
+    @Override
+    public void setBiomesSent(int biomesSent) {
+        this.biomesSent = biomesSent;
     }
 }

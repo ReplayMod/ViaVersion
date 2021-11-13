@@ -43,4 +43,20 @@ public interface PacketType {
      * @return name of the packet
      */
     String getName();
+
+    /**
+     * Clientbound or serverbound direction.
+     *
+     * @return direction
+     */
+    Direction direction();
+
+    /**
+     * Returns the protocol state the packet belongs to.
+     *
+     * @return protocol state
+     */
+    default State state() {
+        return State.PLAY;
+    }
 }

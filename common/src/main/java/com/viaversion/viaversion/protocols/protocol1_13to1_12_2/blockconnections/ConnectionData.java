@@ -30,6 +30,7 @@ import com.viaversion.viaversion.api.minecraft.chunks.Chunk;
 import com.viaversion.viaversion.api.minecraft.chunks.ChunkSection;
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.type.Type;
+import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.ClientboundPackets1_13;
 import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.Protocol1_13To1_12_2;
 import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.blockconnections.providers.BlockConnectionProvider;
 import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.blockconnections.providers.PacketBlockConnectionProvider;
@@ -37,32 +38,32 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Map.Entry;
 
 public class ConnectionData {
     private static final BlockChangeRecord1_8[] EMPTY_RECORDS = new BlockChangeRecord1_8[0];
     public static BlockConnectionProvider blockConnectionProvider;
-    static Int2ObjectMap<String> idToKey = new Int2ObjectOpenHashMap<>(8582, 1F);
-    static Map<String, Integer> keyToId = new HashMap<>(8582, 1F);
+    static Int2ObjectMap<String> idToKey = new Int2ObjectOpenHashMap<>(8582, .99F);
+    static Object2IntMap<String> keyToId = new Object2IntOpenHashMap<>(8582, .99F);
     static Int2ObjectMap<ConnectionHandler> connectionHandlerMap = new Int2ObjectOpenHashMap<>(1);
     static Int2ObjectMap<BlockData> blockConnectionData = new Int2ObjectOpenHashMap<>(1);
-    static IntSet occludingStates = new IntOpenHashSet(377, 1F);
+    static IntSet occludingStates = new IntOpenHashSet(377, .99F);
 
     public static void update(UserConnection user, Position position) {
         for (BlockFace face : BlockFace.values()) {
             Position pos = position.getRelative(face);
-            int blockState = blockConnectionProvider.getBlockData(user, pos.getX(), pos.getY(), pos.getZ());
+            int blockState = blockConnectionProvider.getBlockData(user, pos.x(), pos.y(), pos.z());
             ConnectionHandler handler = connectionHandlerMap.get(blockState);
             if (handler == null) continue;
 
             int newBlockState = handler.connect(user, pos, blockState);
-            PacketWrapper blockUpdatePacket = PacketWrapper.create(0x0B, null, user);
+            PacketWrapper blockUpdatePacket = PacketWrapper.create(ClientboundPackets1_13.BLOCK_CHANGE, null, user);
             blockUpdatePacket.write(Type.POSITION, pos);
             blockUpdatePacket.write(Type.VAR_INT, newBlockState);
             try {
@@ -135,7 +136,7 @@ public class ConnectionData {
                 }
 
                 if (!updates.isEmpty()) {
-                    PacketWrapper wrapper = PacketWrapper.create(0x0F, null, user);
+                    PacketWrapper wrapper = PacketWrapper.create(ClientboundPackets1_13.MULTI_BLOCK_CHANGE, null, user);
                     wrapper.write(Type.INT, chunkX + chunkDeltaX);
                     wrapper.write(Type.INT, chunkZ + chunkDeltaZ);
                     wrapper.write(Type.BLOCK_CHANGE_RECORD_ARRAY, updates.toArray(EMPTY_RECORDS));
@@ -150,12 +151,12 @@ public class ConnectionData {
     }
 
     public static void updateBlock(UserConnection user, Position pos, List<BlockChangeRecord1_8> records) {
-        int blockState = blockConnectionProvider.getBlockData(user, pos.getX(), pos.getY(), pos.getZ());
+        int blockState = blockConnectionProvider.getBlockData(user, pos.x(), pos.y(), pos.z());
         ConnectionHandler handler = getConnectionHandler(blockState);
         if (handler == null) return;
 
         int newBlockState = handler.connect(user, pos, blockState);
-        records.add(new BlockChangeRecord1_8(pos.getX() & 0xF, pos.getY(), pos.getZ() & 0xF, newBlockState));
+        records.add(new BlockChangeRecord1_8(pos.x() & 0xF, pos.y(), pos.z() & 0xF, newBlockState));
     }
 
     public static void updateBlockStorage(UserConnection userConnection, int x, int y, int z, int blockState) {
@@ -230,10 +231,10 @@ public class ConnectionData {
             keyToId.put(key, id);
         }
 
-        connectionHandlerMap = new Int2ObjectOpenHashMap<>(3650, 1F);
+        connectionHandlerMap = new Int2ObjectOpenHashMap<>(3650, .99F);
 
         if (!Via.getConfig().isReduceBlockStorageMemory()) {
-            blockConnectionData = new Int2ObjectOpenHashMap<>(1146, 1F);
+            blockConnectionData = new Int2ObjectOpenHashMap<>(1146, .99F);
             JsonObject mappingBlockConnections = MappingDataLoader.loadData("blockConnections.json");
             for (Entry<String, JsonElement> entry : mappingBlockConnections.entrySet()) {
                 int id = keyToId.get(entry.getKey());

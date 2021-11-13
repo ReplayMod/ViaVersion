@@ -84,14 +84,6 @@ public class ViaVersionPlugin extends JavaPlugin implements ViaPlatform<Player> 
 
         // Check if we're using protocol support too
         protocolSupport = Bukkit.getPluginManager().getPlugin("ProtocolSupport") != null;
-        if (protocolSupport) {
-            getLogger().info("Hooking into ProtocolSupport, to prevent issues!");
-            try {
-                BukkitViaInjector.patchLists();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
     }
 
     @Override
@@ -124,7 +116,7 @@ public class ViaVersionPlugin extends JavaPlugin implements ViaPlatform<Player> 
 
         // Generate classes needed (only works if it's compat or ps)
         ClassGenerator.generate();
-        lateBind = !BukkitViaInjector.isBinded();
+        lateBind = !((BukkitViaInjector) Via.getManager().getInjector()).isBinded();
 
         getLogger().info("ViaVersion " + getDescription().getVersion() + (compatSpigotBuild ? "compat" : "") + " is now loaded" + (lateBind ? ", waiting for boot. (late-bind)" : ", injecting!"));
         if (!lateBind) {
@@ -272,7 +264,6 @@ public class ViaVersionPlugin extends JavaPlugin implements ViaPlatform<Player> 
             plugins.add(new PluginInfo(p.isEnabled(), p.getDescription().getName(), p.getDescription().getVersion(), p.getDescription().getMain(), p.getDescription().getAuthors()));
 
         platformSpecific.add("plugins", GsonUtil.getGson().toJsonTree(plugins));
-        // TODO more? ProtocolLib things etc?
 
         return platformSpecific;
     }

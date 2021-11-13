@@ -23,6 +23,10 @@
 package com.viaversion.viaversion.api.configuration;
 
 import com.google.gson.JsonElement;
+import com.viaversion.viaversion.api.connection.StorableObject;
+import com.viaversion.viaversion.api.connection.UserConnection;
+import com.viaversion.viaversion.api.minecraft.WorldIdentifiers;
+import com.viaversion.viaversion.api.protocol.version.BlockedProtocolVersions;
 import it.unimi.dsi.fastutil.ints.IntSet;
 
 public interface ViaVersionConfig {
@@ -231,6 +235,13 @@ public interface ViaVersionConfig {
     int getPistonReplacementId();
 
     /**
+     * Fix 1.9+ clients not rendering the far away chunks
+     *
+     * @return true to fix chunk borders
+     */
+    boolean isChunkBorderFix();
+
+    /**
      * Force json transform
      *
      * @return true if enabled
@@ -259,11 +270,22 @@ public interface ViaVersionConfig {
     boolean is1_12QuickMoveActionFix();
 
     /**
+     * API to check for blocked protocol versions.
+     *
+     * @return blocked protocol versions
+     */
+    BlockedProtocolVersions blockedProtocolVersions();
+
+    /**
      * Get the blocked protocols
      *
      * @return An Integer list
+     * @deprecated use {@link #blockedProtocolVersions()}
      */
-    IntSet getBlockedProtocols();
+    @Deprecated/*(forRemoval = true)*/
+    default IntSet getBlockedProtocols() {
+        return blockedProtocolVersions().singleBlockedVersions();
+    }
 
     /**
      * Get the custom disconnect message
@@ -417,9 +439,18 @@ public interface ViaVersionConfig {
     boolean isForcedUse1_17ResourcePack();
 
     /**
-     *  Get the message that is sent when a user displays a resource pack prompt.
+     * Get the message that is sent when a user displays a resource pack prompt.
      *
      * @return cached serialized component
      */
     JsonElement get1_17ResourcePackPrompt();
+
+    /***
+     * Get the world names that should be returned for each Vanilla dimension.
+     * Note that this can be overriden per-user by using {@link UserConnection#put(StorableObject)} with
+     * a custom instance of {@link WorldIdentifiers} for the user's {@link UserConnection}.
+     *
+     * @return the global map from vanilla dimensions to world name
+     */
+    WorldIdentifiers get1_16WorldNamesMap();
 }

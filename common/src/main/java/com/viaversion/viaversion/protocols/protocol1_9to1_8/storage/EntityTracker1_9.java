@@ -19,7 +19,6 @@ package com.viaversion.viaversion.protocols.protocol1_9to1_8.storage;
 
 import com.google.common.base.Strings;
 import com.google.common.cache.CacheBuilder;
-import com.google.common.collect.Sets;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.legacy.bossbar.BossBar;
@@ -35,28 +34,28 @@ import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.type.Type;
 import com.viaversion.viaversion.api.type.types.version.Types1_9;
 import com.viaversion.viaversion.data.entity.EntityTrackerBase;
+import com.viaversion.viaversion.protocols.protocol1_9to1_8.ClientboundPackets1_9;
 import com.viaversion.viaversion.protocols.protocol1_9to1_8.Protocol1_9To1_8;
 import com.viaversion.viaversion.protocols.protocol1_9to1_8.chat.GameMode;
 import com.viaversion.viaversion.protocols.protocol1_9to1_8.metadata.MetadataRewriter1_9To1_8;
 import com.viaversion.viaversion.protocols.protocol1_9to1_8.providers.BossBarProvider;
 import com.viaversion.viaversion.protocols.protocol1_9to1_8.providers.EntityIdProvider;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.IntSet;
+import space.vectrix.flare.fastutil.Int2ObjectSyncMap;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 public class EntityTracker1_9 extends EntityTrackerBase {
-    private final Map<Integer, UUID> uuidMap = new ConcurrentHashMap<>();
-    private final Map<Integer, List<Metadata>> metadataBuffer = new ConcurrentHashMap<>();
-    private final Map<Integer, Integer> vehicleMap = new ConcurrentHashMap<>();
-    private final Map<Integer, BossBar> bossBarMap = new ConcurrentHashMap<>();
-    private final Set<Integer> validBlocking = Sets.newConcurrentHashSet();
-    private final Set<Integer> knownHolograms = Sets.newConcurrentHashSet();
+    public static final String WITHER_TRANSLATABLE = "{\"translate\":\"entity.WitherBoss.name\"}";
+    public static final String DRAGON_TRANSLATABLE = "{\"translate\":\"entity.EnderDragon.name\"}";
+    private final Int2ObjectMap<UUID> uuidMap = Int2ObjectSyncMap.hashmap();
+    private final Int2ObjectMap<List<Metadata>> metadataBuffer = Int2ObjectSyncMap.hashmap();
+    private final Int2ObjectMap<Integer> vehicleMap = Int2ObjectSyncMap.hashmap();
+    private final Int2ObjectMap<BossBar> bossBarMap = Int2ObjectSyncMap.hashmap();
+    private final IntSet validBlocking = Int2ObjectSyncMap.hashset();
+    private final Set<Integer> knownHolograms = Int2ObjectSyncMap.hashset();
     private final Set<Position> blockInteractions = Collections.newSetFromMap(CacheBuilder.newBuilder()
             .maximumSize(1000)
             .expireAfterAccess(250, TimeUnit.MILLISECONDS)
@@ -90,7 +89,7 @@ public class EntityTracker1_9 extends EntityTrackerBase {
     }
 
     public void setSecondHand(int entityID, Item item) {
-        PacketWrapper wrapper = PacketWrapper.create(0x3C, null, user());
+        PacketWrapper wrapper = PacketWrapper.create(ClientboundPackets1_9.ENTITY_EQUIPMENT, null, user());
         wrapper.write(Type.VAR_INT, entityID);
         wrapper.write(Type.VAR_INT, 1); // slot
         wrapper.write(Type.ITEM, this.itemInSecondHand = item);
@@ -235,7 +234,7 @@ public class EntityTracker1_9 extends EntityTrackerBase {
                             knownHolograms.add(entityId);
                             try {
                                 // Send movement
-                                PacketWrapper wrapper = PacketWrapper.create(0x25, null, user());
+                                PacketWrapper wrapper = PacketWrapper.create(ClientboundPackets1_9.ENTITY_POSITION, null, user());
                                 wrapper.write(Type.VAR_INT, entityId);
                                 wrapper.write(Type.SHORT, (short) 0);
                                 wrapper.write(Type.SHORT, (short) (128D * (Via.getConfig().getHologramYOffset() * 32D)));
@@ -254,7 +253,7 @@ public class EntityTracker1_9 extends EntityTrackerBase {
                     if (metadata.id() == 2) {
                         BossBar bar = bossBarMap.get(entityId);
                         String title = (String) metadata.getValue();
-                        title = title.isEmpty() ? (type == EntityType.ENDER_DRAGON ? "Ender Dragon" : "Wither") : title;
+                        title = title.isEmpty() ? (type == EntityType.ENDER_DRAGON ? DRAGON_TRANSLATABLE : WITHER_TRANSLATABLE) : title;
                         if (bar == null) {
                             bar = Via.getAPI().legacyAPI().createLegacyBossBar(title, BossColor.PINK, BossStyle.SOLID);
                             bossBarMap.put(entityId, bar);
@@ -272,7 +271,7 @@ public class EntityTracker1_9 extends EntityTrackerBase {
                         float maxHealth = type == EntityType.ENDER_DRAGON ? 200.0f : 300.0f;
                         float health = Math.max(0.0f, Math.min(((float) metadata.getValue()) / maxHealth, 1.0f));
                         if (bar == null) {
-                            String title = type == EntityType.ENDER_DRAGON ? "Ender Dragon" : "Wither";
+                            String title = type == EntityType.ENDER_DRAGON ? DRAGON_TRANSLATABLE : WITHER_TRANSLATABLE;
                             bar = Via.getAPI().legacyAPI().createLegacyBossBar(title, health, BossColor.PINK, BossStyle.SOLID);
                             bossBarMap.put(entityId, bar);
                             bar.addConnection(user());
@@ -297,7 +296,7 @@ public class EntityTracker1_9 extends EntityTrackerBase {
     }
 
     public void sendTeamPacket(boolean add, boolean now) {
-        PacketWrapper wrapper = PacketWrapper.create(0x41, null, user());
+        PacketWrapper wrapper = PacketWrapper.create(ClientboundPackets1_9.TEAMS, null, user());
         wrapper.write(Type.STRING, "viaversion"); // Use viaversion as name
         if (add) {
             // add
@@ -341,7 +340,7 @@ public class EntityTracker1_9 extends EntityTrackerBase {
     public void sendMetadataBuffer(int entityId) {
         List<Metadata> metadataList = metadataBuffer.get(entityId);
         if (metadataList != null) {
-            PacketWrapper wrapper = PacketWrapper.create(0x39, null, user());
+            PacketWrapper wrapper = PacketWrapper.create(ClientboundPackets1_9.ENTITY_METADATA, null, user());
             wrapper.write(Type.VAR_INT, entityId);
             wrapper.write(Types1_9.METADATA_LIST, metadataList);
             Via.getManager().getProtocolManager().getProtocol(Protocol1_9To1_8.class).get(MetadataRewriter1_9To1_8.class)

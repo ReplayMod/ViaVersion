@@ -22,6 +22,7 @@ import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.protocol.Protocol;
 import com.viaversion.viaversion.api.protocol.packet.Direction;
+import com.viaversion.viaversion.api.protocol.packet.PacketType;
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.protocol.packet.State;
 import com.viaversion.viaversion.api.protocol.remapper.PacketHandler;
@@ -48,7 +49,9 @@ public class PacketWrapperImpl implements PacketWrapper {
     private final ByteBuf inputBuffer;
     private final UserConnection userConnection;
     private boolean send = true;
-    private int id = -1;
+    /** Only non-null if specifically set and gotten before packet transformation */
+    private PacketType packetType;
+    private int id;
     private final Deque<Pair<Type, Object>> readableObjects = new ArrayDeque<>();
     private final List<Pair<Type, Object>> packetValues = new ArrayList<>();
 
@@ -58,26 +61,33 @@ public class PacketWrapperImpl implements PacketWrapper {
         this.userConnection = userConnection;
     }
 
+    public PacketWrapperImpl(@Nullable PacketType packetType, @Nullable ByteBuf inputBuffer, UserConnection userConnection) {
+        this.packetType = packetType;
+        this.id = packetType != null ? packetType.getId() : -1;
+        this.inputBuffer = inputBuffer;
+        this.userConnection = userConnection;
+    }
+
     @Override
     public <T> T get(Type<T> type, int index) throws Exception {
         int currentIndex = 0;
         for (Pair<Type, Object> packetValue : packetValues) {
-            if (packetValue.getKey() != type) continue;
+            if (packetValue.key() != type) continue;
             if (currentIndex == index) {
-                return (T) packetValue.getValue();
+                return (T) packetValue.value();
             }
             currentIndex++;
         }
 
         Exception e = new ArrayIndexOutOfBoundsException("Could not find type " + type.getTypeName() + " at " + index);
-        throw new InformativeException(e).set("Type", type.getTypeName()).set("Index", index).set("Packet ID", getId()).set("Data", packetValues);
+        throw new InformativeException(e).set("Type", type.getTypeName()).set("Index", index).set("Packet ID", getId()).set("Packet Type", packetType).set("Data", packetValues);
     }
 
     @Override
     public boolean is(Type type, int index) {
         int currentIndex = 0;
         for (Pair<Type, Object> packetValue : packetValues) {
-            if (packetValue.getKey() != type) continue;
+            if (packetValue.key() != type) continue;
             if (currentIndex == index) {
                 return true;
             }
@@ -90,7 +100,7 @@ public class PacketWrapperImpl implements PacketWrapper {
     public boolean isReadable(Type type, int index) {
         int currentIndex = 0;
         for (Pair<Type, Object> packetValue : readableObjects) {
-            if (packetValue.getKey().getBaseClass() != type.getBaseClass()) continue;
+            if (packetValue.key().getBaseClass() != type.getBaseClass()) continue;
             if (currentIndex == index) {
                 return true;
             }
@@ -104,7 +114,7 @@ public class PacketWrapperImpl implements PacketWrapper {
     public <T> void set(Type<T> type, int index, T value) throws Exception {
         int currentIndex = 0;
         for (Pair<Type, Object> packetValue : packetValues) {
-            if (packetValue.getKey() != type) continue;
+            if (packetValue.key() != type) continue;
             if (currentIndex == index) {
                 packetValue.setValue(attemptTransform(type, value));
                 return;
@@ -112,7 +122,7 @@ public class PacketWrapperImpl implements PacketWrapper {
             currentIndex++;
         }
         Exception e = new ArrayIndexOutOfBoundsException("Could not find type " + type.getTypeName() + " at " + index);
-        throw new InformativeException(e).set("Type", type.getTypeName()).set("Index", index).set("Packet ID", getId());
+        throw new InformativeException(e).set("Type", type.getTypeName()).set("Index", index).set("Packet ID", getId()).set("Packet Type", packetType);
     }
 
     @Override
@@ -124,21 +134,21 @@ public class PacketWrapperImpl implements PacketWrapper {
             try {
                 return type.read(inputBuffer);
             } catch (Exception e) {
-                throw new InformativeException(e).set("Type", type.getTypeName()).set("Packet ID", getId()).set("Data", packetValues);
+                throw new InformativeException(e).set("Type", type.getTypeName()).set("Packet ID", getId()).set("Packet Type", packetType).set("Data", packetValues);
             }
         }
 
         Pair<Type, Object> read = readableObjects.poll();
-        Type rtype = read.getKey();
+        Type rtype = read.key();
         if (rtype == type
                 || (type.getBaseClass() == rtype.getBaseClass()
                 && type.getOutputClass() == rtype.getOutputClass())) {
-            return (T) read.getValue();
+            return (T) read.value();
         } else if (rtype == Type.NOTHING) {
             return read(type); // retry
         } else {
-            Exception e = new IOException("Unable to read type " + type.getTypeName() + ", found " + read.getKey().getTypeName());
-            throw new InformativeException(e).set("Type", type.getTypeName()).set("Packet ID", getId()).set("Data", packetValues);
+            Exception e = new IOException("Unable to read type " + type.getTypeName() + ", found " + read.key().getTypeName());
+            throw new InformativeException(e).set("Type", type.getTypeName()).set("Packet ID", getId()).set("Packet Type", packetType).set("Data", packetValues);
         }
     }
 
@@ -197,9 +207,9 @@ public class PacketWrapperImpl implements PacketWrapper {
         int index = 0;
         for (Pair<Type, Object> packetValue : packetValues) {
             try {
-                packetValue.getKey().write(buffer, packetValue.getValue());
+                packetValue.key().write(buffer, packetValue.value());
             } catch (Exception e) {
-                throw new InformativeException(e).set("Index", index).set("Type", packetValue.getKey().getTypeName()).set("Packet ID", getId()).set("Data", packetValues);
+                throw new InformativeException(e).set("Index", index).set("Type", packetValue.key().getTypeName()).set("Packet ID", getId()).set("Packet Type", packetType).set("Data", packetValues);
             }
             index++;
         }
@@ -306,15 +316,26 @@ public class PacketWrapperImpl implements PacketWrapper {
     }
 
     @Override
-    @Deprecated
-    public void send() throws Exception {
+    public void sendRaw() throws Exception {
+        sendRaw(true);
+    }
+
+    @Override
+    public void scheduleSendRaw() throws Exception {
+        sendRaw(false);
+    }
+
+    private void sendRaw(boolean currentThread) throws Exception {
         if (isCancelled()) return;
 
-        // Send
         ByteBuf output = inputBuffer == null ? user().getChannel().alloc().buffer() : inputBuffer.alloc().buffer();
         try {
             writeToBuffer(output);
-            user().sendRawPacket(output.retain());
+            if (currentThread) {
+                user().sendRawPacket(output.retain());
+            } else {
+                user().scheduleSendRawPacket(output.retain());
+            }
         } finally {
             output.release();
         }
@@ -384,14 +405,26 @@ public class PacketWrapperImpl implements PacketWrapper {
     }
 
     @Override
-    @Deprecated
-    public void sendToServer() throws Exception {
+    public void sendToServerRaw() throws Exception {
+        sendToServerRaw(true);
+    }
+
+    @Override
+    public void scheduleSendToServerRaw() throws Exception {
+        sendToServerRaw(false);
+    }
+
+    private void sendToServerRaw(boolean currentThread) throws Exception {
         if (isCancelled()) return;
 
         ByteBuf output = inputBuffer == null ? user().getChannel().alloc().buffer() : inputBuffer.alloc().buffer();
         try {
             writeToBuffer(output);
-            user().sendRawPacketToServer(output.retain());
+            if (currentThread) {
+                user().sendRawPacketToServer(output.retain());
+            } else {
+                user().scheduleSendRawPacketToServer(output.retain());
+            }
         } finally {
             output.release();
         }
@@ -425,12 +458,26 @@ public class PacketWrapperImpl implements PacketWrapper {
     }
 
     @Override
+    public @Nullable PacketType getPacketType() {
+        return packetType;
+    }
+
+    @Override
+    public void setPacketType(PacketType packetType) {
+        this.packetType = packetType;
+        this.id = packetType != null ? packetType.getId() : -1;
+    }
+
+    @Override
     public int getId() {
         return id;
     }
 
     @Override
+    @Deprecated
     public void setId(int id) {
+        // Loses packet type info
+        this.packetType = null;
         this.id = id;
     }
 
@@ -444,6 +491,7 @@ public class PacketWrapperImpl implements PacketWrapper {
                 "packetValues=" + packetValues +
                 ", readableObjects=" + readableObjects +
                 ", id=" + id +
+                ", packetType" + packetType +
                 '}';
     }
 }

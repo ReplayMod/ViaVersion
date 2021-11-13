@@ -20,41 +20,33 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package com.viaversion.viaversion.api.minecraft.chunks;
+package com.viaversion.viaversion.api.type.types.minecraft;
 
-import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
+import com.viaversion.viaversion.api.minecraft.metadata.MetaType;
+import com.viaversion.viaversion.api.minecraft.metadata.Metadata;
+import io.netty.buffer.ByteBuf;
 
-import java.util.ArrayList;
-import java.util.List;
+public abstract class OldMetaType extends MetaTypeTemplate {
+    private static final int END = 127;
 
-public class Chunk1_8 extends BaseChunk {
-    private boolean unloadPacket;
-
-    public Chunk1_8(int x, int z, boolean groundUp, int bitmask, ChunkSection[] sections, int[] biomeData, List<CompoundTag> blockEntities) {
-        super(x, z, groundUp, false, bitmask, sections, biomeData, blockEntities);
+    @Override
+    public Metadata read(final ByteBuf buffer) throws Exception {
+        final byte index = buffer.readByte();
+        if (index == END) return null; // End of metadata
+        final MetaType type = this.getType((index & 224) >> 5);
+        return new Metadata(index & 31, type, type.type().read(buffer));
     }
 
-    /**
-     * Chunk unload.
-     *
-     * @param x coord
-     * @param z coord
-     */
-    public Chunk1_8(int x, int z) {
-        this(x, z, true, 0, new ChunkSection[16], null, new ArrayList<>());
-        this.unloadPacket = true;
-    }
+    protected abstract MetaType getType(final int index);
 
-    /**
-     * Does this chunks have biome data
-     *
-     * @return True if the chunks has biome data
-     */
-    public boolean hasBiomeData() {
-        return biomeData != null && fullChunk;
-    }
-
-    public boolean isUnloadPacket() {
-        return unloadPacket;
+    @Override
+    public void write(final ByteBuf buffer, final Metadata object) throws Exception {
+        if (object == null) {
+            buffer.writeByte(END);
+        } else {
+            final int index = (object.metaType().typeId() << 5 | object.id() & 31) & 255;
+            buffer.writeByte(index);
+            object.metaType().type().write(buffer, object.getValue());
+        }
     }
 }

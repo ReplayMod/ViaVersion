@@ -78,6 +78,7 @@ public class ProtocolVersion {
     public static final ProtocolVersion v1_16_4 = register(754, "1.16.4/5", new VersionRange("1.16", 4, 5));
     public static final ProtocolVersion v1_17 = register(755, "1.17");
     public static final ProtocolVersion v1_17_1 = register(756, "1.17.1");
+    public static final ProtocolVersion v1_18 = register(757, 49, "1.18");
     public static final ProtocolVersion unknown = register(-1, "UNKNOWN");
 
     public static ProtocolVersion register(int version, String name) {
@@ -215,12 +216,12 @@ public class ProtocolVersion {
         Preconditions.checkArgument(!versionWildcard || versionRange == null, "A version cannot be a wildcard and a range at the same time!");
         if (versionRange != null) {
             includedVersions = new LinkedHashSet<>();
-            for (int i = versionRange.getRangeFrom(); i <= versionRange.getRangeTo(); i++) {
+            for (int i = versionRange.rangeFrom(); i <= versionRange.rangeTo(); i++) {
                 if (i == 0) {
-                    includedVersions.add(versionRange.getBaseVersion()); // Keep both the base version and with ".0" appended
+                    includedVersions.add(versionRange.baseVersion()); // Keep both the base version and with ".0" appended
                 }
 
-                includedVersions.add(versionRange.getBaseVersion() + "." + i);
+                includedVersions.add(versionRange.baseVersion() + "." + i);
             }
         } else {
             includedVersions = Collections.singleton(name);

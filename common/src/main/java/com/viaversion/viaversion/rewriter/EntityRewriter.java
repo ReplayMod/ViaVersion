@@ -19,6 +19,7 @@ package com.viaversion.viaversion.rewriter;
 
 import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
 import com.github.steveice10.opennbt.tag.builtin.IntTag;
+import com.github.steveice10.opennbt.tag.builtin.ListTag;
 import com.github.steveice10.opennbt.tag.builtin.Tag;
 import com.google.common.base.Preconditions;
 import com.viaversion.viaversion.api.Via;
@@ -130,7 +131,7 @@ public abstract class EntityRewriter<T extends Protocol> extends RewriterBase<T>
             }
 
             if (event != null && event.extraMeta() != null) {
-                // Finally add newly created meta
+                // Finally, add newly created meta
                 metadataList.addAll(event.extraMeta());
             }
             i++;
@@ -196,7 +197,7 @@ public abstract class EntityRewriter<T extends Protocol> extends RewriterBase<T>
      */
     public <E extends Enum<E> & EntityType> void mapTypes(EntityType[] oldTypes, Class<E> newTypeClass) {
         if (typeMappings == null) {
-            typeMappings = new Int2IntOpenHashMap(oldTypes.length, 1F);
+            typeMappings = new Int2IntOpenHashMap(oldTypes.length, .99F);
             typeMappings.defaultReturnValue(-1);
         }
         for (EntityType oldType : oldTypes) {
@@ -281,7 +282,7 @@ public abstract class EntityRewriter<T extends Protocol> extends RewriterBase<T>
             @Override
             public void registerMap() {
                 handler(wrapper -> {
-                    int entityId = (int) wrapper.passthrough(intType);
+                    int entityId = wrapper.passthrough(intType);
                     tracker(wrapper.user()).addEntity(entityId, entityType);
                 });
             }
@@ -362,7 +363,14 @@ public abstract class EntityRewriter<T extends Protocol> extends RewriterBase<T>
         return trackerAndRewriterHandler(null);
     }
 
-    protected PacketHandler worldDataTrackerHandler(int nbtIndex) {
+    /**
+     * Returns a packet handler storing height, min_y, and name of the current world.
+     * If the client changes to a new world, the stored entity data will be cleared.
+     *
+     * @param nbtIndex index of the current world's nbt
+     * @return packet handler
+     */
+    public PacketHandler worldDataTrackerHandler(int nbtIndex) {
         return wrapper -> {
             EntityTracker tracker = tracker(wrapper.user());
 
@@ -381,6 +389,21 @@ public abstract class EntityRewriter<T extends Protocol> extends RewriterBase<T>
             } else {
                 Via.getPlatform().getLogger().warning("Min Y missing in dimension data: " + registryData);
             }
+
+            String world = wrapper.get(Type.STRING, 0);
+            if (tracker.currentWorld() != null && !tracker.currentWorld().equals(world)) {
+                tracker.clearEntities();
+            }
+            tracker.setCurrentWorld(world);
+        };
+    }
+
+    public PacketHandler biomeSizeTracker() {
+        return wrapper -> {
+            final CompoundTag registry = wrapper.get(Type.NBT, 0);
+            final CompoundTag biomeRegistry = registry.get("minecraft:worldgen/biome");
+            final ListTag biomes = biomeRegistry.get("value");
+            tracker(wrapper.user()).setBiomesSent(biomes.size());
         };
     }
 
@@ -456,10 +479,10 @@ public abstract class EntityRewriter<T extends Protocol> extends RewriterBase<T>
     protected void rewriteParticle(Particle particle) {
         ParticleMappings mappings = protocol.getMappingData().getParticleMappings();
         int id = particle.getId();
-        if (id == mappings.getBlockId() || id == mappings.getFallingDustId()) {
+        if (mappings.isBlockParticle(id)) {
             Particle.ParticleData data = particle.getArguments().get(0);
             data.setValue(protocol.getMappingData().getNewBlockStateId(data.get()));
-        } else if (id == mappings.getItemId()) {
+        } else if (mappings.isItemParticle(id)) {
             Particle.ParticleData data = particle.getArguments().get(0);
             data.setValue(protocol.getMappingData().getNewItemId(data.get()));
         }

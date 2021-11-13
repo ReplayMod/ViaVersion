@@ -29,6 +29,7 @@ import com.viaversion.viaversion.api.protocol.packet.PacketTracker;
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.type.Type;
 import com.viaversion.viaversion.exception.CancelException;
+import com.viaversion.viaversion.protocol.packet.PacketWrapperImpl;
 import com.viaversion.viaversion.util.ChatColorUtil;
 import com.viaversion.viaversion.util.PipelineUtil;
 import io.netty.buffer.ByteBuf;
@@ -62,6 +63,7 @@ public class UserConnectionImpl implements UserConnection {
     private final boolean clientSide;
     private boolean active = true;
     private boolean pendingDisconnect;
+    private boolean packetLimiterEnabled = true;
 
     /**
      * Creates an UserConnection. When it's a client-side connection, some method behaviors are modified.
@@ -200,12 +202,17 @@ public class UserConnectionImpl implements UserConnection {
             // We'll use passing through because there are some encoder wrappers
             ChannelHandlerContext context = PipelineUtil
                     .getPreviousContext(Via.getManager().getInjector().getDecoderName(), channel.pipeline());
-            try {
-                Type.VAR_INT.writePrimitive(buf, PacketWrapper.PASSTHROUGH_ID);
-                Type.UUID.write(buf, generatePassthroughToken());
-            } catch (Exception shouldNotHappen) {
-                throw new RuntimeException(shouldNotHappen);
+
+            if (shouldTransformPacket()) {
+                // Bypass serverbound packet decoder transforming
+                try {
+                    Type.VAR_INT.writePrimitive(buf, PacketWrapper.PASSTHROUGH_ID);
+                    Type.UUID.write(buf, generatePassthroughToken());
+                } catch (Exception shouldNotHappen) {
+                    throw new RuntimeException(shouldNotHappen);
+                }
             }
+
             buf.writeBytes(packet);
             Runnable act = () -> {
                 if (context != null) {
@@ -247,10 +254,11 @@ public class UserConnectionImpl implements UserConnection {
 
     @Override
     public boolean checkServerboundPacket() {
-        // Ignore if pending disconnect
-        if (pendingDisconnect) return false;
+        if (pendingDisconnect) {
+            return false;
+        }
         // Increment received + Check PPS
-        return !packetTracker.incrementReceived() || !packetTracker.exceedsMaxPPS();
+        return !packetLimiterEnabled || !packetTracker.incrementReceived() || !packetTracker.exceedsMaxPPS();
     }
 
     @Override
@@ -285,7 +293,7 @@ public class UserConnectionImpl implements UserConnection {
             return;
         }
 
-        PacketWrapper wrapper = PacketWrapper.create(id, buf, this);
+        PacketWrapper wrapper = new PacketWrapperImpl(id, buf, this);
         try {
             protocolInfo.getPipeline().transform(direction, protocolInfo.getState(), wrapper);
         } catch (CancelException ex) {
@@ -349,6 +357,16 @@ public class UserConnectionImpl implements UserConnection {
     @Override
     public boolean shouldApplyBlockProtocol() {
         return !clientSide; // Don't apply protocol blocking on client-side
+    }
+
+    @Override
+    public boolean isPacketLimiterEnabled() {
+        return packetLimiterEnabled;
+    }
+
+    @Override
+    public void setPacketLimiterEnabled(boolean packetLimiterEnabled) {
+        this.packetLimiterEnabled = packetLimiterEnabled;
     }
 
     @Override

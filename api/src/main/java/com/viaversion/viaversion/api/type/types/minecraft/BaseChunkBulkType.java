@@ -22,40 +22,21 @@
  */
 package com.viaversion.viaversion.api.type.types.minecraft;
 
-import com.viaversion.viaversion.api.minecraft.metadata.Metadata;
+import com.viaversion.viaversion.api.minecraft.chunks.Chunk;
 import com.viaversion.viaversion.api.type.Type;
-import io.netty.buffer.ByteBuf;
 
-import java.util.ArrayList;
-import java.util.List;
+public abstract class BaseChunkBulkType extends Type<Chunk[]> {
 
-public abstract class AbstractMetaListType extends MetaListTypeTemplate {
-    protected abstract Type<Metadata> getType();
+    protected BaseChunkBulkType() {
+        super(Chunk[].class);
+    }
 
-    @Override
-    public List<Metadata> read(final ByteBuf buffer) throws Exception {
-        final Type<Metadata> type = this.getType();
-        final List<Metadata> list = new ArrayList<>();
-        Metadata meta;
-        do {
-            meta = type.read(buffer);
-            if (meta != null) {
-                list.add(meta);
-            }
-        } while (meta != null);
-        return list;
+    protected BaseChunkBulkType(String typeName) {
+        super(typeName, Chunk[].class);
     }
 
     @Override
-    public void write(final ByteBuf buffer, final List<Metadata> object) throws Exception {
-        final Type<Metadata> type = this.getType();
-
-        for (final Metadata metadata : object) {
-            type.write(buffer, metadata);
-        }
-
-        this.writeEnd(type, buffer);
+    public Class<? extends Type> getBaseClass() {
+        return BaseChunkBulkType.class;
     }
-
-    protected abstract void writeEnd(final Type<Metadata> type, final ByteBuf buffer) throws Exception;
 }

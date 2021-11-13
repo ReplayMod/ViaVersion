@@ -25,8 +25,8 @@ import com.github.steveice10.opennbt.tag.builtin.ListTag;
 import com.github.steveice10.opennbt.tag.builtin.LongTag;
 import com.github.steveice10.opennbt.tag.builtin.StringTag;
 import com.viaversion.viaversion.api.Via;
+import com.viaversion.viaversion.api.minecraft.WorldIdentifiers;
 import com.viaversion.viaversion.api.minecraft.entities.Entity1_16Types;
-import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.protocol.remapper.PacketHandler;
 import com.viaversion.viaversion.api.protocol.remapper.PacketRemapper;
 import com.viaversion.viaversion.api.type.Type;
@@ -35,32 +35,44 @@ import com.viaversion.viaversion.api.type.types.version.Types1_16;
 import com.viaversion.viaversion.protocols.protocol1_15to1_14_4.ClientboundPackets1_15;
 import com.viaversion.viaversion.protocols.protocol1_16to1_15_2.ClientboundPackets1_16;
 import com.viaversion.viaversion.protocols.protocol1_16to1_15_2.Protocol1_16To1_15_2;
+import com.viaversion.viaversion.protocols.protocol1_16to1_15_2.ServerboundPackets1_16;
 import com.viaversion.viaversion.protocols.protocol1_16to1_15_2.metadata.MetadataRewriter1_16To1_15_2;
+import com.viaversion.viaversion.protocols.protocol1_16to1_15_2.storage.InventoryTracker1_16;
 
 import java.util.UUID;
 
 public class EntityPackets {
 
     private static final PacketHandler DIMENSION_HANDLER = wrapper -> {
+        WorldIdentifiers map = Via.getConfig().get1_16WorldNamesMap();
+        WorldIdentifiers userMap = wrapper.user().get(WorldIdentifiers.class);
+        if (userMap!=null){
+            map = userMap;
+        }
         int dimension = wrapper.read(Type.INT);
         String dimensionName;
+        String outputName;
         switch (dimension) {
             case -1:
                 dimensionName = "minecraft:the_nether";
+                outputName = map.nether();
                 break;
             case 0:
                 dimensionName = "minecraft:overworld";
+                outputName = map.overworld();
                 break;
             case 1:
                 dimensionName = "minecraft:the_end";
+                outputName = map.end();
                 break;
             default:
                 Via.getPlatform().getLogger().warning("Invalid dimension id: " + dimension);
                 dimensionName = "minecraft:overworld";
+                outputName = map.overworld();
         }
 
         wrapper.write(Type.STRING, dimensionName); // dimension
-        wrapper.write(Type.STRING, dimensionName); // world
+        wrapper.write(Type.STRING, outputName); // world
     };
     public static final CompoundTag DIMENSIONS_TAG = new CompoundTag();
     private static final String[] WORLD_NAMES = {"minecraft:overworld", "minecraft:the_nether", "minecraft:the_end"};
@@ -151,12 +163,17 @@ public class EntityPackets {
             public void registerMap() {
                 handler(wrapper -> {
                     int entityId = wrapper.passthrough(Type.VAR_INT);
+                    byte type = wrapper.read(Type.BYTE);
+                    if (type != 1) {
+                        // Cancel if not lightning/invalid id
+                        wrapper.cancel();
+                        return;
+                    }
+
                     wrapper.user().getEntityTracker(Protocol1_16To1_15_2.class).addEntity(entityId, Entity1_16Types.LIGHTNING_BOLT);
 
                     wrapper.write(Type.UUID, UUID.randomUUID()); // uuid
                     wrapper.write(Type.VAR_INT, Entity1_16Types.LIGHTNING_BOLT.getId()); // entity type
-
-                    wrapper.read(Type.BYTE); // remove type
 
                     wrapper.passthrough(Type.DOUBLE); // x
                     wrapper.passthrough(Type.DOUBLE); // y
@@ -262,6 +279,19 @@ public class EntityPackets {
                     }
                     if (size != actualSize) {
                         wrapper.set(Type.INT, 0, actualSize);
+                    }
+                });
+            }
+        });
+
+        protocol.registerServerbound(ServerboundPackets1_16.ANIMATION, new PacketRemapper() {
+            @Override
+            public void registerMap() {
+                handler(wrapper -> {
+                    InventoryTracker1_16 inventoryTracker = wrapper.user().get(InventoryTracker1_16.class);
+                    // Don't send an arm swing if the player has an inventory opened.
+                    if (inventoryTracker.getInventory() != -1) {
+                        wrapper.cancel();
                     }
                 });
             }

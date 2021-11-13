@@ -291,11 +291,25 @@ public interface UserConnection {
     boolean isClientSide();
 
     /**
-     * Returns whether {@link ViaVersionConfig#getBlockedProtocols()} should be checked for this connection.
+     * Returns whether {@link ViaVersionConfig#blockedProtocolVersions()} should be checked for this connection.
      *
      * @return whether blocked protocols should be applied
      */
     boolean shouldApplyBlockProtocol();
+
+    /**
+     * Returns whether the packet limiter applies to this user.
+     *
+     * @return whether the packet limiter applies to this user
+     */
+    boolean isPacketLimiterEnabled();
+
+    /**
+     * Sets the status of the packet limiter.
+     *
+     * @param packetLimiterEnabled whether the packet limiter should be enabled
+     */
+    void setPacketLimiterEnabled(boolean packetLimiterEnabled);
 
     /**
      * Returns a newly generated uuid that will let a packet be passed through without

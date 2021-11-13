@@ -20,16 +20,25 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package com.viaversion.viaversion.api.type.types.minecraft;
+package com.viaversion.viaversion.api.minecraft.chunks;
 
-import com.viaversion.viaversion.api.minecraft.metadata.Metadata;
-import com.viaversion.viaversion.api.type.Type;
-import io.netty.buffer.ByteBuf;
+public enum PaletteType {
+    BLOCKS(ChunkSection.SIZE, 8),
+    BIOMES(ChunkSection.BIOME_SIZE, 2);
 
-public abstract class ModernMetaListType extends AbstractMetaListType {
+    private final int size;
+    private final int highestBitsPerValue;
 
-    @Override
-    protected void writeEnd(final Type<Metadata> type, final ByteBuf buffer) throws Exception {
-        type.write(buffer, null);
+    PaletteType(final int size, final int highestBitsPerValue) {
+        this.size = size;
+        this.highestBitsPerValue = highestBitsPerValue;
+    }
+
+    public int size() {
+        return size;
+    }
+
+    public int highestBitsPerValue() {
+        return highestBitsPerValue;
     }
 }

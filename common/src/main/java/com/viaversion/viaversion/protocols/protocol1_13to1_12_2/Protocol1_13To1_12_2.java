@@ -37,6 +37,8 @@ import com.viaversion.viaversion.api.protocol.remapper.ValueTransformer;
 import com.viaversion.viaversion.api.rewriter.EntityRewriter;
 import com.viaversion.viaversion.api.rewriter.ItemRewriter;
 import com.viaversion.viaversion.api.type.Type;
+import com.viaversion.viaversion.api.type.types.minecraft.ParticleType;
+import com.viaversion.viaversion.api.type.types.version.Types1_13;
 import com.viaversion.viaversion.data.entity.EntityTrackerBase;
 import com.viaversion.viaversion.protocols.protocol1_12_1to1_12.ClientboundPackets1_12_1;
 import com.viaversion.viaversion.protocols.protocol1_12_1to1_12.ServerboundPackets1_12_1;
@@ -108,9 +110,9 @@ public class Protocol1_13To1_12_2 extends AbstractProtocol<ClientboundPackets1_1
 
     public static final PacketHandler POS_TO_3_INT = wrapper -> {
         Position position = wrapper.read(Type.POSITION);
-        wrapper.write(Type.INT, position.getX());
-        wrapper.write(Type.INT, position.getY());
-        wrapper.write(Type.INT, position.getZ());
+        wrapper.write(Type.INT, position.x());
+        wrapper.write(Type.INT, position.y());
+        wrapper.write(Type.INT, position.z());
     };
 
     private static final PacketHandler SEND_DECLARE_COMMANDS_AND_TAGS =
@@ -1037,6 +1039,12 @@ public class Protocol1_13To1_12_2 extends AbstractProtocol<ClientboundPackets1_1
         ConnectionData.init();
         RecipeData.init();
         BlockIdData.init();
+
+        Types1_13.PARTICLE.filler(this)
+                .reader(3, ParticleType.Readers.BLOCK)
+                .reader(20, ParticleType.Readers.DUST)
+                .reader(11, ParticleType.Readers.DUST)
+                .reader(27, ParticleType.Readers.ITEM);
     }
 
     @Override

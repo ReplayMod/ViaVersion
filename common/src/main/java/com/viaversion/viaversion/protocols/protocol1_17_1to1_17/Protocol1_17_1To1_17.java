@@ -102,12 +102,20 @@ public final class Protocol1_17_1To1_17 extends AbstractProtocol<ClientboundPack
                         pagesTag.add(new StringTag(page));
                     }
 
+                    // Legacy servers don't like an empty pages list
+                    if (pagesTag.size() == 0) {
+                        pagesTag.add(new StringTag(""));
+                    }
+
                     tag.put("pages", pagesTag);
 
                     if (wrapper.read(Type.BOOLEAN)) {
                         // Save the title to tag
                         String title = wrapper.read(TITLE_STRING_TYPE);
                         tag.put("title", new StringTag(title));
+
+                        // Even if unused, legacy servers check for the author tag
+                        tag.put("author", new StringTag(wrapper.user().getProtocolInfo().getUsername()));
 
                         // Write signing
                         wrapper.write(Type.BOOLEAN, true);
