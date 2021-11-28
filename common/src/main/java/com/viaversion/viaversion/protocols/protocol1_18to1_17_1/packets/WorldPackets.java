@@ -67,29 +67,34 @@ public final class WorldPackets {
                 handler(wrapper -> {
                     final int chunkX = wrapper.passthrough(Type.VAR_INT);
                     final int chunkZ = wrapper.passthrough(Type.VAR_INT);
+
                     if (wrapper.user().get(ChunkLightStorage.class).isLoaded(chunkX, chunkZ)) {
-                        // Light packets updating already sent chunks are the same as before
-                        return;
+                        if (!Via.getConfig().cache1_17Light()) {
+                            // Light packets updating already sent chunks are the same as before
+                            return;
+                        }
+                        // Pass through and cache light data
+                    } else {
+                        // Cancel and cache the light data
+                        wrapper.cancel();
                     }
 
-                    wrapper.cancel();
+                    final boolean trustEdges = wrapper.passthrough(Type.BOOLEAN);
+                    final long[] skyLightMask = wrapper.passthrough(Type.LONG_ARRAY_PRIMITIVE);
+                    final long[] blockLightMask = wrapper.passthrough(Type.LONG_ARRAY_PRIMITIVE);
+                    final long[] emptySkyLightMask = wrapper.passthrough(Type.LONG_ARRAY_PRIMITIVE);
+                    final long[] emptyBlockLightMask = wrapper.passthrough(Type.LONG_ARRAY_PRIMITIVE);
 
-                    final boolean trustEdges = wrapper.read(Type.BOOLEAN);
-                    final long[] skyLightMask = wrapper.read(Type.LONG_ARRAY_PRIMITIVE);
-                    final long[] blockLightMask = wrapper.read(Type.LONG_ARRAY_PRIMITIVE);
-                    final long[] emptySkyLightMask = wrapper.read(Type.LONG_ARRAY_PRIMITIVE);
-                    final long[] emptyBlockLightMask = wrapper.read(Type.LONG_ARRAY_PRIMITIVE);
-
-                    final int skyLightLenght = wrapper.read(Type.VAR_INT);
+                    final int skyLightLenght = wrapper.passthrough(Type.VAR_INT);
                     final byte[][] skyLight = new byte[skyLightLenght][];
                     for (int i = 0; i < skyLightLenght; i++) {
-                        skyLight[i] = wrapper.read(Type.BYTE_ARRAY_PRIMITIVE);
+                        skyLight[i] = wrapper.passthrough(Type.BYTE_ARRAY_PRIMITIVE);
                     }
 
-                    final int blockLightLength = wrapper.read(Type.VAR_INT);
+                    final int blockLightLength = wrapper.passthrough(Type.VAR_INT);
                     final byte[][] blockLight = new byte[blockLightLength][];
                     for (int i = 0; i < blockLightLength; i++) {
-                        blockLight[i] = wrapper.read(Type.BYTE_ARRAY_PRIMITIVE);
+                        blockLight[i] = wrapper.passthrough(Type.BYTE_ARRAY_PRIMITIVE);
                     }
 
                     final ChunkLightStorage lightStorage = wrapper.user().get(ChunkLightStorage.class);
@@ -142,12 +147,6 @@ public final class WorldPackets {
                             final DataPaletteImpl blockPalette = new DataPaletteImpl(ChunkSection.SIZE);
                             blockPalette.addId(0);
                             section.addPalette(PaletteType.BLOCKS, blockPalette);
-                        } else {
-                            /*final DataPalette blockpalette = section.palette(PaletteType.BLOCKS);
-                            for (int j = 0; j < blockpalette.size(); j++) {
-                                final int old = blockpalette.entry(j);
-                                blockpalette.setEntry(j, protocol.getMappingData().getNewBlockStateId(old));
-                            }*/
                         }
 
                         // Fill biome palette
@@ -162,15 +161,15 @@ public final class WorldPackets {
 
                     final Chunk chunk = new Chunk1_18(oldChunk.getX(), oldChunk.getZ(), oldChunk.getSections(), oldChunk.getHeightMap(), blockEntities);
                     wrapper.write(new Chunk1_18Type(tracker.currentWorldSectionHeight(),
-                            MathUtil.ceilLog2(protocol.getMappingData().getBlockStateMappings().size()),
+                            MathUtil.ceilLog2(protocol.getMappingData().getBlockStateMappings().mappedSize()),
                             MathUtil.ceilLog2(tracker.biomesSent())), chunk);
 
                     final ChunkLightStorage lightStorage = wrapper.user().get(ChunkLightStorage.class);
                     final boolean alreadyLoaded = !lightStorage.addLoadedChunk(chunk.getX(), chunk.getZ());
 
-                    // Get and remove light stored, there's only full chunk packets //TODO Only get, not remove if we find out people re-send full chunk packets without re-sending light
                     // Append light data to chunk packet
-                    final ChunkLightStorage.ChunkLight light = lightStorage.removeLight(chunk.getX(), chunk.getZ());
+                    final ChunkLightStorage.ChunkLight light = Via.getConfig().cache1_17Light() ?
+                            lightStorage.getLight(chunk.getX(), chunk.getZ()) : lightStorage.removeLight(chunk.getX(), chunk.getZ());
                     if (light == null) {
                         Via.getPlatform().getLogger().warning("No light data found for chunk at " + chunk.getX() + ", " + chunk.getZ() + ". Chunk was already loaded: " + alreadyLoaded);
 

@@ -36,6 +36,7 @@ import com.viaversion.viaversion.protocols.protocol1_18to1_17_1.storage.ChunkLig
 import com.viaversion.viaversion.rewriter.EntityRewriter;
 import com.viaversion.viaversion.rewriter.ItemRewriter;
 import com.viaversion.viaversion.rewriter.SoundRewriter;
+import com.viaversion.viaversion.rewriter.StatisticsRewriter;
 import com.viaversion.viaversion.rewriter.TagRewriter;
 
 public final class Protocol1_18To1_17_1 extends AbstractProtocol<ClientboundPackets1_17_1, ClientboundPackets1_18, ServerboundPackets1_17, ServerboundPackets1_17> {
@@ -46,6 +47,13 @@ public final class Protocol1_18To1_17_1 extends AbstractProtocol<ClientboundPack
 
     public Protocol1_18To1_17_1() {
         super(ClientboundPackets1_17_1.class, ClientboundPackets1_18.class, ServerboundPackets1_17.class, ServerboundPackets1_17.class);
+    }
+
+    @Override
+    protected void registerPackets() {
+        entityRewriter.register();
+        itemRewriter.register();
+        WorldPackets.register(this);
 
         final SoundRewriter soundRewriter = new SoundRewriter(this);
         soundRewriter.registerSound(ClientboundPackets1_17_1.SOUND);
@@ -55,7 +63,11 @@ public final class Protocol1_18To1_17_1 extends AbstractProtocol<ClientboundPack
         tagRewriter.registerGeneric(ClientboundPackets1_17_1.TAGS);
         tagRewriter.addEmptyTags(RegistryType.BLOCK, "minecraft:lava_pool_stone_cannot_replace", "minecraft:big_dripleaf_placeable",
                 "minecraft:wolves_spawnable_on", "minecraft:rabbits_spawnable_on", "minecraft:polar_bears_spawnable_on_in_frozen_ocean", "minecraft:parrots_spawnable_on",
-                "minecraft:mooshrooms_spawnable_on", "minecraft:goats_spawnable_on", "minecraft:foxes_spawnable_on", "minecraft:axolotls_spawnable_on", "minecraft:animals_spawnable_on");
+                "minecraft:mooshrooms_spawnable_on", "minecraft:goats_spawnable_on", "minecraft:foxes_spawnable_on", "minecraft:axolotls_spawnable_on", "minecraft:animals_spawnable_on",
+                "minecraft:azalea_grows_on", "minecraft:azalea_root_replaceable", "minecraft:replaceable_plants", "minecraft:terracotta");
+        tagRewriter.addEmptyTags(RegistryType.ITEM, "minecraft:dirt", "minecraft:terracotta");
+
+        new StatisticsRewriter(this).register(ClientboundPackets1_17_1.STATISTICS);
 
         registerServerbound(ServerboundPackets1_17.CLIENT_SETTINGS, new PacketRemapper() {
             @Override
@@ -85,20 +97,13 @@ public final class Protocol1_18To1_17_1 extends AbstractProtocol<ClientboundPack
     }
 
     @Override
-    protected void registerPackets() {
-        entityRewriter.register();
-        itemRewriter.register();
-        WorldPackets.register(this);
-    }
-
-    @Override
     public MappingData getMappingData() {
         return MAPPINGS;
     }
 
     @Override
     public void init(final UserConnection connection) {
-        addEntityTracker(connection, new EntityTrackerBase(connection, Entity1_17Types.PLAYER)); //TODO Entity1_18Types
+        addEntityTracker(connection, new EntityTrackerBase(connection, Entity1_17Types.PLAYER));
         connection.put(new ChunkLightStorage());
     }
 
