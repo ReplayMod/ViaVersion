@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2021 ViaVersion and contributors
+ * Copyright (C) 2016-2022 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -66,6 +66,12 @@ public abstract class CommandRewriter {
         });
         this.parserHandlers.put("minecraft:score_holder", wrapper -> {
             wrapper.passthrough(Type.BYTE); // Flags
+        });
+        this.parserHandlers.put("minecraft:resource", wrapper -> {
+            wrapper.passthrough(Type.STRING); // Resource location
+        });
+        this.parserHandlers.put("minecraft:resource_or_tag", wrapper -> {
+            wrapper.passthrough(Type.STRING); // Resource location/tag
         });
     }
 

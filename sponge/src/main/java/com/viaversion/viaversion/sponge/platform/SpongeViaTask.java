@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2021 ViaVersion and contributors
+ * Copyright (C) 2016-2022 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,17 +18,17 @@
 package com.viaversion.viaversion.sponge.platform;
 
 import com.viaversion.viaversion.api.platform.PlatformTask;
-import org.spongepowered.api.scheduler.Task;
+import org.spongepowered.api.scheduler.ScheduledTask;
 
-public class SpongeViaTask implements PlatformTask<Task> {
-    private final Task task;
+public class SpongeViaTask implements PlatformTask<ScheduledTask> {
+    private final ScheduledTask task;
 
-    public SpongeViaTask(Task task) {
+    public SpongeViaTask(ScheduledTask task) {
         this.task = task;
     }
 
     @Override
-    public Task getObject() {
+    public ScheduledTask getObject() {
         return task;
     }
 

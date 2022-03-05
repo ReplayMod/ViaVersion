@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2021 ViaVersion and contributors
+ * Copyright (C) 2016-2022 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -87,4 +87,11 @@ public interface Item {
      * @param tag item tag
      */
     void setTag(@Nullable CompoundTag tag);
+
+    /**
+     * Returns a copy of the item.
+     *
+     * @return copy of the item
+     */
+    Item copy();
 }

@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2021 ViaVersion and contributors
+ * Copyright (C) 2016-2022 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -61,7 +61,9 @@ public abstract class Config implements ConfigurationProvider {
         this.configFile = configFile;
     }
 
-    public abstract URL getDefaultConfigURL();
+    public URL getDefaultConfigURL() {
+        return getClass().getClassLoader().getResource("assets/viaversion/config.yml");
+    }
 
     public synchronized Map<String, Object> loadConfig(File location) {
         List<String> unsupported = getUnsupportedOptions();

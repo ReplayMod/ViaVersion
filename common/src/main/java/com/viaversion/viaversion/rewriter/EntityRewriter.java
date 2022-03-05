@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2021 ViaVersion and contributors
+ * Copyright (C) 2016-2022 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,6 +27,7 @@ import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.data.ParticleMappings;
 import com.viaversion.viaversion.api.data.entity.EntityTracker;
 import com.viaversion.viaversion.api.minecraft.entities.EntityType;
+import com.viaversion.viaversion.api.minecraft.item.Item;
 import com.viaversion.viaversion.api.minecraft.metadata.MetaType;
 import com.viaversion.viaversion.api.minecraft.metadata.Metadata;
 import com.viaversion.viaversion.api.protocol.Protocol;
@@ -482,9 +483,10 @@ public abstract class EntityRewriter<T extends Protocol> extends RewriterBase<T>
         if (mappings.isBlockParticle(id)) {
             Particle.ParticleData data = particle.getArguments().get(0);
             data.setValue(protocol.getMappingData().getNewBlockStateId(data.get()));
-        } else if (mappings.isItemParticle(id)) {
+        } else if (mappings.isItemParticle(id) && protocol.getItemRewriter() != null) {
             Particle.ParticleData data = particle.getArguments().get(0);
-            data.setValue(protocol.getMappingData().getNewItemId(data.get()));
+            Item item = data.get();
+            protocol.getItemRewriter().handleItemToClient(item);
         }
 
         particle.setId(protocol.getMappingData().getNewParticleId(id));

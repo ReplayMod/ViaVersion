@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2021 ViaVersion and contributors
+ * Copyright (C) 2016-2022 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -27,6 +27,7 @@ import com.viaversion.viaversion.api.minecraft.chunks.DataPaletteImpl;
 import com.viaversion.viaversion.api.minecraft.chunks.PaletteType;
 import com.viaversion.viaversion.api.type.Type;
 import com.viaversion.viaversion.util.CompactArrayUtil;
+import com.viaversion.viaversion.util.MathUtil;
 import io.netty.buffer.ByteBuf;
 
 public final class PaletteType1_18 extends Type<DataPalette> {
@@ -88,29 +89,24 @@ public final class PaletteType1_18 extends Type<DataPalette> {
 
     @Override
     public void write(final ByteBuf buffer, final DataPalette palette) throws Exception {
-        int bitsPerValue;
-        if (palette.size() > 1) {
-            // 1, 2, and 3 bit linear palettes can't be read by the client
-            bitsPerValue = type == PaletteType.BLOCKS ? 4 : 1;
-            while (palette.size() > 1 << bitsPerValue) {
-                bitsPerValue += 1;
-            }
-
-            if (bitsPerValue > type.highestBitsPerValue()) {
-                bitsPerValue = globalPaletteBits;
-            }
-        } else {
-            bitsPerValue = 0;
-        }
-
-        buffer.writeByte(bitsPerValue);
-
-        if (bitsPerValue == 0) {
-            // Write single value
+        if (palette.size() == 1) {
+            // Single value palette
+            buffer.writeByte(0); // 0 bit storage
             Type.VAR_INT.writePrimitive(buffer, palette.idByIndex(0));
             Type.VAR_INT.writePrimitive(buffer, 0); // Empty values length
             return;
+        }/* else if (palette.size() == 0) {
+            Via.getPlatform().getLogger().warning("Palette size is 0!");
+        }*/
+
+        // 1, 2, and 3 bit linear block palettes can't be read by the client
+        final int min = type == PaletteType.BLOCKS ? 4 : 1;
+        int bitsPerValue = Math.max(min, MathUtil.ceilLog2(palette.size()));
+        if (bitsPerValue > type.highestBitsPerValue()) {
+            bitsPerValue = globalPaletteBits;
         }
+
+        buffer.writeByte(bitsPerValue);
 
         if (bitsPerValue != globalPaletteBits) {
             // Write pallete

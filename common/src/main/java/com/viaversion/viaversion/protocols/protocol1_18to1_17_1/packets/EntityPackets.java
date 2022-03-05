@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2021 ViaVersion and contributors
+ * Copyright (C) 2016-2022 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -84,7 +84,7 @@ public final class EntityPackets extends EntityRewriter<Protocol1_18To1_17_1> {
         filter().handler((event, meta) -> {
             meta.setMetaType(Types1_18.META_TYPES.byId(meta.metaType().typeId()));
             if (meta.metaType() == Types1_18.META_TYPES.particleType) {
-                Particle particle = (Particle) meta.getValue();
+                final Particle particle = (Particle) meta.getValue();
                 if (particle.getId() == 2) { // Barrier
                     particle.setId(3); // Block marker
                     particle.getArguments().add(new Particle.ParticleData(Type.VAR_INT, 7754)); // Barrier state

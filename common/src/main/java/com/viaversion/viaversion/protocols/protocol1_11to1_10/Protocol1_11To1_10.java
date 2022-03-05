@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2021 ViaVersion and contributors
+ * Copyright (C) 2016-2022 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -234,11 +234,7 @@ public class Protocol1_11To1_10 extends AbstractProtocol<ClientboundPackets1_9_3
                     public void handle(PacketWrapper wrapper) throws Exception {
                         ClientWorld clientWorld = wrapper.user().get(ClientWorld.class);
 
-                        Chunk1_9_3_4Type type = new Chunk1_9_3_4Type(clientWorld);
-                        Chunk chunk = wrapper.passthrough(type);
-
-                        // Clear any other bytes (This is a workaround for a issue with 1.9.2 encoder adding nbt list)
-                        wrapper.clearInputBuffer();
+                        Chunk chunk = wrapper.passthrough(new Chunk1_9_3_4Type(clientWorld));
 
                         if (chunk.getBlockEntities() == null) return;
                         for (CompoundTag tag : chunk.getBlockEntities()) {

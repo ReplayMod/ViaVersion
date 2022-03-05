@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2021 ViaVersion and contributors
+ * Copyright (C) 2016-2022 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -37,6 +37,7 @@ public final class BlockEntityIds {
         IDS[7] = 19; // Structure block
         IDS[8] = 20; // End gateway
         IDS[9] = 7; // Sign
+        IDS[10] = 22; // Shulker box
         IDS[11] = 23; // Bed
         IDS[12] = 30; // Jigsaw
         IDS[13] = 31; // Campfire

@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2021 ViaVersion and contributors
+ * Copyright (C) 2016-2022 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,14 +20,14 @@ package com.viaversion.viaversion.sponge.listeners;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.update.UpdateUtil;
 import org.spongepowered.api.event.Listener;
-import org.spongepowered.api.event.network.ClientConnectionEvent;
+import org.spongepowered.api.event.network.ServerSideConnectionEvent;
 
 public class UpdateListener {
+
     @Listener
-    public void onJoin(ClientConnectionEvent.Join join) {
-        if (join.getTargetEntity().hasPermission("viaversion.update")
-                && Via.getConfig().isCheckForUpdates()) {
-            UpdateUtil.sendUpdateMessage(join.getTargetEntity().getUniqueId());
+    public void onJoin(ServerSideConnectionEvent.Join join) {
+        if (join.player().hasPermission("viaversion.update") && Via.getConfig().isCheckForUpdates()) {
+            UpdateUtil.sendUpdateMessage(join.player().uniqueId());
         }
     }
 }

@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2021 ViaVersion and contributors
+ * Copyright (C) 2016-2022 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,12 +24,7 @@ import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.data.entity.EntityTracker;
 import com.viaversion.viaversion.api.minecraft.blockentity.BlockEntity;
 import com.viaversion.viaversion.api.minecraft.blockentity.BlockEntityImpl;
-import com.viaversion.viaversion.api.minecraft.chunks.Chunk;
-import com.viaversion.viaversion.api.minecraft.chunks.Chunk1_18;
-import com.viaversion.viaversion.api.minecraft.chunks.ChunkSection;
-import com.viaversion.viaversion.api.minecraft.chunks.ChunkSectionImpl;
-import com.viaversion.viaversion.api.minecraft.chunks.DataPaletteImpl;
-import com.viaversion.viaversion.api.minecraft.chunks.PaletteType;
+import com.viaversion.viaversion.api.minecraft.chunks.*;
 import com.viaversion.viaversion.api.protocol.remapper.PacketRemapper;
 import com.viaversion.viaversion.api.type.Type;
 import com.viaversion.viaversion.protocols.protocol1_17_1to1_17.ClientboundPackets1_17_1;
@@ -155,11 +150,13 @@ public final class WorldPackets {
 
                         final int offset = i * ChunkSection.BIOME_SIZE;
                         for (int biomeIndex = 0, biomeArrayIndex = offset; biomeIndex < ChunkSection.BIOME_SIZE; biomeIndex++, biomeArrayIndex++) {
-                            biomePalette.setIdAt(biomeIndex, biomeData[biomeArrayIndex]);
+                            // Also catch invalid biomes with id -1
+                            final int biome = biomeData[biomeArrayIndex];
+                            biomePalette.setIdAt(biomeIndex, biome != -1 ? biome : 0);
                         }
                     }
 
-                    final Chunk chunk = new Chunk1_18(oldChunk.getX(), oldChunk.getZ(), oldChunk.getSections(), oldChunk.getHeightMap(), blockEntities);
+                    final Chunk chunk = new Chunk1_18(oldChunk.getX(), oldChunk.getZ(), sections, oldChunk.getHeightMap(), blockEntities);
                     wrapper.write(new Chunk1_18Type(tracker.currentWorldSectionHeight(),
                             MathUtil.ceilLog2(protocol.getMappingData().getBlockStateMappings().mappedSize()),
                             MathUtil.ceilLog2(tracker.biomesSent())), chunk);

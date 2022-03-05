@@ -6,7 +6,7 @@ plugins {
 tasks {
     // Variable replacements
     processResources {
-        filesMatching(listOf("plugin.yml", "mcmod.info", "fabric.mod.json", "bungee.yml")) {
+        filesMatching(listOf("plugin.yml", "META-INF/sponge_plugins.json", "fabric.mod.json", "bungee.yml")) {
             expand("version" to project.version, "description" to project.description)
         }
     }
@@ -15,6 +15,7 @@ tasks {
         (options as StandardJavadocDocletOptions).addStringOption("Xdoclint:none", "-quiet")
     }
     compileJava {
+        //options.release.set(8)
         options.encoding = Charsets.UTF_8.name()
         options.compilerArgs.addAll(listOf("-nowarn", "-Xlint:-unchecked", "-Xlint:-deprecation"))
     }

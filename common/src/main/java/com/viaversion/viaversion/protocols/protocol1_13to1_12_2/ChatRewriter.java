@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2021 ViaVersion and contributors
+ * Copyright (C) 2016-2022 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -30,14 +30,11 @@ public final class ChatRewriter {
     public static final GsonComponentSerializer HOVER_GSON_SERIALIZER = GsonComponentSerializer.builder().emitLegacyHoverEvent().legacyHoverEventSerializer(NBTLegacyHoverEventSerializer.get()).build();
 
     public static String legacyTextToJsonString(String message, boolean itemData) {
-        Component component = Component.text(builder -> {
-            if (itemData) {
-                builder.decoration(TextDecoration.ITALIC, false);
-            }
-
-            // Not used for chat messages, so no need for url extraction
-            builder.append(LegacyComponentSerializer.legacySection().deserialize(message));
-        });
+        // Not used for chat messages, so no need for url extraction
+        Component component = LegacyComponentSerializer.legacySection().deserialize(message);
+        if (itemData) {
+            component = Component.text().decoration(TextDecoration.ITALIC, false).append(component).build();
+        }
         return GsonComponentSerializer.gson().serialize(component);
     }
 

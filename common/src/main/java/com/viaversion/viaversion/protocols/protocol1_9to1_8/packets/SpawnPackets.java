@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2021 ViaVersion and contributors
+ * Copyright (C) 2016-2022 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,6 +18,7 @@
 package com.viaversion.viaversion.protocols.protocol1_9to1_8.packets;
 
 import com.viaversion.viaversion.api.Via;
+import com.viaversion.viaversion.api.data.entity.EntityTracker;
 import com.viaversion.viaversion.api.minecraft.entities.Entity1_10Types;
 import com.viaversion.viaversion.api.minecraft.item.DataItem;
 import com.viaversion.viaversion.api.minecraft.item.Item;
@@ -114,7 +115,7 @@ public class SpawnPackets {
                         int typeID = wrapper.get(Type.BYTE, 0);
                         if (Entity1_10Types.getTypeFromId(typeID, true) == Entity1_10Types.EntityType.SPLASH_POTION) {
                             // Convert this to meta data, woo!
-                            PacketWrapper metaPacket = wrapper.create(0x39, new PacketHandler() {
+                            PacketWrapper metaPacket = wrapper.create(ClientboundPackets1_9.ENTITY_METADATA, new PacketHandler() {
                                 @Override
                                 public void handle(PacketWrapper wrapper) throws Exception {
                                     wrapper.write(Type.VAR_INT, entityID);
@@ -127,7 +128,10 @@ public class SpawnPackets {
                                     wrapper.write(Types1_9.METADATA_LIST, meta);
                                 }
                             });
-                            metaPacket.scheduleSend(Protocol1_9To1_8.class);
+                            // Fix packet order
+                            wrapper.send(Protocol1_9To1_8.class);
+                            metaPacket.send(Protocol1_9To1_8.class);
+                            wrapper.cancel();
                         }
                     }
                 });
@@ -360,9 +364,10 @@ public class SpawnPackets {
                     @Override
                     public void handle(PacketWrapper wrapper) throws Exception {
                         int[] entities = wrapper.get(Type.VAR_INT_ARRAY_PRIMITIVE, 0);
+                        EntityTracker tracker = wrapper.user().getEntityTracker(Protocol1_9To1_8.class);
                         for (int entity : entities) {
                             // EntityTracker
-                            wrapper.user().getEntityTracker(Protocol1_9To1_8.class).removeEntity(entity);
+                            tracker.removeEntity(entity);
                         }
                     }
                 });

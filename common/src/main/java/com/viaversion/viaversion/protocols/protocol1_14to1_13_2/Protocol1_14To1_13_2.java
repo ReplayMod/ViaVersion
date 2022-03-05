@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2021 ViaVersion and contributors
+ * Copyright (C) 2016-2022 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -149,15 +149,15 @@ public class Protocol1_14To1_13_2 extends AbstractProtocol<ClientboundPackets1_1
         WorldPackets.voidAir = getMappingData().getBlockStateMappings().getNewId(8591);
         WorldPackets.caveAir = getMappingData().getBlockStateMappings().getNewId(8592);
 
-        Types1_13_2.PARTICLE.filler(this)
+        Types1_13_2.PARTICLE.filler(this, false)
                 .reader("block", ParticleType.Readers.BLOCK)
                 .reader("dust", ParticleType.Readers.DUST)
-                .reader("falling_dust", ParticleType.Readers.DUST)
+                .reader("falling_dust", ParticleType.Readers.BLOCK)
                 .reader("item", ParticleType.Readers.VAR_INT_ITEM);
         Types1_14.PARTICLE.filler(this)
                 .reader("block", ParticleType.Readers.BLOCK)
                 .reader("dust", ParticleType.Readers.DUST)
-                .reader("falling_dust", ParticleType.Readers.DUST)
+                .reader("falling_dust", ParticleType.Readers.BLOCK)
                 .reader("item", ParticleType.Readers.VAR_INT_ITEM);
     }
 

@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2021 ViaVersion and contributors
+ * Copyright (C) 2016-2022 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,16 +19,16 @@ package com.viaversion.viaversion.sponge.commands;
 
 import com.viaversion.viaversion.SpongePlugin;
 import com.viaversion.viaversion.api.command.ViaCommandSender;
-import org.spongepowered.api.command.CommandSource;
-import org.spongepowered.api.text.serializer.TextSerializers;
+import net.kyori.adventure.identity.Identity;
+import org.spongepowered.api.command.CommandCause;
 import org.spongepowered.api.util.Identifiable;
 
 import java.util.UUID;
 
 public class SpongeCommandSender implements ViaCommandSender {
-    private final CommandSource source;
+    private final CommandCause source;
 
-    public SpongeCommandSender(CommandSource source) {
+    public SpongeCommandSender(CommandCause source) {
         this.source = source;
     }
 
@@ -39,14 +39,13 @@ public class SpongeCommandSender implements ViaCommandSender {
 
     @Override
     public void sendMessage(String msg) {
-        String serialized = SpongePlugin.COMPONENT_SERIALIZER.serialize(SpongePlugin.COMPONENT_SERIALIZER.deserialize(msg));
-        source.sendMessage(TextSerializers.JSON.deserialize(serialized)); // Hacky way to fix links
+        source.sendMessage(Identity.nil(), SpongePlugin.LEGACY_SERIALIZER.deserialize(msg));
     }
 
     @Override
     public UUID getUUID() {
         if (source instanceof Identifiable) {
-            return ((Identifiable) source).getUniqueId();
+            return ((Identifiable) source).uniqueId();
         } else {
             return UUID.fromString(getName());
         }
@@ -55,6 +54,6 @@ public class SpongeCommandSender implements ViaCommandSender {
 
     @Override
     public String getName() {
-        return source.getName();
+        return source.friendlyIdentifier().orElse(source.identifier());
     }
 }
