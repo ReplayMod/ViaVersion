@@ -22,27 +22,32 @@
  */
 package com.viaversion.viaversion.api.type.types.minecraft;
 
+import com.viaversion.viaversion.api.minecraft.PlayerMessageSignature;
+import com.viaversion.viaversion.api.type.OptionalType;
 import com.viaversion.viaversion.api.type.Type;
 import io.netty.buffer.ByteBuf;
 
-public class OptionalVarIntType extends Type<Integer> {
+public class PlayerMessageSignatureType extends Type<PlayerMessageSignature> {
 
-    public OptionalVarIntType() {
-        super(Integer.class);
+    public PlayerMessageSignatureType() {
+        super(PlayerMessageSignature.class);
     }
 
     @Override
-    public Integer read(final ByteBuf buffer) throws Exception {
-        final int value = Type.VAR_INT.readPrimitive(buffer);
-        return value == 0 ? null : value - 1;
+    public PlayerMessageSignature read(final ByteBuf buffer) throws Exception {
+        return new PlayerMessageSignature(Type.UUID.read(buffer), Type.BYTE_ARRAY_PRIMITIVE.read(buffer));
     }
 
     @Override
-    public void write(final ByteBuf buffer, final Integer object) throws Exception {
-        if (object == null) {
-            Type.VAR_INT.writePrimitive(buffer, 0);
-        } else {
-            Type.VAR_INT.writePrimitive(buffer, object + 1);
+    public void write(final ByteBuf buffer, final PlayerMessageSignature value) throws Exception {
+        Type.UUID.write(buffer, value.uuid());
+        Type.BYTE_ARRAY_PRIMITIVE.write(buffer, value.signatureBytes());
+    }
+
+    public static final class OptionalPlayerMessageSignatureType extends OptionalType<PlayerMessageSignature> {
+
+        public OptionalPlayerMessageSignatureType() {
+            super(Type.PLAYER_MESSAGE_SIGNATURE);
         }
     }
 }

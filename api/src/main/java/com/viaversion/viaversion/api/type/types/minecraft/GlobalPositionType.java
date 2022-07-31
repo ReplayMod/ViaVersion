@@ -22,26 +22,33 @@
  */
 package com.viaversion.viaversion.api.type.types.minecraft;
 
-import com.viaversion.viaversion.api.minecraft.Position;
+import com.viaversion.viaversion.api.minecraft.GlobalPosition;
+import com.viaversion.viaversion.api.type.OptionalType;
 import com.viaversion.viaversion.api.type.Type;
 import io.netty.buffer.ByteBuf;
 
-public class OptPositionType extends Type<Position> {
-    public OptPositionType() {
-        super(Position.class);
+public class GlobalPositionType extends Type<GlobalPosition> {
+
+    public GlobalPositionType() {
+        super(GlobalPosition.class);
     }
 
     @Override
-    public Position read(ByteBuf buffer) throws Exception {
-        boolean present = buffer.readBoolean();
-        if (!present) return null;
-        return Type.POSITION.read(buffer);
+    public GlobalPosition read(ByteBuf buffer) throws Exception {
+        final String dimension = Type.STRING.read(buffer);
+        return Type.POSITION1_14.read(buffer).withDimension(dimension);
     }
 
     @Override
-    public void write(ByteBuf buffer, Position object) throws Exception {
-        buffer.writeBoolean(object != null);
-        if (object != null)
-            Type.POSITION.write(buffer, object);
+    public void write(ByteBuf buffer, GlobalPosition object) throws Exception {
+        Type.STRING.write(buffer, object.dimension());
+        Type.POSITION1_14.write(buffer, object);
+    }
+
+    public static final class OptionalGlobalPositionType extends OptionalType<GlobalPosition> {
+
+        public OptionalGlobalPositionType() {
+            super(Type.GLOBAL_POSITION);
+        }
     }
 }

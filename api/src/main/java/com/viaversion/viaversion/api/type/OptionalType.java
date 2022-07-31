@@ -20,29 +20,31 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package com.viaversion.viaversion.api.type.types.minecraft;
+package com.viaversion.viaversion.api.type;
 
-import com.viaversion.viaversion.api.minecraft.Position;
-import com.viaversion.viaversion.api.type.Type;
 import io.netty.buffer.ByteBuf;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
-public class OptPosition1_14Type extends Type<Position> {
-    public OptPosition1_14Type() {
-        super(Position.class);
+public abstract class OptionalType<T> extends Type<T> {
+    private final Type<T> type;
+
+    protected OptionalType(final Type<T> type) {
+        super(type.getOutputClass());
+        this.type = type;
     }
 
     @Override
-    public Position read(ByteBuf buffer) throws Exception {
-        boolean present = buffer.readBoolean();
-        if (!present) return null;
-        return Type.POSITION1_14.read(buffer);
+    public @Nullable T read(ByteBuf buffer) throws Exception {
+        return buffer.readBoolean() ? type.read(buffer) : null;
     }
 
     @Override
-    public void write(ByteBuf buffer, Position object) throws Exception {
-        buffer.writeBoolean(object != null);
-        if (object != null) {
-            Type.POSITION1_14.write(buffer, object);
+    public void write(final ByteBuf buffer, @Nullable final T value) throws Exception {
+        if (value == null) {
+            buffer.writeBoolean(false);
+        } else {
+            buffer.writeBoolean(true);
+            type.write(buffer, value);
         }
     }
 }

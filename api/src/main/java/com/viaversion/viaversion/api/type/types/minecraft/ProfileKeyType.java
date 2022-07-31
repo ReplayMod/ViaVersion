@@ -22,31 +22,33 @@
  */
 package com.viaversion.viaversion.api.type.types.minecraft;
 
-import com.viaversion.viaversion.api.minecraft.GlobalPosition;
+import com.viaversion.viaversion.api.minecraft.ProfileKey;
+import com.viaversion.viaversion.api.type.OptionalType;
 import com.viaversion.viaversion.api.type.Type;
 import io.netty.buffer.ByteBuf;
 
-public class OptionalGlobalPositionType extends Type<GlobalPosition> {
+public class ProfileKeyType extends Type<ProfileKey> {
 
-    public OptionalGlobalPositionType() {
-        super(GlobalPosition.class);
+    public ProfileKeyType() {
+        super(ProfileKey.class);
     }
 
     @Override
-    public GlobalPosition read(ByteBuf buffer) throws Exception {
-        if (buffer.readBoolean()) {
-            final String dimension = Type.STRING.read(buffer);
-            return Type.POSITION1_14.read(buffer).withDimension(dimension);
-        }
-        return null;
+    public ProfileKey read(final ByteBuf buffer) throws Exception {
+        return new ProfileKey(buffer.readLong(), Type.BYTE_ARRAY_PRIMITIVE.read(buffer), Type.BYTE_ARRAY_PRIMITIVE.read(buffer));
     }
 
     @Override
-    public void write(ByteBuf buffer, GlobalPosition object) throws Exception {
-        buffer.writeBoolean(object != null);
-        if (object != null) {
-            Type.STRING.write(buffer, object.dimension());
-            Type.POSITION1_14.write(buffer, object);
+    public void write(final ByteBuf buffer, final ProfileKey object) throws Exception {
+        buffer.writeLong(object.expiresAt());
+        Type.BYTE_ARRAY_PRIMITIVE.write(buffer, object.publicKey());
+        Type.BYTE_ARRAY_PRIMITIVE.write(buffer, object.keySignature());
+    }
+
+    public static final class OptionalProfileKeyType extends OptionalType<ProfileKey> {
+
+        public OptionalProfileKeyType() {
+            super(Type.PROFILE_KEY);
         }
     }
 }

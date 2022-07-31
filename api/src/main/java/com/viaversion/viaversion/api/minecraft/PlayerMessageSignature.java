@@ -20,33 +20,24 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package com.viaversion.viaversion.api.type.types.minecraft;
-
-import com.viaversion.viaversion.api.type.Type;
-import io.netty.buffer.ByteBuf;
+package com.viaversion.viaversion.api.minecraft;
 
 import java.util.UUID;
 
-public class OptUUIDType extends Type<UUID> {
-    public OptUUIDType() {
-        super(UUID.class);
+public final class PlayerMessageSignature {
+    private final UUID uuid;
+    private final byte[] signatureBytes;
+
+    public PlayerMessageSignature(final UUID uuid, final byte[] signatureBytes) {
+        this.uuid = uuid;
+        this.signatureBytes = signatureBytes;
     }
 
-    @Override
-    public UUID read(ByteBuf buffer) {
-        boolean present = buffer.readBoolean();
-        if (!present) return null;
-        return new UUID(buffer.readLong(), buffer.readLong());
+    public UUID uuid() {
+        return uuid;
     }
 
-    @Override
-    public void write(ByteBuf buffer, UUID object) {
-        if (object == null) {
-            buffer.writeBoolean(false);
-        } else {
-            buffer.writeBoolean(true);
-            buffer.writeLong(object.getMostSignificantBits());
-            buffer.writeLong(object.getLeastSignificantBits());
-        }
+    public byte[] signatureBytes() {
+        return signatureBytes;
     }
 }

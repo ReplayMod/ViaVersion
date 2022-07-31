@@ -20,9 +20,8 @@ package com.viaversion.viaversion.protocols.protocol1_19to1_18_2;
 import com.google.gson.JsonElement;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.connection.UserConnection;
-import com.viaversion.viaversion.api.data.MappingData;
-import com.viaversion.viaversion.api.data.MappingDataBase;
 import com.viaversion.viaversion.api.minecraft.entities.Entity1_19Types;
+import com.viaversion.viaversion.api.platform.providers.ViaProviders;
 import com.viaversion.viaversion.api.protocol.AbstractProtocol;
 import com.viaversion.viaversion.api.protocol.packet.State;
 import com.viaversion.viaversion.api.protocol.remapper.PacketHandler;
@@ -39,36 +38,25 @@ import com.viaversion.viaversion.protocols.base.ClientboundLoginPackets;
 import com.viaversion.viaversion.protocols.base.ServerboundLoginPackets;
 import com.viaversion.viaversion.protocols.protocol1_17to1_16_4.ServerboundPackets1_17;
 import com.viaversion.viaversion.protocols.protocol1_18to1_17_1.ClientboundPackets1_18;
+import com.viaversion.viaversion.protocols.protocol1_19to1_18_2.data.MappingData;
 import com.viaversion.viaversion.protocols.protocol1_19to1_18_2.packets.EntityPackets;
 import com.viaversion.viaversion.protocols.protocol1_19to1_18_2.packets.InventoryPackets;
 import com.viaversion.viaversion.protocols.protocol1_19to1_18_2.packets.WorldPackets;
+import com.viaversion.viaversion.protocols.protocol1_19to1_18_2.provider.AckSequenceProvider;
 import com.viaversion.viaversion.protocols.protocol1_19to1_18_2.storage.DimensionRegistryStorage;
 import com.viaversion.viaversion.protocols.protocol1_19to1_18_2.storage.NonceStorage;
+import com.viaversion.viaversion.protocols.protocol1_19to1_18_2.storage.SequenceStorage;
 import com.viaversion.viaversion.rewriter.CommandRewriter;
 import com.viaversion.viaversion.rewriter.SoundRewriter;
+import com.viaversion.viaversion.rewriter.StatisticsRewriter;
 import com.viaversion.viaversion.rewriter.TagRewriter;
+import com.viaversion.viaversion.util.CipherUtil;
 
-import javax.crypto.Cipher;
-import java.security.KeyFactory;
-import java.security.NoSuchAlgorithmException;
-import java.security.PublicKey;
-import java.security.spec.EncodedKeySpec;
-import java.security.spec.X509EncodedKeySpec;
 import java.util.concurrent.ThreadLocalRandom;
 
 public final class Protocol1_19To1_18_2 extends AbstractProtocol<ClientboundPackets1_18, ClientboundPackets1_19, ServerboundPackets1_17, ServerboundPackets1_19> {
 
-    public static final MappingData MAPPINGS = new MappingDataBase("1.18", "1.19", true);
-    private static final KeyFactory RSA_FACTORY;
-
-    static {
-        try {
-            RSA_FACTORY = KeyFactory.getInstance("RSA");
-        } catch (final NoSuchAlgorithmException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
+    public static final MappingData MAPPINGS = new MappingData();
     private final EntityPackets entityRewriter = new EntityPackets(this);
     private final InventoryPackets itemRewriter = new InventoryPackets(this);
 
@@ -127,6 +115,8 @@ public final class Protocol1_19To1_18_2 extends AbstractProtocol<ClientboundPack
                 create(Type.LONG, randomLong()); // Seed
             }
         });
+
+        new StatisticsRewriter(this).register(ClientboundPackets1_18.STATISTICS);
 
         final PacketHandler titleHandler = wrapper -> {
             final JsonElement component = wrapper.read(Type.COMPONENT);
@@ -194,7 +184,7 @@ public final class Protocol1_19To1_18_2 extends AbstractProtocol<ClientboundPack
             public void registerMap() {
                 map(Type.COMPONENT); // Message
                 handler(wrapper -> {
-                    int type = wrapper.read(Type.BYTE);
+                    final int type = wrapper.read(Type.BYTE);
                     wrapper.write(Type.VAR_INT, type == 0 ? 1 : type);
                 });
                 read(Type.UUID); // Sender
@@ -247,13 +237,9 @@ public final class Protocol1_19To1_18_2 extends AbstractProtocol<ClientboundPack
             public void registerMap() {
                 map(Type.STRING); // Server id
                 handler(wrapper -> {
-                    final byte[] pubKey = wrapper.passthrough(Type.BYTE_ARRAY_PRIMITIVE);
+                    final byte[] publicKey = wrapper.passthrough(Type.BYTE_ARRAY_PRIMITIVE);
                     final byte[] nonce = wrapper.passthrough(Type.BYTE_ARRAY_PRIMITIVE);
-                    final EncodedKeySpec keySpec = new X509EncodedKeySpec(pubKey);
-                    final PublicKey key = RSA_FACTORY.generatePublic(keySpec);
-                    final Cipher cipher = Cipher.getInstance(key.getAlgorithm());
-                    cipher.init(Cipher.ENCRYPT_MODE, key);
-                    wrapper.user().put(new NonceStorage(cipher.doFinal(nonce)));
+                    wrapper.user().put(new NonceStorage(CipherUtil.encryptNonce(publicKey, nonce)));
                 });
             }
         });
@@ -262,13 +248,7 @@ public final class Protocol1_19To1_18_2 extends AbstractProtocol<ClientboundPack
             @Override
             public void registerMap() {
                 map(Type.STRING); // Name
-                handler(wrapper -> {
-                    if (wrapper.read(Type.BOOLEAN)) {
-                        wrapper.read(Type.LONG); // Timestamp
-                        wrapper.read(Type.BYTE_ARRAY_PRIMITIVE); // Key
-                        wrapper.read(Type.BYTE_ARRAY_PRIMITIVE); // Signature
-                    }
-                });
+                read(Type.OPTIONAL_PROFILE_KEY); // Public profile key
             }
         });
 
@@ -317,10 +297,16 @@ public final class Protocol1_19To1_18_2 extends AbstractProtocol<ClientboundPack
     }
 
     @Override
+    public void register(final ViaProviders providers) {
+        providers.register(AckSequenceProvider.class, new AckSequenceProvider());
+    }
+
+    @Override
     public void init(final UserConnection user) {
         if (!user.has(DimensionRegistryStorage.class)) {
             user.put(new DimensionRegistryStorage());
         }
+        user.put(new SequenceStorage());
         addEntityTracker(user, new EntityTrackerBase(user, Entity1_19Types.PLAYER));
     }
 

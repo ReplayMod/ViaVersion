@@ -21,6 +21,7 @@ import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
 import com.github.steveice10.opennbt.tag.builtin.IntTag;
 import com.github.steveice10.opennbt.tag.builtin.ListTag;
 import com.github.steveice10.opennbt.tag.builtin.Tag;
+import com.google.common.collect.Maps;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.data.entity.DimensionData;
 import com.viaversion.viaversion.api.minecraft.Position;
@@ -39,16 +40,17 @@ import com.viaversion.viaversion.protocols.protocol1_19to1_18_2.ClientboundPacke
 import com.viaversion.viaversion.protocols.protocol1_19to1_18_2.Protocol1_19To1_18_2;
 import com.viaversion.viaversion.protocols.protocol1_19to1_18_2.storage.DimensionRegistryStorage;
 import com.viaversion.viaversion.rewriter.EntityRewriter;
+import com.viaversion.viaversion.util.Pair;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 public final class EntityPackets extends EntityRewriter<Protocol1_19To1_18_2> {
 
-    //TODO move to compressed nbt file
     private static final String CHAT_REGISTRY_SNBT = "{\n" +
             "  \"minecraft:chat_type\": {\n" +
             "    \"type\": \"minecraft:chat_type\",\n" +
@@ -216,10 +218,9 @@ public final class EntityPackets extends EntityRewriter<Protocol1_19To1_18_2> {
                         final CompoundTag dimensionCompound = (CompoundTag) dimension;
                         final CompoundTag element = dimensionCompound.get("element");
                         final String name = (String) dimensionCompound.get("name").getValue();
+                        addMonsterSpawnData(element);
                         dimensionDataMap.put(name, new DimensionDataImpl(element));
                         dimensionsMap.put(element.clone(), name);
-
-                        addMonsterSpawnData(element);
                     }
                     tracker(wrapper.user()).setDimensions(dimensionDataMap);
 
@@ -291,7 +292,7 @@ public final class EntityPackets extends EntityRewriter<Protocol1_19To1_18_2> {
                             }
 
                             // No public profile signature
-                            wrapper.write(Type.BOOLEAN, false);
+                            wrapper.write(Type.OPTIONAL_PROFILE_KEY, null);
                         } else if (action == 1 || action == 2) { // Update gamemode/update latency
                             wrapper.passthrough(Type.VAR_INT);
                         } else if (action == 3) { // Update display name
@@ -308,15 +309,22 @@ public final class EntityPackets extends EntityRewriter<Protocol1_19To1_18_2> {
     private static void writeDimensionKey(final PacketWrapper wrapper, final DimensionRegistryStorage registryStorage) throws Exception {
         // Find dimension key by data
         final CompoundTag currentDimension = wrapper.read(Type.NBT);
-        final String dimensionKey = registryStorage.dimensionKey(currentDimension);
+        addMonsterSpawnData(currentDimension);
+        String dimensionKey = registryStorage.dimensionKey(currentDimension);
         if (dimensionKey == null) {
-            Via.getPlatform().getLogger().severe("The server tried to send dimension data from a dimension the client wasn't told about on join. " +
-                    "Plugins and mods have to make sure they are not creating new dimension types while players are online, and proxies need to make sure they don't scramble dimension data." +
-                    " Known dimensions:");
-            for (final Map.Entry<CompoundTag, String> entry : registryStorage.dimensions().entrySet()) {
-                Via.getPlatform().getLogger().severe(entry.getValue() + ": " + entry.getKey());
+            if (!Via.getConfig().isSuppressConversionWarnings()) {
+                Via.getPlatform().getLogger().warning("The server tried to send dimension data from a dimension the client wasn't told about on join. " +
+                        "Plugins and mods have to make sure they are not creating new dimension types while players are online, and proxies need to make sure they don't scramble dimension data." +
+                        " Received dimension: " + currentDimension + ". Known dimensions: " + registryStorage.dimensions());
             }
-            throw new IllegalArgumentException("Dimension not found in registry data from join packet: " + currentDimension);
+
+            // Try to find the most similar dimension
+            dimensionKey = registryStorage.dimensions().entrySet().stream()
+                    .map(it -> new Pair<>(it, Maps.difference(currentDimension.getValue(), it.getKey().getValue()).entriesInCommon()))
+                    .filter(it -> it.value().containsKey("min_y") && it.value().containsKey("height"))
+                    .max(Comparator.comparingInt(it -> it.value().size()))
+                    .orElseThrow(() -> new IllegalArgumentException("Dimension not found in registry data from join packet: " + currentDimension))
+                    .key().getValue();
         }
 
         wrapper.write(Type.STRING, dimensionKey);
