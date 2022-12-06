@@ -22,6 +22,7 @@ import com.github.steveice10.opennbt.tag.builtin.IntTag;
 import com.github.steveice10.opennbt.tag.builtin.ListTag;
 import com.github.steveice10.opennbt.tag.builtin.Tag;
 import com.google.common.collect.Maps;
+import com.google.gson.JsonElement;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.data.entity.DimensionData;
 import com.viaversion.viaversion.api.minecraft.Position;
@@ -75,7 +76,7 @@ public final class EntityPackets extends EntityRewriter<Protocol1_19To1_18_2> {
             "    ]\n" +
             "  }\n" +
             "}";
-    private static final CompoundTag CHAT_REGISTRY;
+    public static final CompoundTag CHAT_REGISTRY;
 
     static {
         try {
@@ -151,7 +152,7 @@ public final class EntityPackets extends EntityRewriter<Protocol1_19To1_18_2> {
                     final PacketWrapper metaPacket = wrapper.create(ClientboundPackets1_19.ENTITY_METADATA);
                     metaPacket.write(Type.VAR_INT, wrapper.get(Type.VAR_INT, 0)); // Entity id
                     final List<Metadata> metadata = new ArrayList<>();
-                    metadata.add(new Metadata(8, Types1_19.META_TYPES.paintingVariantType, protocol.getMappingData().getPaintingMappings().getNewId(motive)));
+                    metadata.add(new Metadata(8, Types1_19.META_TYPES.paintingVariantType, protocol.getMappingData().getPaintingMappings().getNewIdOrDefault(motive, 0)));
                     metaPacket.write(Types1_19.METADATA_LIST, metadata);
                     metaPacket.send(Protocol1_19To1_18_2.class);
                 });
@@ -280,15 +281,16 @@ public final class EntityPackets extends EntityRewriter<Protocol1_19To1_18_2> {
                             for (int j = 0; j < properties; j++) {
                                 wrapper.passthrough(Type.STRING); // Name
                                 wrapper.passthrough(Type.STRING); // Value
-                                if (wrapper.passthrough(Type.BOOLEAN)) {
-                                    wrapper.passthrough(Type.STRING); // Signature
-                                }
+                                wrapper.passthrough(Type.OPTIONAL_STRING); // Signature
                             }
 
                             wrapper.passthrough(Type.VAR_INT); // Gamemode
                             wrapper.passthrough(Type.VAR_INT); // Ping
-                            if (wrapper.passthrough(Type.BOOLEAN)) {
-                                wrapper.passthrough(Type.COMPONENT); // Display name
+                            final JsonElement displayName = wrapper.read(Type.OPTIONAL_COMPONENT); // Display name
+                            if (!Protocol1_19To1_18_2.isTextComponentNull(displayName)) {
+                                wrapper.write(Type.OPTIONAL_COMPONENT, displayName);
+                            } else {
+                                wrapper.write(Type.OPTIONAL_COMPONENT, null);
                             }
 
                             // No public profile signature
@@ -296,8 +298,11 @@ public final class EntityPackets extends EntityRewriter<Protocol1_19To1_18_2> {
                         } else if (action == 1 || action == 2) { // Update gamemode/update latency
                             wrapper.passthrough(Type.VAR_INT);
                         } else if (action == 3) { // Update display name
-                            if (wrapper.passthrough(Type.BOOLEAN)) {
-                                wrapper.passthrough(Type.COMPONENT);
+                            final JsonElement displayName = wrapper.read(Type.OPTIONAL_COMPONENT); // Display name
+                            if (!Protocol1_19To1_18_2.isTextComponentNull(displayName)) {
+                                wrapper.write(Type.OPTIONAL_COMPONENT, displayName);
+                            } else {
+                                wrapper.write(Type.OPTIONAL_COMPONENT, null);
                             }
                         }
                     }

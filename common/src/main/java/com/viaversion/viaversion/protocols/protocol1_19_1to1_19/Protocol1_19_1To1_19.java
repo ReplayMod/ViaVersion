@@ -116,14 +116,20 @@ public final class Protocol1_19_1To1_19 extends AbstractProtocol<ClientboundPack
                     // Back to system chat
                     final JsonElement signedContent = wrapper.read(Type.COMPONENT);
                     final JsonElement unsignedContent = wrapper.read(Type.OPTIONAL_COMPONENT);
-                    final int chatType = wrapper.read(Type.VAR_INT);
-
+                    final int chatTypeId = wrapper.read(Type.VAR_INT);
                     wrapper.read(Type.UUID); // Sender UUID
                     final JsonElement senderName = wrapper.read(Type.COMPONENT);
                     final JsonElement teamName = wrapper.read(Type.OPTIONAL_COMPONENT);
-                    if (!decorateChatMessage(wrapper, chatType, senderName, teamName, unsignedContent != null ? unsignedContent : signedContent)) {
+
+                    final CompoundTag chatType = wrapper.user().get(ChatTypeStorage.class).chatType(chatTypeId);
+                    final ChatDecorationResult decorationResult = decorateChatMessage(chatType, chatTypeId, senderName, teamName, unsignedContent != null ? unsignedContent : signedContent);
+                    if (decorationResult == null) {
                         wrapper.cancel();
+                        return;
                     }
+
+                    wrapper.write(Type.COMPONENT, decorationResult.content());
+                    wrapper.write(Type.BOOLEAN, decorationResult.overlay());
                 });
                 read(Type.LONG); // Timestamp
                 read(Type.LONG); // Salt
@@ -249,6 +255,31 @@ public final class Protocol1_19_1To1_19 extends AbstractProtocol<ClientboundPack
                 });
             }
         });
+        registerClientbound(State.LOGIN, ClientboundLoginPackets.CUSTOM_QUERY.getId(), ClientboundLoginPackets.CUSTOM_QUERY.getId(), new PacketRemapper() {
+            @Override
+            public void registerMap() {
+                map(Type.VAR_INT);
+                map(Type.STRING);
+                handler(wrapper -> {
+                    String identifier = wrapper.get(Type.STRING, 0);
+                    if (identifier.equals("velocity:player_info")) {
+                        byte[] data = wrapper.passthrough(Type.REMAINING_BYTES);
+                        // Velocity modern forwarding version above 1 includes the players public key.
+                        // This is an issue because the server will expect a 1.19 key and receive a 1.19.1 key.
+                        // Velocity modern forwarding versions: https://github.com/PaperMC/Velocity/blob/1a3fba4250553702d9dcd05731d04347bfc24c9f/proxy/src/main/java/com/velocitypowered/proxy/connection/VelocityConstants.java#L27-L29
+                        // And the version can be specified with a single byte: https://github.com/PaperMC/Velocity/blob/1a3fba4250553702d9dcd05731d04347bfc24c9f/proxy/src/main/java/com/velocitypowered/proxy/connection/backend/LoginSessionHandler.java#L88
+                        if (data.length == 1 && data[0] > 1) {
+                            data[0] = 1;
+                        } else if (data.length == 0) { // Or the version is omitted (default version would be used)
+                            data = new byte[]{1};
+                            wrapper.set(Type.REMAINING_BYTES, 0, data);
+                        } else {
+                            Via.getPlatform().getLogger().warning("Received unexpected data in velocity:player_info (length=" + data.length + ")");
+                        }
+                    }
+                });
+            }
+        });
     }
 
     @Override
@@ -256,11 +287,10 @@ public final class Protocol1_19_1To1_19 extends AbstractProtocol<ClientboundPack
         connection.put(new ChatTypeStorage());
     }
 
-    private boolean decorateChatMessage(final PacketWrapper wrapper, final int chatTypeId, final JsonElement senderName, @Nullable final JsonElement teamName, final JsonElement message) {
-        final CompoundTag chatType = wrapper.user().get(ChatTypeStorage.class).chatType(chatTypeId);
+    public static @Nullable ChatDecorationResult decorateChatMessage(final CompoundTag chatType, final int chatTypeId, final JsonElement senderName, @Nullable final JsonElement teamName, final JsonElement message) {
         if (chatType == null) {
             Via.getPlatform().getLogger().warning("Chat message has unknown chat type id " + chatTypeId + ". Message: " + message);
-            return false;
+            return null;
         }
 
         CompoundTag chatData = chatType.<CompoundTag>get("element").get("chat");
@@ -269,7 +299,7 @@ public final class Protocol1_19_1To1_19 extends AbstractProtocol<ClientboundPack
             chatData = chatType.<CompoundTag>get("element").get("overlay");
             if (chatData == null) {
                 // Either narration or something we don't know
-                return false;
+                return null;
             }
 
             overlay = true;
@@ -277,9 +307,7 @@ public final class Protocol1_19_1To1_19 extends AbstractProtocol<ClientboundPack
 
         final CompoundTag decoaration = chatData.get("decoration");
         if (decoaration == null) {
-            wrapper.write(Type.COMPONENT, message);
-            wrapper.write(Type.BOOLEAN, overlay);
-            return true;
+            return new ChatDecorationResult(message, overlay);
         }
 
         final String translationKey = (String) decoaration.get("translation_key").getValue();
@@ -331,9 +359,6 @@ public final class Protocol1_19_1To1_19 extends AbstractProtocol<ClientboundPack
             }
             componentBuilder.args(arguments);
         }
-
-        wrapper.write(Type.COMPONENT, GsonComponentSerializer.gson().serializeToTree(componentBuilder.build()));
-        wrapper.write(Type.BOOLEAN, overlay);
-        return true;
+        return new ChatDecorationResult(GsonComponentSerializer.gson().serializeToTree(componentBuilder.build()), overlay);
     }
 }

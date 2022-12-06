@@ -15,14 +15,25 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.viaversion.viaversion.classgenerator.generated;
+package com.viaversion.viaversion.protocols.protocol1_19_1to1_19;
 
-import com.viaversion.viaversion.api.connection.UserConnection;
-import io.netty.handler.codec.ByteToMessageDecoder;
-import io.netty.handler.codec.MessageToByteEncoder;
+import com.google.gson.JsonElement;
 
-public interface HandlerConstructor {
-    public MessageToByteEncoder newEncodeHandler(UserConnection info, MessageToByteEncoder minecraftEncoder);
+public final class ChatDecorationResult {
 
-    public ByteToMessageDecoder newDecodeHandler(UserConnection info, ByteToMessageDecoder minecraftDecoder);
+    private final JsonElement content;
+    private final boolean overlay;
+
+    public ChatDecorationResult(final JsonElement content, final boolean overlay) {
+        this.content = content;
+        this.overlay = overlay;
+    }
+
+    public JsonElement content() {
+        return content;
+    }
+
+    public boolean overlay() {
+        return overlay;
+    }
 }
