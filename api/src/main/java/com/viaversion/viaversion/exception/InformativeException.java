@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2023 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -27,6 +27,7 @@ import java.util.Map;
 
 public class InformativeException extends Exception {
     private final Map<String, Object> info = new HashMap<>();
+    private boolean shouldBePrinted = true;
     private int sources;
 
     public InformativeException(Throwable cause) {
@@ -44,6 +45,14 @@ public class InformativeException extends Exception {
 
     private String getSource(Class<?> sourceClazz) {
         return sourceClazz.isAnonymousClass() ? sourceClazz.getName() + " (Anonymous)" : sourceClazz.getName();
+    }
+
+    public boolean shouldBePrinted() {
+        return shouldBePrinted;
+    }
+
+    public void setShouldBePrinted(final boolean shouldBePrinted) {
+        this.shouldBePrinted = shouldBePrinted;
     }
 
     @Override

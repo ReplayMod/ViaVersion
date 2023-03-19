@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2023 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,9 +17,7 @@
  */
 package com.viaversion.viaversion.bukkit.handlers;
 
-import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.connection.UserConnection;
-import com.viaversion.viaversion.api.protocol.packet.State;
 import com.viaversion.viaversion.bukkit.util.NMSUtil;
 import com.viaversion.viaversion.exception.CancelCodecException;
 import com.viaversion.viaversion.exception.CancelEncoderException;
@@ -32,7 +30,6 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.ByteToMessageDecoder;
 import io.netty.handler.codec.MessageToByteEncoder;
 import io.netty.handler.codec.MessageToMessageEncoder;
-
 import java.util.List;
 
 @ChannelHandler.Sharable
@@ -110,9 +107,15 @@ public final class BukkitEncodeHandler extends MessageToMessageEncoder<ByteBuf> 
         }
 
         super.exceptionCaught(ctx, cause);
-        if (!NMSUtil.isDebugPropertySet() && PipelineUtil.containsCause(cause, InformativeException.class)
-                && (connection.getProtocolInfo().getState() != State.HANDSHAKE || Via.getManager().isDebug())) {
-            cause.printStackTrace(); // Print if CB doesn't already do it
+        if (NMSUtil.isDebugPropertySet()) {
+            return;
+        }
+
+        // Print if CB doesn't already do it
+        final InformativeException exception = PipelineUtil.getCause(cause, InformativeException.class);
+        if (exception != null && exception.shouldBePrinted()) {
+            cause.printStackTrace();
+            exception.setShouldBePrinted(false);
         }
     }
 

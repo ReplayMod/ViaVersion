@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2023 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -28,11 +28,11 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.ByteToMessageDecoder;
 import io.netty.handler.codec.MessageToByteEncoder;
 import io.netty.handler.codec.MessageToMessageDecoder;
-
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 public final class PipelineUtil {
     private static final Method DECODE_METHOD;
@@ -114,6 +114,25 @@ public final class PipelineUtil {
             t = t.getCause();
         }
         return false;
+    }
+
+    /**
+     * Check if a stack trace contains a certain exception and returns it if present.
+     *
+     * @param t throwable
+     * @param c the exception to look for
+     * @return contained exception of t if present
+     */
+    public static <T> @Nullable T getCause(Throwable t, Class<T> c) {
+        while (t != null) {
+            if (c.isAssignableFrom(t.getClass())) {
+                //noinspection unchecked
+                return (T) t;
+            }
+
+            t = t.getCause();
+        }
+        return null;
     }
 
     /**

@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2022 ViaVersion and contributors
+ * Copyright (C) 2016-2023 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -50,7 +50,7 @@ public class VelocityViaLoader implements ViaPlatformLoader {
 
         int pingInterval = ((VelocityViaConfig) Via.getPlatform().getConf()).getVelocityPingInterval();
         if (pingInterval > 0) {
-            Via.getPlatform().runRepeatingSync(
+            Via.getPlatform().runRepeatingAsync(
                     () -> Via.proxyPlatform().protocolDetectorService().probeAllServers(),
                     pingInterval * 20L);
         }
