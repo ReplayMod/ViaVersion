@@ -17,7 +17,6 @@
  */
 package com.viaversion.viaversion.protocol;
 
-import com.google.common.collect.Sets;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.debug.DebugHandler;
@@ -30,9 +29,10 @@ import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.protocol.packet.State;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.logging.Level;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -42,8 +42,10 @@ public class ProtocolPipelineImpl extends AbstractSimpleProtocol implements Prot
     /**
      * Protocol list ordered from client to server transforation with the base protocols at the end.
      */
-    private List<Protocol> protocolList;
-    private Set<Class<? extends Protocol>> protocolSet;
+    private final List<Protocol> protocolList = new CopyOnWriteArrayList<>();
+    private final Set<Class<? extends Protocol>> protocolSet = new HashSet<>();
+    private List<Protocol> reversedProtocolList = new CopyOnWriteArrayList<>();
+    private int baseProtocols;
 
     public ProtocolPipelineImpl(UserConnection userConnection) {
         this.userConnection = userConnection;
@@ -53,14 +55,12 @@ public class ProtocolPipelineImpl extends AbstractSimpleProtocol implements Prot
 
     @Override
     protected void registerPackets() {
-        protocolList = new CopyOnWriteArrayList<>();
-        // Create a backing set for faster contains calls with larger pipes
-        protocolSet = Sets.newSetFromMap(new ConcurrentHashMap<>());
-
         // This is a pipeline so we register basic pipes
-        Protocol baseProtocol = Via.getManager().getProtocolManager().getBaseProtocol();
+        final Protocol<?, ?, ?, ?> baseProtocol = Via.getManager().getProtocolManager().getBaseProtocol();
         protocolList.add(baseProtocol);
+        reversedProtocolList.add(baseProtocol);
         protocolSet.add(baseProtocol.getClass());
+        baseProtocols++;
     }
 
     @Override
@@ -69,44 +69,38 @@ public class ProtocolPipelineImpl extends AbstractSimpleProtocol implements Prot
     }
 
     @Override
-    public void add(Protocol protocol) {
-        protocolList.add(protocol);
+    public synchronized void add(final Protocol protocol) {
+        if (protocol.isBaseProtocol()) {
+            // Add base protocol on top of previous ones
+            protocolList.add(baseProtocols, protocol);
+            reversedProtocolList.add(baseProtocols, protocol);
+            baseProtocols++;
+        } else {
+            protocolList.add(protocol);
+            reversedProtocolList.add(0, protocol);
+        }
+
         protocolSet.add(protocol.getClass());
         protocol.init(userConnection);
-
-        if (!protocol.isBaseProtocol()) {
-            moveBaseProtocolsToTail();
-        }
     }
 
     @Override
-    public void add(Collection<Protocol> protocols) {
+    public synchronized void add(final Collection<Protocol> protocols) {
         protocolList.addAll(protocols);
-        for (Protocol protocol : protocols) {
+        for (final Protocol protocol : protocols) {
             protocol.init(userConnection);
-            this.protocolSet.add(protocol.getClass());
+            protocolSet.add(protocol.getClass());
         }
 
-        moveBaseProtocolsToTail();
+        refreshReversedList();
     }
 
-    private void moveBaseProtocolsToTail() {
-        // Move base Protocols to the end, so the login packets can be modified by other protocols
-        List<Protocol> baseProtocols = null;
-        for (Protocol protocol : protocolList) {
-            if (protocol.isBaseProtocol()) {
-                if (baseProtocols == null) {
-                    baseProtocols = new ArrayList<>();
-                }
-
-                baseProtocols.add(protocol);
-            }
-        }
-
-        if (baseProtocols != null) {
-            protocolList.removeAll(baseProtocols);
-            protocolList.addAll(baseProtocols);
-        }
+    private synchronized void refreshReversedList() {
+        final List<Protocol> protocols = new ArrayList<>(protocolList.subList(0, this.baseProtocols));
+        final List<Protocol> additionalProtocols = new ArrayList<>(protocolList.subList(this.baseProtocols, protocolList.size()));
+        Collections.reverse(additionalProtocols);
+        protocols.addAll(additionalProtocols);
+        reversedProtocolList = new CopyOnWriteArrayList<>(protocols);
     }
 
     @Override
@@ -119,12 +113,16 @@ public class ProtocolPipelineImpl extends AbstractSimpleProtocol implements Prot
         }
 
         // Apply protocols
-        packetWrapper.apply(direction, state, 0, protocolList, direction == Direction.CLIENTBOUND);
+        packetWrapper.apply(direction, state, 0, protocolListFor(direction));
         super.transform(direction, state, packetWrapper);
 
         if (debugHandler.enabled() && debugHandler.logPostPacketTransform() && debugHandler.shouldLog(packetWrapper, direction)) {
             logPacket(direction, state, packetWrapper, originalID);
         }
+    }
+
+    private List<Protocol> protocolListFor(final Direction direction) {
+        return Collections.unmodifiableList(direction == Direction.SERVERBOUND ? protocolList : reversedProtocolList);
     }
 
     private void logPacket(Direction direction, State state, PacketWrapper packetWrapper, int originalID) {
@@ -166,7 +164,12 @@ public class ProtocolPipelineImpl extends AbstractSimpleProtocol implements Prot
 
     @Override
     public List<Protocol> pipes() {
-        return protocolList;
+        return Collections.unmodifiableList(protocolList);
+    }
+
+    @Override
+    public List<Protocol> reversedPipes() {
+        return Collections.unmodifiableList(reversedProtocolList);
     }
 
     @Override

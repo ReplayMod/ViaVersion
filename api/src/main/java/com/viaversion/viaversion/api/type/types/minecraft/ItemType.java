@@ -28,6 +28,7 @@ import io.netty.buffer.ByteBuf;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 public class ItemType extends BaseItemType {
+
     public ItemType() {
         super("Item");
     }

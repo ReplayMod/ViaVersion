@@ -67,9 +67,9 @@ public final class InventoryPackets extends ItemRewriter<ClientboundPackets1_19_
             for (int i = 0; i < size; i++) {
                 wrapper.passthrough(Type.STRING); // Identifier
 
-                // Parent
-                if (wrapper.passthrough(Type.BOOLEAN))
-                    wrapper.passthrough(Type.STRING);
+                if (wrapper.passthrough(Type.BOOLEAN)) {
+                    wrapper.passthrough(Type.STRING); // Parent
+                }
 
                 // Display data
                 if (wrapper.passthrough(Type.BOOLEAN)) {
@@ -85,11 +85,11 @@ public final class InventoryPackets extends ItemRewriter<ClientboundPackets1_19_
                     wrapper.passthrough(Type.FLOAT); // Y
                 }
 
-                wrapper.passthrough(Type.STRING_ARRAY); // Criteria
+                wrapper.passthrough(Type.STRING_ARRAY); // Critereon triggers
 
-                int arrayLength = wrapper.passthrough(Type.VAR_INT);
-                for (int array = 0; array < arrayLength; array++) {
-                    wrapper.passthrough(Type.STRING_ARRAY); // String array
+                int requirements = wrapper.passthrough(Type.VAR_INT);
+                for (int array = 0; array < requirements; array++) {
+                    wrapper.passthrough(Type.STRING_ARRAY);
                 }
 
                 wrapper.write(Type.BOOLEAN, false); // Sends telemetry
@@ -172,17 +172,19 @@ public final class InventoryPackets extends ItemRewriter<ClientboundPackets1_19_
 
         final ListTag messages = new ListTag(StringTag.class);
         for (int i = 1; i < 5; i++) {
-            final Tag text = tag.get("Text" + i);
+            final Tag text = tag.remove("Text" + i);
             messages.add(text != null ? text : new StringTag(ChatRewriter.emptyComponentString()));
         }
         frontText.put("messages", messages);
 
         final ListTag filteredMessages = new ListTag(StringTag.class);
         for (int i = 1; i < 5; i++) {
-            final Tag text = tag.get("FilteredText" + i);
-            filteredMessages.add(text != null ? text : new StringTag(ChatRewriter.emptyComponentString()));
+            final Tag text = tag.remove("FilteredText" + i);
+            filteredMessages.add(text != null ? text : messages.get(i - 1));
         }
-        frontText.put("filtered_messages", filteredMessages);
+        if (!filteredMessages.equals(messages)) {
+            frontText.put("filtered_messages", filteredMessages);
+        }
 
         final Tag color = tag.remove("Color");
         if (color != null) {

@@ -101,11 +101,11 @@ public abstract class EntityRewriter<C extends ClientboundPacketType, T extends 
     }
 
     @Override
-    public void handleMetadata(int entityId, List<Metadata> metadataList, UserConnection connection) {
+    public void handleMetadata(final int entityId, final List<Metadata> metadataList, final UserConnection connection) {
         final TrackedEntity entity = tracker(connection).entity(entityId);
         final EntityType type = entity != null ? entity.entityType() : null;
         int i = 0; // Count index for fast removal
-        for (Metadata metadata : metadataList.toArray(EMPTY_ARRAY)) { // Copy the list to allow mutation
+        for (final Metadata metadata : metadataList.toArray(EMPTY_ARRAY)) { // Copy the list to allow mutation
             // Call handlers implementing the old handleMetadata
             if (!callOldMetaHandler(entityId, type, metadata, metadataList, connection)) {
                 metadataList.remove(i--);
@@ -113,18 +113,18 @@ public abstract class EntityRewriter<C extends ClientboundPacketType, T extends 
             }
 
             MetaHandlerEvent event = null;
-            for (MetaFilter filter : metadataFilters) {
+            for (final MetaFilter filter : metadataFilters) {
                 if (!filter.isFiltered(type, metadata)) {
                     continue;
                 }
                 if (event == null) {
                     // Only initialize when needed and share event instance
-                    event = new MetaHandlerEventImpl(connection, type, entityId, metadata, metadataList);
+                    event = new MetaHandlerEventImpl(connection, entity, entityId, metadata, metadataList);
                 }
 
                 try {
                     filter.handler().handle(event, metadata);
-                } catch (Exception e) {
+                } catch (final Exception e) {
                     logException(e, type, metadataList, metadata);
                     metadataList.remove(i--);
                     break;
@@ -311,6 +311,10 @@ public abstract class EntityRewriter<C extends ClientboundPacketType, T extends 
                 map(Type.VAR_INT); // Data
                 handler(trackerHandler());
                 handler(wrapper -> {
+                    if (protocol.getMappingData() == null) {
+                        return;
+                    }
+
                     int entityId = wrapper.get(Type.VAR_INT, 0);
                     EntityType entityType = tracker(wrapper.user()).entityType(entityId);
                     if (entityType == fallingBlockType) {
@@ -468,32 +472,32 @@ public abstract class EntityRewriter<C extends ClientboundPacketType, T extends 
     }
 
     public PacketHandler biomeSizeTracker() {
-        return wrapper -> {
-            final CompoundTag registry = wrapper.get(Type.NBT, 0);
-            final CompoundTag biomeRegistry = registry.get("minecraft:worldgen/biome");
-            final ListTag biomes = biomeRegistry.get("value");
-            tracker(wrapper.user()).setBiomesSent(biomes.size());
-        };
+        return wrapper -> trackBiomeSize(wrapper.user(), wrapper.get(Type.NBT, 0));
+    }
+
+    public void trackBiomeSize(final UserConnection connection, final CompoundTag registry) {
+        final CompoundTag biomeRegistry = registry.get("minecraft:worldgen/biome");
+        final ListTag biomes = biomeRegistry.get("value");
+        tracker(connection).setBiomesSent(biomes.size());
+    }
+
+    public PacketHandler dimensionDataHandler() {
+        return wrapper -> cacheDimensionData(wrapper.user(), wrapper.get(Type.NBT, 0));
     }
 
     /**
-     * Returns a handler to cache dimension data, later used to get height values and other important info.
-     *
-     * @return handler to cache dimension data
+     * Caches dimension data, later used to get height values and other important info.
      */
-    public PacketHandler dimensionDataHandler() {
-        return wrapper -> {
-            final CompoundTag tag = wrapper.get(Type.NBT, 0);
-            final ListTag dimensions = ((CompoundTag) tag.get("minecraft:dimension_type")).get("value");
-            final Map<String, DimensionData> dimensionDataMap = new HashMap<>(dimensions.size());
-            for (final Tag dimension : dimensions) {
-                final CompoundTag dimensionCompound = (CompoundTag) dimension;
-                final CompoundTag element = dimensionCompound.get("element");
-                final String name = (String) dimensionCompound.get("name").getValue();
-                dimensionDataMap.put(name, new DimensionDataImpl(element));
-            }
-            tracker(wrapper.user()).setDimensions(dimensionDataMap);
-        };
+    public void cacheDimensionData(final UserConnection connection, final CompoundTag registry) {
+        final ListTag dimensions = ((CompoundTag) registry.get("minecraft:dimension_type")).get("value");
+        final Map<String, DimensionData> dimensionDataMap = new HashMap<>(dimensions.size());
+        for (final Tag dimension : dimensions) {
+            final CompoundTag dimensionCompound = (CompoundTag) dimension;
+            final CompoundTag element = dimensionCompound.get("element");
+            final String name = (String) dimensionCompound.get("name").getValue();
+            dimensionDataMap.put(name, new DimensionDataImpl(element));
+        }
+        tracker(connection).setDimensions(dimensionDataMap);
     }
 
     // ---------------------------------------------------------------------------

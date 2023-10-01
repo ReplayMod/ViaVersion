@@ -20,20 +20,34 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package com.viaversion.viaversion.util;
+package com.viaversion.viaversion.api.type.types.version;
 
-import com.viaversion.viaversion.api.platform.ViaPlatform;
+import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
+import com.viaversion.viaversion.api.minecraft.blockentity.BlockEntity;
+import com.viaversion.viaversion.api.minecraft.blockentity.BlockEntityImpl;
+import com.viaversion.viaversion.api.type.Type;
+import io.netty.buffer.ByteBuf;
 
-public final class VersionInfo {
+public class BlockEntityType1_20_2 extends Type<BlockEntity> {
 
-    /**
-     * Plugin version.
-     *
-     * @see ViaPlatform#getPluginVersion()
-     */
-    public static final String VERSION = "$VERSION";
+    public BlockEntityType1_20_2() {
+        super(BlockEntity.class);
+    }
 
-    public static String getVersion() {
-        return VERSION;
+    @Override
+    public BlockEntity read(final ByteBuf buffer) throws Exception {
+        final byte xz = buffer.readByte();
+        final short y = buffer.readShort();
+        final int typeId = Type.VAR_INT.readPrimitive(buffer);
+        final CompoundTag tag = Type.NAMELESS_NBT.read(buffer);
+        return new BlockEntityImpl(xz, y, typeId, tag);
+    }
+
+    @Override
+    public void write(final ByteBuf buffer, final BlockEntity entity) throws Exception {
+        buffer.writeByte(entity.packedXZ());
+        buffer.writeShort(entity.y());
+        Type.VAR_INT.writePrimitive(buffer, entity.typeId());
+        Type.NAMELESS_NBT.write(buffer, entity.tag());
     }
 }

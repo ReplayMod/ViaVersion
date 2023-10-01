@@ -1,11 +1,18 @@
 plugins {
     id("net.kyori.blossom")
+    id("org.jetbrains.gradle.plugin.idea-ext")
     id("via.shadow-conventions")
 }
 
-blossom {
-    replaceToken("\$VERSION", project.version)
-    replaceToken("\$IMPL_VERSION", "git-ViaVersion-${project.version}:${rootProject.latestCommitHash()}")
+sourceSets {
+    main {
+        blossom {
+            javaSources {
+                property("version", project.version.toString())
+                property("impl_version", "git-ViaVersion-${project.version}:${rootProject.latestCommitHash()}")
+            }
+        }
+    }
 }
 
 dependencies {
