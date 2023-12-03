@@ -19,7 +19,6 @@ package com.viaversion.viaversion.util;
 
 import com.google.gson.JsonElement;
 import com.viaversion.viaversion.api.Via;
-import com.viaversion.viaversion.api.configuration.ConfigurationProvider;
 import com.viaversion.viaversion.compatibility.YamlCompat;
 import com.viaversion.viaversion.compatibility.unsafe.Yaml1Compat;
 import com.viaversion.viaversion.compatibility.unsafe.Yaml2Compat;
@@ -35,12 +34,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.logging.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
 
 @SuppressWarnings("VulnerableCodeUsages")
-public abstract class Config implements ConfigurationProvider {
+public abstract class Config {
+    private static final Logger LOGGER = Logger.getLogger("ViaVersion Config");
     private static final YamlCompat YAMP_COMPAT = YamlCompat.isVersion1() ? new Yaml1Compat() : new Yaml2Compat();
     private static final ThreadLocal<Yaml> YAML = ThreadLocal.withInitial(() -> {
         DumperOptions options = new DumperOptions();
@@ -56,7 +57,7 @@ public abstract class Config implements ConfigurationProvider {
 
     /**
      * Create a new Config instance, this will *not* load the config by default.
-     * To load config see {@link #reloadConfig()}
+     * To load config see {@link #reload()}
      *
      * @param configFile The location of where the config is loaded/saved.
      */
@@ -116,14 +117,14 @@ public abstract class Config implements ConfigurationProvider {
         // Call Handler
         handleConfig(defaults);
         // Save
-        saveConfig(location, defaults);
+        save(location, defaults);
 
         return defaults;
     }
 
     protected abstract void handleConfig(Map<String, Object> config);
 
-    public synchronized void saveConfig(File location, Map<String, Object> config) {
+    public synchronized void save(File location, Map<String, Object> config) {
         try {
             commentStore.writeComments(YAML.get().dump(config), location);
         } catch (IOException e) {
@@ -133,28 +134,24 @@ public abstract class Config implements ConfigurationProvider {
 
     public abstract List<String> getUnsupportedOptions();
 
-    @Override
     public void set(String path, Object value) {
         config.put(path, value);
     }
 
-    @Override
-    public void saveConfig() {
+    public void save() {
         this.configFile.getParentFile().mkdirs();
-        saveConfig(this.configFile, this.config);
+        save(this.configFile, this.config);
     }
 
-    public void saveConfig(final File file) {
-        saveConfig(file, this.config);
+    public void save(final File file) {
+        save(file, this.config);
     }
 
-    @Override
-    public void reloadConfig() {
+    public void reload() {
         this.configFile.getParentFile().mkdirs();
         this.config = new ConcurrentSkipListMap<>(loadConfig(this.configFile));
     }
 
-    @Override
     public Map<String, Object> getValues() {
         return this.config;
     }
@@ -231,7 +228,7 @@ public abstract class Config implements ConfigurationProvider {
                 if (type.isInstance(o1)) {
                     filteredValues.add(type.cast(o1));
                 } else if (invalidValueMessage != null) {
-                    Via.getPlatform().getLogger().warning(String.format(invalidValueMessage, o1));
+                    LOGGER.warning(String.format(invalidValueMessage, o1));
                 }
             }
             return filteredValues;

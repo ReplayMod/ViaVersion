@@ -20,7 +20,6 @@ package com.viaversion.viaversion.protocol;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.debug.DebugHandler;
-import com.viaversion.viaversion.api.platform.ViaPlatform;
 import com.viaversion.viaversion.api.protocol.AbstractSimpleProtocol;
 import com.viaversion.viaversion.api.protocol.Protocol;
 import com.viaversion.viaversion.api.protocol.ProtocolPipeline;
@@ -40,7 +39,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 public class ProtocolPipelineImpl extends AbstractSimpleProtocol implements ProtocolPipeline {
     private final UserConnection userConnection;
     /**
-     * Protocol list ordered from client to server transforation with the base protocols at the end.
+     * Protocol list ordered from client to server transformation with the base protocols at the end.
      */
     private final List<Protocol> protocolList = new CopyOnWriteArrayList<>();
     private final Set<Class<? extends Protocol>> protocolSet = new HashSet<>();
@@ -54,7 +53,7 @@ public class ProtocolPipelineImpl extends AbstractSimpleProtocol implements Prot
     }
 
     @Override
-    protected void registerPackets() {
+    protected synchronized void registerPackets() {
         // This is a pipeline so we register basic pipes
         final Protocol<?, ?, ?, ?> baseProtocol = Via.getManager().getProtocolManager().getBaseProtocol();
         protocolList.add(baseProtocol);
@@ -126,14 +125,9 @@ public class ProtocolPipelineImpl extends AbstractSimpleProtocol implements Prot
     }
 
     private void logPacket(Direction direction, State state, PacketWrapper packetWrapper, int originalID) {
-        // Debug packet
-        int clientProtocol = userConnection.getProtocolInfo().getProtocolVersion();
-        ViaPlatform<?> platform = Via.getPlatform();
-
         String actualUsername = packetWrapper.user().getProtocolInfo().getUsername();
         String username = actualUsername != null ? actualUsername + " " : "";
-
-        platform.getLogger().log(Level.INFO, "{0}{1} {2}: {3} ({4}) -> {5} ({6}) [{7}] {8}",
+        Via.getPlatform().getLogger().log(Level.INFO, "{0}{1} {2}: {3} ({4}) -> {5} ({6}) [{7}] {8}",
                 new Object[]{
                         username,
                         direction,
@@ -142,7 +136,7 @@ public class ProtocolPipelineImpl extends AbstractSimpleProtocol implements Prot
                         AbstractSimpleProtocol.toNiceHex(originalID),
                         packetWrapper.getId(),
                         AbstractSimpleProtocol.toNiceHex(packetWrapper.getId()),
-                        Integer.toString(clientProtocol),
+                        Integer.toString(userConnection.getProtocolInfo().getProtocolVersion()),
                         packetWrapper
                 });
     }
@@ -183,7 +177,19 @@ public class ProtocolPipelineImpl extends AbstractSimpleProtocol implements Prot
     }
 
     @Override
-    public void cleanPipes() {
+    public synchronized void cleanPipes() {
+        protocolList.clear();
+        reversedProtocolList.clear();
+        protocolSet.clear();
+        baseProtocols = 0;
+
         registerPackets();
+    }
+
+    @Override
+    public String toString() {
+        return "ProtocolPipelineImpl{" +
+                "protocolList=" + protocolList +
+                '}';
     }
 }

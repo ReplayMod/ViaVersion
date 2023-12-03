@@ -24,12 +24,12 @@ import com.viaversion.viaversion.api.connection.ProtocolInfo;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.data.MappingData;
 import com.viaversion.viaversion.api.data.MappingDataBase;
-import com.viaversion.viaversion.api.minecraft.entities.Entity1_19_4Types;
+import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_19_4;
 import com.viaversion.viaversion.api.protocol.AbstractProtocol;
 import com.viaversion.viaversion.api.protocol.packet.Direction;
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.protocol.packet.State;
-import com.viaversion.viaversion.api.protocol.remapper.PacketHandler;
+import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import com.viaversion.viaversion.api.rewriter.EntityRewriter;
 import com.viaversion.viaversion.api.rewriter.ItemRewriter;
 import com.viaversion.viaversion.api.type.Type;
@@ -48,7 +48,9 @@ import com.viaversion.viaversion.protocols.protocol1_20_2to1_20.rewriter.EntityP
 import com.viaversion.viaversion.protocols.protocol1_20_2to1_20.storage.ConfigurationState;
 import com.viaversion.viaversion.protocols.protocol1_20_2to1_20.storage.ConfigurationState.BridgePhase;
 import com.viaversion.viaversion.protocols.protocol1_20_2to1_20.storage.LastResourcePack;
+import com.viaversion.viaversion.protocols.protocol1_20_2to1_20.storage.LastTags;
 import com.viaversion.viaversion.rewriter.SoundRewriter;
+import com.viaversion.viaversion.util.Key;
 import java.util.UUID;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
@@ -71,20 +73,8 @@ public final class Protocol1_20_2To1_20 extends AbstractProtocol<ClientboundPack
         soundRewriter.register1_19_3Sound(ClientboundPackets1_19_4.SOUND);
         soundRewriter.registerEntitySound(ClientboundPackets1_19_4.ENTITY_SOUND);
 
-        registerClientbound(ClientboundPackets1_19_4.PLUGIN_MESSAGE, wrapper -> {
-            final String channel = wrapper.passthrough(Type.STRING);
-            if (channel.equals("minecraft:brand")) {
-                wrapper.passthrough(Type.STRING);
-                wrapper.read(Type.REMAINING_BYTES);
-            }
-        });
-        registerServerbound(ServerboundPackets1_20_2.PLUGIN_MESSAGE, wrapper -> {
-            final String channel = wrapper.passthrough(Type.STRING);
-            if (channel.equals("minecraft:brand")) {
-                wrapper.passthrough(Type.STRING);
-                wrapper.read(Type.REMAINING_BYTES);
-            }
-        });
+        registerClientbound(ClientboundPackets1_19_4.PLUGIN_MESSAGE, this::sanitizeCustomPayload);
+        registerServerbound(ServerboundPackets1_20_2.PLUGIN_MESSAGE, this::sanitizeCustomPayload);
 
         registerClientbound(ClientboundPackets1_19_4.RESOURCE_PACK, wrapper -> {
             final String url = wrapper.passthrough(Type.STRING);
@@ -93,6 +83,10 @@ public final class Protocol1_20_2To1_20 extends AbstractProtocol<ClientboundPack
             final JsonElement prompt = wrapper.passthrough(Type.OPTIONAL_COMPONENT);
             wrapper.user().put(new LastResourcePack(url, hash, required, prompt));
         });
+
+        registerClientbound(ClientboundPackets1_19_4.TAGS, wrapper -> wrapper.user().put(new LastTags(wrapper)));
+        registerClientbound(State.CONFIGURATION, ClientboundConfigurationPackets1_20_2.UPDATE_TAGS.getId(), ClientboundConfigurationPackets1_20_2.UPDATE_TAGS.getId(),
+                wrapper -> wrapper.user().put(new LastTags(wrapper)));
 
         registerClientbound(ClientboundPackets1_19_4.DISPLAY_SCOREBOARD, wrapper -> {
             final byte slot = wrapper.read(Type.BYTE);
@@ -138,10 +132,31 @@ public final class Protocol1_20_2To1_20 extends AbstractProtocol<ClientboundPack
             configurationState.sendQueuedPackets(wrapper.user());
             configurationState.clear();
         });
-        registerServerbound(State.CONFIGURATION, ServerboundConfigurationPackets1_20_2.CLIENT_INFORMATION.getId(), -1, queueServerboundPacket(ServerboundPackets1_20_2.CLIENT_SETTINGS));
-        registerServerbound(State.CONFIGURATION, ServerboundConfigurationPackets1_20_2.CUSTOM_PAYLOAD.getId(), -1, queueServerboundPacket(ServerboundPackets1_20_2.PLUGIN_MESSAGE));
-        registerServerbound(State.CONFIGURATION, ServerboundConfigurationPackets1_20_2.KEEP_ALIVE.getId(), -1, queueServerboundPacket(ServerboundPackets1_20_2.KEEP_ALIVE));
-        registerServerbound(State.CONFIGURATION, ServerboundConfigurationPackets1_20_2.PONG.getId(), -1, queueServerboundPacket(ServerboundPackets1_20_2.PONG));
+        registerServerbound(State.CONFIGURATION, ServerboundConfigurationPackets1_20_2.CLIENT_INFORMATION.getId(), -1, wrapper -> {
+            final ConfigurationState.ClientInformation clientInformation = new ConfigurationState.ClientInformation(
+                    wrapper.read(Type.STRING), // Language
+                    wrapper.read(Type.BYTE), // View distance
+                    wrapper.read(Type.VAR_INT), // Chat visibility
+                    wrapper.read(Type.BOOLEAN), // Chat colors
+                    wrapper.read(Type.UNSIGNED_BYTE), // Model customization
+                    wrapper.read(Type.VAR_INT), // Main hand
+                    wrapper.read(Type.BOOLEAN), // Text filtering enabled
+                    wrapper.read(Type.BOOLEAN) // Allow listing in server list preview
+            );
+
+            // Store it to re-send it when another ClientboundLoginPacket is sent, since the client will only send it
+            // once per connection right after the handshake
+            final ConfigurationState configurationState = wrapper.user().get(ConfigurationState.class);
+            configurationState.setClientInformation(clientInformation);
+            wrapper.cancel();
+        });
+        registerServerbound(State.CONFIGURATION, ServerboundConfigurationPackets1_20_2.CUSTOM_PAYLOAD.getId(), -1, wrapper -> {
+            wrapper.setPacketType(ServerboundPackets1_19_4.PLUGIN_MESSAGE);
+            sanitizeCustomPayload(wrapper);
+        });
+        registerServerbound(State.CONFIGURATION, ServerboundConfigurationPackets1_20_2.KEEP_ALIVE.getId(), -1, wrapper -> wrapper.setPacketType(ServerboundPackets1_19_4.KEEP_ALIVE));
+        registerServerbound(State.CONFIGURATION, ServerboundConfigurationPackets1_20_2.PONG.getId(), -1, wrapper -> wrapper.setPacketType(ServerboundPackets1_19_4.PONG));
+
         // Cancel this, as it will always just be the response to a re-sent pack from us
         registerServerbound(State.CONFIGURATION, ServerboundConfigurationPackets1_20_2.RESOURCE_PACK.getId(), -1, PacketWrapper::cancel);
 
@@ -173,14 +188,6 @@ public final class Protocol1_20_2To1_20 extends AbstractProtocol<ClientboundPack
         });
     }
 
-    private PacketHandler queueServerboundPacket(final ServerboundPackets1_20_2 packetType) {
-        return wrapper -> {
-            wrapper.setPacketType(packetType);
-            wrapper.user().get(ConfigurationState.class).addPacketToQueue(wrapper, false);
-            wrapper.cancel();
-        };
-    }
-
     @Override
     public void transform(final Direction direction, final State state, final PacketWrapper packetWrapper) throws Exception {
         if (direction == Direction.SERVERBOUND) {
@@ -201,7 +208,13 @@ public final class Protocol1_20_2To1_20 extends AbstractProtocol<ClientboundPack
             return;
         }
 
+        final int unmappedId = packetWrapper.getId();
         if (phase == BridgePhase.PROFILE_SENT || phase == BridgePhase.REENTERING_CONFIGURATION) {
+            if (unmappedId == ClientboundPackets1_19_4.TAGS.getId()) {
+                // Don't re-send old tags during config phase
+                packetWrapper.user().remove(LastTags.class);
+            }
+
             // Queue packets sent by the server while we wait for the client to transition to the configuration state
             configurationBridge.addPacketToQueue(packetWrapper, true);
             throw CancelException.generate();
@@ -209,7 +222,6 @@ public final class Protocol1_20_2To1_20 extends AbstractProtocol<ClientboundPack
 
         if (packetWrapper.getPacketType() == null || packetWrapper.getPacketType().state() != State.CONFIGURATION) {
             // Map some of them to their configuration state counterparts, but make sure to let join game through
-            final int unmappedId = packetWrapper.getId();
             if (unmappedId == ClientboundPackets1_19_4.JOIN_GAME.getId()) {
                 super.transform(direction, State.PLAY, packetWrapper);
                 return;
@@ -258,7 +270,7 @@ public final class Protocol1_20_2To1_20 extends AbstractProtocol<ClientboundPack
         protocolInfo.setServerState(State.CONFIGURATION);
 
         final PacketWrapper registryDataPacket = PacketWrapper.create(ClientboundConfigurationPackets1_20_2.REGISTRY_DATA, connection);
-        registryDataPacket.write(Type.NAMELESS_NBT, dimensionRegistry);
+        registryDataPacket.write(Type.COMPOUND_TAG, dimensionRegistry);
         registryDataPacket.send(Protocol1_20_2To1_20.class);
 
         // Enabling features is only possible during the configuration phase
@@ -268,7 +280,13 @@ public final class Protocol1_20_2To1_20 extends AbstractProtocol<ClientboundPack
         enableFeaturesPacket.write(Type.STRING, "minecraft:vanilla");
         enableFeaturesPacket.send(Protocol1_20_2To1_20.class);
 
-        if (lastResourcePack != null) {
+        final LastTags lastTags = connection.get(LastTags.class);
+        if (lastTags != null) {
+            // The server might still follow up with a tags packet, but we wouldn't know
+            lastTags.sendLastTags(connection);
+        }
+
+        if (lastResourcePack != null && connection.getProtocolInfo().getProtocolVersion() == ProtocolVersion.v1_20_2.getVersion()) {
             // The client for some reason drops the resource pack when reentering the configuration state
             final PacketWrapper resourcePackPacket = PacketWrapper.create(ClientboundConfigurationPackets1_20_2.RESOURCE_PACK, connection);
             resourcePackPacket.write(Type.STRING, lastResourcePack.url());
@@ -284,6 +302,14 @@ public final class Protocol1_20_2To1_20 extends AbstractProtocol<ClientboundPack
         protocolInfo.setServerState(State.PLAY);
     }
 
+    private void sanitizeCustomPayload(final PacketWrapper wrapper) throws Exception {
+        final String channel = Key.namespaced(wrapper.passthrough(Type.STRING));
+        if (channel.equals("minecraft:brand")) {
+            wrapper.passthrough(Type.STRING);
+            wrapper.clearInputBuffer();
+        }
+    }
+
     @Override
     public MappingData getMappingData() {
         return MAPPINGS;
@@ -297,7 +323,7 @@ public final class Protocol1_20_2To1_20 extends AbstractProtocol<ClientboundPack
     @Override
     public void init(final UserConnection user) {
         user.put(new ConfigurationState());
-        addEntityTracker(user, new EntityTrackerBase(user, Entity1_19_4Types.PLAYER));
+        addEntityTracker(user, new EntityTrackerBase(user, EntityTypes1_19_4.PLAYER));
     }
 
     @Override

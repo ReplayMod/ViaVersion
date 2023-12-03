@@ -18,7 +18,7 @@
 package com.viaversion.viaversion.protocols.protocol1_20_2to1_20.rewriter;
 
 import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
-import com.viaversion.viaversion.api.minecraft.entities.Entity1_19_4Types;
+import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_19_4;
 import com.viaversion.viaversion.api.minecraft.entities.EntityType;
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.protocol.remapper.PacketHandlers;
@@ -39,7 +39,7 @@ public final class EntityPacketRewriter1_20_2 extends EntityRewriter<Clientbound
 
     @Override
     public void registerPackets() {
-        registerTrackerWithData1_19(ClientboundPackets1_19_4.SPAWN_ENTITY, Entity1_19_4Types.FALLING_BLOCK);
+        registerTrackerWithData1_19(ClientboundPackets1_19_4.SPAWN_ENTITY, EntityTypes1_19_4.FALLING_BLOCK);
         registerMetadataRewriter(ClientboundPackets1_19_4.ENTITY_METADATA, Types1_20.METADATA_LIST, Types1_20_2.METADATA_LIST);
         registerRemoveEntities(ClientboundPackets1_19_4.REMOVE_ENTITIES);
 
@@ -47,7 +47,7 @@ public final class EntityPacketRewriter1_20_2 extends EntityRewriter<Clientbound
             wrapper.passthrough(Type.VAR_INT); // Entity id
             wrapper.passthrough(Type.UUID); // UUID
 
-            wrapper.write(Type.VAR_INT, Entity1_19_4Types.PLAYER.getId()); // Entity type id
+            wrapper.write(Type.VAR_INT, EntityTypes1_19_4.PLAYER.getId()); // Entity type id
 
             wrapper.passthrough(Type.DOUBLE); // X
             wrapper.passthrough(Type.DOUBLE); // Y
@@ -76,7 +76,7 @@ public final class EntityPacketRewriter1_20_2 extends EntityRewriter<Clientbound
 
                     wrapper.passthrough(Type.STRING_ARRAY); // World List
 
-                    final CompoundTag dimensionRegistry = wrapper.read(Type.NBT);
+                    final CompoundTag dimensionRegistry = wrapper.read(Type.NAMED_COMPOUND_TAG);
                     final String dimensionType = wrapper.read(Type.STRING);
                     final String world = wrapper.read(Type.STRING);
                     final long seed = wrapper.read(Type.LONG);
@@ -101,6 +101,10 @@ public final class EntityPacketRewriter1_20_2 extends EntityRewriter<Clientbound
                     final ConfigurationState configurationBridge = wrapper.user().get(ConfigurationState.class);
                     if (!configurationBridge.setLastDimensionRegistry(dimensionRegistry)) {
                         // No change, so no need to re-enter the configuration state - just let this one through
+                        final PacketWrapper clientInformationPacket = configurationBridge.clientInformationPacket(wrapper.user());
+                        if (clientInformationPacket != null) {
+                            clientInformationPacket.sendToServer(Protocol1_20_2To1_20.class);
+                        }
                         return;
                     }
 
@@ -115,11 +119,11 @@ public final class EntityPacketRewriter1_20_2 extends EntityRewriter<Clientbound
                         return;
                     }
 
-                    Protocol1_20_2To1_20.sendConfigurationPackets(wrapper.user(), dimensionRegistry, null);
-
-                    // Manually send it at the end and hope nothing breaks
+                    // Queue it and send it after the client acks the configuration finish
                     configurationBridge.setJoinGamePacket(wrapper);
                     wrapper.cancel();
+
+                    Protocol1_20_2To1_20.sendConfigurationPackets(wrapper.user(), dimensionRegistry, null);
                 });
                 handler(worldDataTrackerHandlerByKey()); // Tracks world height and name for chunk data and entity (un)tracking
             }
@@ -156,7 +160,7 @@ public final class EntityPacketRewriter1_20_2 extends EntityRewriter<Clientbound
             wrapper.passthrough(Type.VAR_INT); // Duration
             wrapper.passthrough(Type.BYTE); // Flags
             if (wrapper.passthrough(Type.BOOLEAN)) {
-                wrapper.write(Type.NAMELESS_NBT, wrapper.read(Type.NBT)); // Factor data
+                wrapper.write(Type.COMPOUND_TAG, wrapper.read(Type.NAMED_COMPOUND_TAG)); // Factor data
             }
         });
 
@@ -169,11 +173,11 @@ public final class EntityPacketRewriter1_20_2 extends EntityRewriter<Clientbound
     @Override
     protected void registerRewrites() {
         filter().handler((event, meta) -> meta.setMetaType(Types1_20_2.META_TYPES.byId(meta.metaType().typeId())));
-        registerMetaTypeHandler(null, Types1_20_2.META_TYPES.blockStateType, Types1_20_2.META_TYPES.optionalBlockStateType, Types1_20_2.META_TYPES.particleType);
+        registerMetaTypeHandler(Types1_20_2.META_TYPES.itemType, Types1_20_2.META_TYPES.blockStateType, Types1_20_2.META_TYPES.optionalBlockStateType, Types1_20_2.META_TYPES.particleType);
 
-        filter().filterFamily(Entity1_19_4Types.DISPLAY).addIndex(10);
+        filter().filterFamily(EntityTypes1_19_4.DISPLAY).addIndex(10);
 
-        filter().filterFamily(Entity1_19_4Types.MINECART_ABSTRACT).index(11).handler((event, meta) -> {
+        filter().filterFamily(EntityTypes1_19_4.MINECART_ABSTRACT).index(11).handler((event, meta) -> {
             final int blockState = meta.value();
             meta.setValue(protocol.getMappingData().getNewBlockStateId(blockState));
         });
@@ -181,6 +185,6 @@ public final class EntityPacketRewriter1_20_2 extends EntityRewriter<Clientbound
 
     @Override
     public EntityType typeFromId(final int type) {
-        return Entity1_19_4Types.getTypeFromId(type);
+        return EntityTypes1_19_4.getTypeFromId(type);
     }
 }

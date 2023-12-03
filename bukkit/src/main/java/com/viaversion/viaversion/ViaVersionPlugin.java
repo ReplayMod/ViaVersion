@@ -21,7 +21,6 @@ import com.google.gson.JsonObject;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.ViaAPI;
 import com.viaversion.viaversion.api.command.ViaCommandSender;
-import com.viaversion.viaversion.api.configuration.ConfigurationProvider;
 import com.viaversion.viaversion.api.platform.PlatformTask;
 import com.viaversion.viaversion.api.platform.UnsupportedSoftware;
 import com.viaversion.viaversion.api.platform.ViaPlatform;
@@ -219,11 +218,6 @@ public class ViaVersionPlugin extends JavaPlugin implements ViaPlatform<Player> 
     @Override
     public boolean isPluginEnabled() {
         return Bukkit.getPluginManager().getPlugin("ViaVersion").isEnabled();
-    }
-
-    @Override
-    public ConfigurationProvider getConfigurationProvider() {
-        return conf;
     }
 
     @Override

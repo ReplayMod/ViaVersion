@@ -24,7 +24,7 @@ package com.viaversion.viaversion.api.minecraft.metadata.types;
 
 import com.viaversion.viaversion.api.minecraft.metadata.MetaType;
 import com.viaversion.viaversion.api.type.Type;
-import com.viaversion.viaversion.api.type.types.minecraft.ParticleType;
+import com.viaversion.viaversion.api.type.types.misc.ParticleType;
 
 public final class MetaTypes1_20_2 extends AbstractMetaTypes {
 
@@ -44,7 +44,7 @@ public final class MetaTypes1_20_2 extends AbstractMetaTypes {
     public final MetaType optionalUUIDType = add(13, Type.OPTIONAL_UUID);
     public final MetaType blockStateType = add(14, Type.VAR_INT);
     public final MetaType optionalBlockStateType = add(15, Type.VAR_INT);
-    public final MetaType nbtType = add(16, Type.NAMELESS_NBT);
+    public final MetaType nbtType = add(16, Type.COMPOUND_TAG);
     public final MetaType particleType;
     public final MetaType villagerDatatType = add(18, Type.VILLAGER_DATA);
     public final MetaType optionalVarIntType = add(19, Type.OPTIONAL_VAR_INT);

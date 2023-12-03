@@ -40,7 +40,7 @@ import com.viaversion.viaversion.api.protocol.remapper.PacketHandler;
 import com.viaversion.viaversion.api.protocol.remapper.PacketHandlers;
 import com.viaversion.viaversion.api.rewriter.RewriterBase;
 import com.viaversion.viaversion.api.type.Type;
-import com.viaversion.viaversion.api.type.types.Particle;
+import com.viaversion.viaversion.api.minecraft.Particle;
 import com.viaversion.viaversion.data.entity.DimensionDataImpl;
 import com.viaversion.viaversion.rewriter.meta.MetaFilter;
 import com.viaversion.viaversion.rewriter.meta.MetaHandlerEvent;
@@ -50,6 +50,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -104,11 +105,10 @@ public abstract class EntityRewriter<C extends ClientboundPacketType, T extends 
     public void handleMetadata(final int entityId, final List<Metadata> metadataList, final UserConnection connection) {
         final TrackedEntity entity = tracker(connection).entity(entityId);
         final EntityType type = entity != null ? entity.entityType() : null;
-        int i = 0; // Count index for fast removal
         for (final Metadata metadata : metadataList.toArray(EMPTY_ARRAY)) { // Copy the list to allow mutation
             // Call handlers implementing the old handleMetadata
             if (!callOldMetaHandler(entityId, type, metadata, metadataList, connection)) {
-                metadataList.remove(i--);
+                metadataList.remove(metadata);
                 continue;
             }
 
@@ -126,22 +126,22 @@ public abstract class EntityRewriter<C extends ClientboundPacketType, T extends 
                     filter.handler().handle(event, metadata);
                 } catch (final Exception e) {
                     logException(e, type, metadataList, metadata);
-                    metadataList.remove(i--);
+                    metadataList.remove(metadata);
                     break;
                 }
 
                 if (event.cancelled()) {
-                    // Remove meta, decrease list index counter, and break current filter loop
-                    metadataList.remove(i--);
+                    // Remove meta, and break current filter loop
+                    metadataList.remove(metadata);
                     break;
                 }
             }
 
-            if (event != null && event.extraMeta() != null) {
+            final List<Metadata> extraMeta = event != null ? event.extraMeta() : null;
+            if (extraMeta != null) {
                 // Finally, add newly created meta
-                metadataList.addAll(event.extraMeta());
+                metadataList.addAll(extraMeta);
             }
-            i++;
         }
 
         if (entity != null) {
@@ -423,7 +423,7 @@ public abstract class EntityRewriter<C extends ClientboundPacketType, T extends 
         return wrapper -> {
             EntityTracker tracker = tracker(wrapper.user());
 
-            CompoundTag registryData = wrapper.get(Type.NBT, nbtIndex);
+            CompoundTag registryData = wrapper.get(Type.NAMED_COMPOUND_TAG, nbtIndex);
             Tag height = registryData.get("height");
             if (height instanceof IntTag) {
                 int blockHeight = ((IntTag) height).asInt();
@@ -472,7 +472,11 @@ public abstract class EntityRewriter<C extends ClientboundPacketType, T extends 
     }
 
     public PacketHandler biomeSizeTracker() {
-        return wrapper -> trackBiomeSize(wrapper.user(), wrapper.get(Type.NBT, 0));
+        return wrapper -> trackBiomeSize(wrapper.user(), wrapper.get(Type.NAMED_COMPOUND_TAG, 0));
+    }
+
+    public PacketHandler configurationBiomeSizeTracker() {
+        return wrapper -> trackBiomeSize(wrapper.user(), wrapper.get(Type.COMPOUND_TAG, 0));
     }
 
     public void trackBiomeSize(final UserConnection connection, final CompoundTag registry) {
@@ -482,7 +486,11 @@ public abstract class EntityRewriter<C extends ClientboundPacketType, T extends 
     }
 
     public PacketHandler dimensionDataHandler() {
-        return wrapper -> cacheDimensionData(wrapper.user(), wrapper.get(Type.NBT, 0));
+        return wrapper -> cacheDimensionData(wrapper.user(), wrapper.get(Type.NAMED_COMPOUND_TAG, 0));
+    }
+
+    public PacketHandler configurationDimensionDataHandler() {
+        return wrapper -> cacheDimensionData(wrapper.user(), wrapper.get(Type.COMPOUND_TAG, 0));
     }
 
     /**
@@ -573,11 +581,11 @@ public abstract class EntityRewriter<C extends ClientboundPacketType, T extends 
         ParticleMappings mappings = protocol.getMappingData().getParticleMappings();
         int id = particle.getId();
         if (mappings.isBlockParticle(id)) {
-            Particle.ParticleData data = particle.getArguments().get(0);
-            data.setValue(protocol.getMappingData().getNewBlockStateId(data.get()));
+            Particle.ParticleData<Integer> data = particle.getArgument(0);
+            data.setValue(protocol.getMappingData().getNewBlockStateId(data.getValue()));
         } else if (mappings.isItemParticle(id) && protocol.getItemRewriter() != null) {
-            Particle.ParticleData data = particle.getArguments().get(0);
-            Item item = data.get();
+            Particle.ParticleData<Item> data = particle.getArgument(0);
+            Item item = data.getValue();
             protocol.getItemRewriter().handleItemToClient(item);
         }
 
@@ -591,7 +599,7 @@ public abstract class EntityRewriter<C extends ClientboundPacketType, T extends 
                     + " for " + (type != null ? type.name() : "untracked") + " entity type: " + metadata);
             logger.severe(metadataList.stream().sorted(Comparator.comparingInt(Metadata::id))
                     .map(Metadata::toString).collect(Collectors.joining("\n", "Full metadata: ", "")));
-            e.printStackTrace();
+            logger.log(Level.SEVERE, "Error: ", e);
         }
     }
 }

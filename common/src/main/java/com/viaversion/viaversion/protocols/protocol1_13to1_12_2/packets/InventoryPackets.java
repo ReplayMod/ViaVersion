@@ -18,13 +18,7 @@
 package com.viaversion.viaversion.protocols.protocol1_13to1_12_2.packets;
 
 import com.github.steveice10.opennbt.conversion.ConverterRegistry;
-import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
-import com.github.steveice10.opennbt.tag.builtin.IntTag;
-import com.github.steveice10.opennbt.tag.builtin.ListTag;
-import com.github.steveice10.opennbt.tag.builtin.NumberTag;
-import com.github.steveice10.opennbt.tag.builtin.ShortTag;
-import com.github.steveice10.opennbt.tag.builtin.StringTag;
-import com.github.steveice10.opennbt.tag.builtin.Tag;
+import com.github.steveice10.opennbt.tag.builtin.*;
 import com.google.common.base.Joiner;
 import com.google.common.primitives.Ints;
 import com.viaversion.viaversion.api.Via;
@@ -41,6 +35,8 @@ import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.data.MappingData
 import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.data.SoundSource;
 import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.data.SpawnEggRewriter;
 import com.viaversion.viaversion.rewriter.ItemRewriter;
+import com.viaversion.viaversion.util.Key;
+
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -51,7 +47,7 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_12_1, Ser
     private static final String NBT_TAG_NAME = "ViaVersion|" + Protocol1_13To1_12_2.class.getSimpleName();
 
     public InventoryPackets(Protocol1_13To1_12_2 protocol) {
-        super(protocol);
+        super(protocol, null, null);
     }
 
     @Override
@@ -61,18 +57,18 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_12_1, Ser
             public void register() {
                 map(Type.UNSIGNED_BYTE); // 0 - Window ID
                 map(Type.SHORT); // 1 - Slot ID
-                map(Type.ITEM, Type.FLAT_ITEM); // 2 - Slot Value
+                map(Type.ITEM1_8, Type.ITEM1_13); // 2 - Slot Value
 
-                handler(itemToClientHandler(Type.FLAT_ITEM));
+                handler(itemToClientHandler(Type.ITEM1_13));
             }
         });
         protocol.registerClientbound(ClientboundPackets1_12_1.WINDOW_ITEMS, new PacketHandlers() {
             @Override
             public void register() {
                 map(Type.UNSIGNED_BYTE); // 0 - Window ID
-                map(Type.ITEM_ARRAY, Type.FLAT_ITEM_ARRAY); // 1 - Window Values
+                map(Type.ITEM1_8_SHORT_ARRAY, Type.ITEM1_13_SHORT_ARRAY); // 1 - Window Values
 
-                handler(itemArrayToClientHandler(Type.FLAT_ITEM_ARRAY));
+                handler(itemArrayToClientHandler(Type.ITEM1_13_SHORT_ARRAY));
             }
         });
         protocol.registerClientbound(ClientboundPackets1_12_1.WINDOW_PROPERTY, new PacketHandlers() {
@@ -137,20 +133,20 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_12_1, Ser
                         int size = wrapper.passthrough(Type.UNSIGNED_BYTE);
                         for (int i = 0; i < size; i++) {
                             // Input Item
-                            Item input = wrapper.read(Type.ITEM);
+                            Item input = wrapper.read(Type.ITEM1_8);
                             handleItemToClient(input);
-                            wrapper.write(Type.FLAT_ITEM, input);
+                            wrapper.write(Type.ITEM1_13, input);
                             // Output Item
-                            Item output = wrapper.read(Type.ITEM);
+                            Item output = wrapper.read(Type.ITEM1_8);
                             handleItemToClient(output);
-                            wrapper.write(Type.FLAT_ITEM, output);
+                            wrapper.write(Type.ITEM1_13, output);
 
                             boolean secondItem = wrapper.passthrough(Type.BOOLEAN); // Has second item
                             if (secondItem) {
                                 // Second Item
-                                Item second = wrapper.read(Type.ITEM);
+                                Item second = wrapper.read(Type.ITEM1_8);
                                 handleItemToClient(second);
-                                wrapper.write(Type.FLAT_ITEM, second);
+                                wrapper.write(Type.ITEM1_13, second);
                             }
 
                             wrapper.passthrough(Type.BOOLEAN); // Trade disabled
@@ -195,9 +191,9 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_12_1, Ser
             public void register() {
                 map(Type.VAR_INT); // 0 - Entity ID
                 map(Type.VAR_INT); // 1 - Slot ID
-                map(Type.ITEM, Type.FLAT_ITEM); // 2 - Item
+                map(Type.ITEM1_8, Type.ITEM1_13); // 2 - Item
 
-                handler(itemToClientHandler(Type.FLAT_ITEM));
+                handler(itemToClientHandler(Type.ITEM1_13));
             }
         });
 
@@ -210,9 +206,9 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_12_1, Ser
                 map(Type.BYTE); // 2 - Button
                 map(Type.SHORT); // 3 - Action number
                 map(Type.VAR_INT); // 4 - Mode
-                map(Type.FLAT_ITEM, Type.ITEM); // 5 - Clicked Item
+                map(Type.ITEM1_13, Type.ITEM1_8); // 5 - Clicked Item
 
-                handler(itemToServerHandler(Type.ITEM));
+                handler(itemToServerHandler(Type.ITEM1_8));
             }
         });
 
@@ -252,9 +248,9 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_12_1, Ser
             @Override
             public void register() {
                 map(Type.SHORT); // 0 - Slot
-                map(Type.FLAT_ITEM, Type.ITEM); // 1 - Clicked Item
+                map(Type.ITEM1_13, Type.ITEM1_8); // 1 - Clicked Item
 
-                handler(itemToServerHandler(Type.ITEM));
+                handler(itemToServerHandler(Type.ITEM1_8));
             }
         });
     }
@@ -364,7 +360,7 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_12_1, Ser
                 tag.put(NBT_TAG_NAME + "|CanPlaceOn", ConverterRegistry.convertToTag(ConverterRegistry.convertToValue(old))); // There will be data losing
                 for (Tag oldTag : old) {
                     Object value = oldTag.getValue();
-                    String oldId = value.toString().replace("minecraft:", "");
+                    String oldId = Key.stripMinecraftNamespace(value.toString());
                     String numberConverted = BlockIdData.numberIdToString.get(Ints.tryParse(oldId));
                     if (numberConverted != null) {
                         oldId = numberConverted;
@@ -386,7 +382,7 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_12_1, Ser
                 tag.put(NBT_TAG_NAME + "|CanDestroy", ConverterRegistry.convertToTag(ConverterRegistry.convertToValue(old))); // There will be data losing
                 for (Tag oldTag : old) {
                     Object value = oldTag.getValue();
-                    String oldId = value.toString().replace("minecraft:", "");
+                    String oldId = Key.stripMinecraftNamespace(value.toString());
                     String numberConverted = BlockIdData.numberIdToString.get(Ints.tryParse(oldId));
                     if (numberConverted != null) {
                         oldId = numberConverted;
@@ -629,7 +625,7 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_12_1, Ser
                 for (Tag oldTag : old) {
                     Object value = oldTag.getValue();
                     String[] newValues = BlockIdData.fallbackReverseMapping.get(value instanceof String
-                            ? ((String) value).replace("minecraft:", "")
+                            ? Key.stripMinecraftNamespace((String) value)
                             : null);
                     if (newValues != null) {
                         for (String newValue : newValues) {
@@ -652,7 +648,7 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_12_1, Ser
                 for (Tag oldTag : old) {
                     Object value = oldTag.getValue();
                     String[] newValues = BlockIdData.fallbackReverseMapping.get(value instanceof String
-                            ? ((String) value).replace("minecraft:", "")
+                            ? Key.stripMinecraftNamespace((String) value)
                             : null);
                     if (newValues != null) {
                         for (String newValue : newValues) {

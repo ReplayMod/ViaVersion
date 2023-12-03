@@ -24,11 +24,7 @@ import java.util.List;
 
 public class VelocityCommandHandler extends ViaCommandHandler implements SimpleCommand {
     public VelocityCommandHandler() {
-        try {
-            registerSubCommand(new ProbeSubCmd());
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        registerSubCommand(new ProbeSubCmd());
     }
 
     @Override
@@ -43,6 +39,6 @@ public class VelocityCommandHandler extends ViaCommandHandler implements SimpleC
 
     @Override
     public boolean hasPermission(Invocation invocation) {
-        return invocation.source().hasPermission("viaversion.admin"); // The permission is also referenced here to filter root suggestions (/via<tab>)
+        return invocation.source().hasPermission("viaversion.command"); // The permission is also referenced here to filter root suggestions (/via<tab>)
     }
 }

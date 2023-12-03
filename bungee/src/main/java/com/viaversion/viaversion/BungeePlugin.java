@@ -22,7 +22,6 @@ import com.google.gson.JsonObject;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.ViaAPI;
 import com.viaversion.viaversion.api.command.ViaCommandSender;
-import com.viaversion.viaversion.api.configuration.ConfigurationProvider;
 import com.viaversion.viaversion.api.platform.PlatformTask;
 import com.viaversion.viaversion.api.platform.UnsupportedSoftware;
 import com.viaversion.viaversion.api.platform.ViaServerProxyPlatform;
@@ -177,11 +176,6 @@ public class BungeePlugin extends Plugin implements ViaServerProxyPlatform<Proxi
     }
 
     @Override
-    public ConfigurationProvider getConfigurationProvider() {
-        return config;
-    }
-
-    @Override
     public void onReload() {
         // Injector prints a message <3
     }
@@ -203,11 +197,6 @@ public class BungeePlugin extends Plugin implements ViaServerProxyPlatform<Proxi
         platformSpecific.add("plugins", GsonUtil.getGson().toJsonTree(plugins));
         platformSpecific.add("servers", GsonUtil.getGson().toJsonTree(protocolDetectorService.detectedProtocolVersions()));
         return platformSpecific;
-    }
-
-    @Override
-    public boolean isOldClientsAllowed() {
-        return true;
     }
 
     @Override

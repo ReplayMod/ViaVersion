@@ -1,7 +1,6 @@
 plugins {
     id("net.kyori.blossom")
     id("org.jetbrains.gradle.plugin.idea-ext")
-    id("via.shadow-conventions")
 }
 
 sourceSets {
@@ -22,7 +21,7 @@ dependencies {
     api(libs.fastutil)
     api(libs.flare)
     api(libs.flareFastutil)
-    api(libs.openNBT)
+    api(libs.vianbt)
     api(libs.gson)
 
     compileOnlyApi(libs.snakeYaml)
@@ -34,3 +33,5 @@ dependencies {
 java {
     withJavadocJar()
 }
+
+publishShadowJar()

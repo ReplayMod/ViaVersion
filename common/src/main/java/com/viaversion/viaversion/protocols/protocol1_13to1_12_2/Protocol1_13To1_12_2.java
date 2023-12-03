@@ -24,7 +24,7 @@ import com.google.gson.JsonParseException;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.minecraft.Position;
-import com.viaversion.viaversion.api.minecraft.entities.Entity1_13Types;
+import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_13;
 import com.viaversion.viaversion.api.minecraft.item.DataItem;
 import com.viaversion.viaversion.api.minecraft.item.Item;
 import com.viaversion.viaversion.api.platform.providers.ViaProviders;
@@ -35,7 +35,7 @@ import com.viaversion.viaversion.api.protocol.remapper.PacketHandler;
 import com.viaversion.viaversion.api.protocol.remapper.PacketHandlers;
 import com.viaversion.viaversion.api.protocol.remapper.ValueTransformer;
 import com.viaversion.viaversion.api.type.Type;
-import com.viaversion.viaversion.api.type.types.minecraft.ParticleType;
+import com.viaversion.viaversion.api.type.types.misc.ParticleType;
 import com.viaversion.viaversion.api.type.types.version.Types1_13;
 import com.viaversion.viaversion.data.entity.EntityTrackerBase;
 import com.viaversion.viaversion.protocols.protocol1_12_1to1_12.ClientboundPackets1_12_1;
@@ -59,7 +59,7 @@ import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.providers.Player
 import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.storage.BlockConnectionStorage;
 import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.storage.BlockStorage;
 import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.storage.TabCompleteTracker;
-import com.viaversion.viaversion.protocols.protocol1_9_3to1_9_1_2.storage.ClientWorld;
+import com.viaversion.viaversion.api.minecraft.ClientWorld;
 import com.viaversion.viaversion.rewriter.SoundRewriter;
 import com.viaversion.viaversion.util.ChatColorUtil;
 import com.viaversion.viaversion.util.GsonUtil;
@@ -109,7 +109,7 @@ public class Protocol1_13To1_12_2 extends AbstractProtocol<ClientboundPackets1_1
     }
 
     public static final PacketHandler POS_TO_3_INT = wrapper -> {
-        Position position = wrapper.read(Type.POSITION);
+        Position position = wrapper.read(Type.POSITION1_8);
         wrapper.write(Type.INT, position.x());
         wrapper.write(Type.INT, position.y());
         wrapper.write(Type.INT, position.z());
@@ -284,7 +284,7 @@ public class Protocol1_13To1_12_2 extends AbstractProtocol<ClientboundPackets1_1
                     suggestion = suggestion.substring(1);
                 }
                 wrapper.write(Type.STRING, suggestion);
-                wrapper.write(Type.BOOLEAN, false);
+                wrapper.write(Type.OPTIONAL_COMPONENT, null); // Tooltip
             }
         });
 
@@ -334,7 +334,7 @@ public class Protocol1_13To1_12_2 extends AbstractProtocol<ClientboundPackets1_1
             @Override
             public void register() {
                 map(Type.INT); // Effect Id
-                map(Type.POSITION); // Location
+                map(Type.POSITION1_8); // Location
                 map(Type.INT); // Data
                 handler(wrapper -> {
                     int id = wrapper.get(Type.INT, 0);
@@ -402,57 +402,7 @@ public class Protocol1_13To1_12_2 extends AbstractProtocol<ClientboundPackets1_1
                         wrapper.write(Type.STRING_ARRAY, stringIds);
                     }
                     if (action == 0) {
-                        wrapper.create(ClientboundPackets1_13.DECLARE_RECIPES, wrapper1 -> {
-                            wrapper1.write(Type.VAR_INT, RecipeData.recipes.size());
-                            for (Map.Entry<String, RecipeData.Recipe> entry : RecipeData.recipes.entrySet()) {
-                                wrapper1.write(Type.STRING, entry.getKey()); // Id
-                                wrapper1.write(Type.STRING, entry.getValue().getType());
-                                switch (entry.getValue().getType()) {
-                                    case "crafting_shapeless": {
-                                        wrapper1.write(Type.STRING, entry.getValue().getGroup());
-                                        wrapper1.write(Type.VAR_INT, entry.getValue().getIngredients().length);
-                                        for (Item[] ingredient : entry.getValue().getIngredients()) {
-                                            Item[] clone = ingredient.clone(); // Clone because array and item is mutable
-                                            for (int i = 0; i < clone.length; i++) {
-                                                if (clone[i] == null) continue;
-                                                clone[i] = new DataItem(clone[i]);
-                                            }
-                                            wrapper1.write(Type.FLAT_ITEM_ARRAY_VAR_INT, clone);
-                                        }
-                                        wrapper1.write(Type.FLAT_ITEM, new DataItem(entry.getValue().getResult()));
-                                        break;
-                                    }
-                                    case "crafting_shaped": {
-                                        wrapper1.write(Type.VAR_INT, entry.getValue().getWidth());
-                                        wrapper1.write(Type.VAR_INT, entry.getValue().getHeight());
-                                        wrapper1.write(Type.STRING, entry.getValue().getGroup());
-                                        for (Item[] ingredient : entry.getValue().getIngredients()) {
-                                            Item[] clone = ingredient.clone(); // Clone because array and item is mutable
-                                            for (int i = 0; i < clone.length; i++) {
-                                                if (clone[i] == null) continue;
-                                                clone[i] = new DataItem(clone[i]);
-                                            }
-                                            wrapper1.write(Type.FLAT_ITEM_ARRAY_VAR_INT, clone);
-                                        }
-                                        wrapper1.write(Type.FLAT_ITEM, new DataItem(entry.getValue().getResult()));
-                                        break;
-                                    }
-                                    case "smelting": {
-                                        wrapper1.write(Type.STRING, entry.getValue().getGroup());
-                                        Item[] clone = entry.getValue().getIngredient().clone(); // Clone because array and item is mutable
-                                        for (int i = 0; i < clone.length; i++) {
-                                            if (clone[i] == null) continue;
-                                            clone[i] = new DataItem(clone[i]);
-                                        }
-                                        wrapper1.write(Type.FLAT_ITEM_ARRAY_VAR_INT, clone);
-                                        wrapper1.write(Type.FLAT_ITEM, new DataItem(entry.getValue().getResult()));
-                                        wrapper1.write(Type.FLOAT, entry.getValue().getExperience());
-                                        wrapper1.write(Type.VAR_INT, entry.getValue().getCookingTime());
-                                        break;
-                                    }
-                                }
-                            }
-                        }).send(Protocol1_13To1_12_2.class);
+                        wrapper.create(ClientboundPackets1_13.DECLARE_RECIPES, w -> writeDeclareRecipes(w)).send(Protocol1_13To1_12_2.class);
                     }
                 });
             }
@@ -584,9 +534,9 @@ public class Protocol1_13To1_12_2 extends AbstractProtocol<ClientboundPackets1_1
                 if (wrapper.passthrough(Type.BOOLEAN)) {
                     componentRewriter.processText(wrapper.passthrough(Type.COMPONENT)); // Title
                     componentRewriter.processText(wrapper.passthrough(Type.COMPONENT)); // Description
-                    Item icon = wrapper.read(Type.ITEM);
+                    Item icon = wrapper.read(Type.ITEM1_8);
                     itemRewriter.handleItemToClient(icon);
-                    wrapper.write(Type.FLAT_ITEM, icon); // Translate item to flat item
+                    wrapper.write(Type.ITEM1_13, icon); // Translate item to flat item
                     wrapper.passthrough(Type.VAR_INT); // Frame type
                     int flags = wrapper.passthrough(Type.INT); // Flags
                     if ((flags & 1) != 0) {
@@ -638,7 +588,7 @@ public class Protocol1_13To1_12_2 extends AbstractProtocol<ClientboundPackets1_1
                 handler(wrapper -> {
                     wrapper.write(Type.BOOLEAN, false);
                     final Position playerLookTarget = Via.getManager().getProviders().get(PlayerLookTargetProvider.class).getPlayerLookTarget(wrapper.user());
-                    wrapper.write(Type.OPTIONAL_POSITION, playerLookTarget);
+                    wrapper.write(Type.OPTIONAL_POSITION1_8, playerLookTarget);
                     if (!wrapper.isCancelled() && Via.getConfig().get1_13TabCompleteDelay() > 0) {
                         TabCompleteTracker tracker = wrapper.user().get(TabCompleteTracker.class);
                         wrapper.cancel();
@@ -651,13 +601,13 @@ public class Protocol1_13To1_12_2 extends AbstractProtocol<ClientboundPackets1_1
 
         // New 0x0A - Edit book -> Plugin Message
         registerServerbound(ServerboundPackets1_13.EDIT_BOOK, ServerboundPackets1_12_1.PLUGIN_MESSAGE, wrapper -> {
-            Item item = wrapper.read(Type.FLAT_ITEM);
+            Item item = wrapper.read(Type.ITEM1_13);
             boolean isSigning = wrapper.read(Type.BOOLEAN);
 
             itemRewriter.handleItemToServer(item);
 
             wrapper.write(Type.STRING, isSigning ? "MC|BSign" : "MC|BEdit"); // Channel
-            wrapper.write(Type.ITEM, item);
+            wrapper.write(Type.ITEM1_8, item);
         });
 
         // New 0x0C - Query Entity NBT
@@ -843,6 +793,58 @@ public class Protocol1_13To1_12_2 extends AbstractProtocol<ClientboundPackets1_1
         });
     }
 
+    private void writeDeclareRecipes(PacketWrapper recipesPacket) {
+        recipesPacket.write(Type.VAR_INT, RecipeData.recipes.size());
+        for (Map.Entry<String, RecipeData.Recipe> entry : RecipeData.recipes.entrySet()) {
+            recipesPacket.write(Type.STRING, entry.getKey()); // Id
+            recipesPacket.write(Type.STRING, entry.getValue().getType());
+            switch (entry.getValue().getType()) {
+                case "crafting_shapeless": {
+                    recipesPacket.write(Type.STRING, entry.getValue().getGroup());
+                    recipesPacket.write(Type.VAR_INT, entry.getValue().getIngredients().length);
+                    for (Item[] ingredient : entry.getValue().getIngredients()) {
+                        Item[] clone = ingredient.clone(); // Clone because array and item is mutable
+                        for (int i = 0; i < clone.length; i++) {
+                            if (clone[i] == null) continue;
+                            clone[i] = new DataItem(clone[i]);
+                        }
+                        recipesPacket.write(Type.ITEM1_13_ARRAY, clone);
+                    }
+                    recipesPacket.write(Type.ITEM1_13, new DataItem(entry.getValue().getResult()));
+                    break;
+                }
+                case "crafting_shaped": {
+                    recipesPacket.write(Type.VAR_INT, entry.getValue().getWidth());
+                    recipesPacket.write(Type.VAR_INT, entry.getValue().getHeight());
+                    recipesPacket.write(Type.STRING, entry.getValue().getGroup());
+                    for (Item[] ingredient : entry.getValue().getIngredients()) {
+                        Item[] clone = ingredient.clone(); // Clone because array and item is mutable
+                        for (int i = 0; i < clone.length; i++) {
+                            if (clone[i] == null) continue;
+                            clone[i] = new DataItem(clone[i]);
+                        }
+                        recipesPacket.write(Type.ITEM1_13_ARRAY, clone);
+                    }
+                    recipesPacket.write(Type.ITEM1_13, new DataItem(entry.getValue().getResult()));
+                    break;
+                }
+                case "smelting": {
+                    recipesPacket.write(Type.STRING, entry.getValue().getGroup());
+                    Item[] clone = entry.getValue().getIngredient().clone(); // Clone because array and item is mutable
+                    for (int i = 0; i < clone.length; i++) {
+                        if (clone[i] == null) continue;
+                        clone[i] = new DataItem(clone[i]);
+                    }
+                    recipesPacket.write(Type.ITEM1_13_ARRAY, clone);
+                    recipesPacket.write(Type.ITEM1_13, new DataItem(entry.getValue().getResult()));
+                    recipesPacket.write(Type.FLOAT, entry.getValue().getExperience());
+                    recipesPacket.write(Type.VAR_INT, entry.getValue().getCookingTime());
+                    break;
+                }
+            }
+        }
+    }
+
     @Override
     protected void onMappingDataLoaded() {
         ConnectionData.init();
@@ -853,7 +855,7 @@ public class Protocol1_13To1_12_2 extends AbstractProtocol<ClientboundPackets1_1
                 .reader(3, ParticleType.Readers.BLOCK)
                 .reader(20, ParticleType.Readers.DUST)
                 .reader(11, ParticleType.Readers.DUST)
-                .reader(27, ParticleType.Readers.ITEM);
+                .reader(27, ParticleType.Readers.ITEM1_13);
 
         if (Via.getConfig().isServersideBlockConnections() && Via.getManager().getProviders().get(BlockConnectionProvider.class) instanceof PacketBlockConnectionProvider) {
             BlockConnectionStorage.init();
@@ -862,10 +864,10 @@ public class Protocol1_13To1_12_2 extends AbstractProtocol<ClientboundPackets1_1
 
     @Override
     public void init(UserConnection userConnection) {
-        userConnection.addEntityTracker(this.getClass(), new EntityTrackerBase(userConnection, Entity1_13Types.EntityType.PLAYER));
+        userConnection.addEntityTracker(this.getClass(), new EntityTrackerBase(userConnection, EntityTypes1_13.EntityType.PLAYER));
         userConnection.put(new TabCompleteTracker());
         if (!userConnection.has(ClientWorld.class))
-            userConnection.put(new ClientWorld(userConnection));
+            userConnection.put(new ClientWorld());
         userConnection.put(new BlockStorage());
         if (Via.getConfig().isServersideBlockConnections()) {
             if (Via.getManager().getProviders().get(BlockConnectionProvider.class) instanceof PacketBlockConnectionProvider) {

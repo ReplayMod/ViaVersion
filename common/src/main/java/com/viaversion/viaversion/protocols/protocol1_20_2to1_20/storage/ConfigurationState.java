@@ -22,6 +22,8 @@ import com.viaversion.viaversion.api.connection.StorableObject;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.protocol.packet.PacketType;
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
+import com.viaversion.viaversion.api.type.Type;
+import com.viaversion.viaversion.protocols.protocol1_19_4to1_19_3.ServerboundPackets1_19_4;
 import com.viaversion.viaversion.protocols.protocol1_20_2to1_20.Protocol1_20_2To1_20;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -32,11 +34,13 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 
 public class ConfigurationState implements StorableObject {
 
+    private static final QueuedPacket[] EMPTY_PACKET_ARRAY = new QueuedPacket[0];
     private final List<QueuedPacket> packetQueue = new ArrayList<>();
     private BridgePhase bridgePhase = BridgePhase.NONE;
     private QueuedPacket joinGamePacket;
     private boolean queuedJoinGame;
     private CompoundTag lastDimensionRegistry;
+    private ClientInformation clientInformation;
 
     public BridgePhase bridgePhase() {
         return bridgePhase;
@@ -62,6 +66,10 @@ public class ConfigurationState implements StorableObject {
         return !equals;
     }
 
+    public void setClientInformation(final ClientInformation clientInformation) {
+        this.clientInformation = clientInformation;
+    }
+
     public void addPacketToQueue(final PacketWrapper wrapper, final boolean clientbound) throws Exception {
         packetQueue.add(toQueuedPacket(wrapper, clientbound, false));
     }
@@ -85,7 +93,7 @@ public class ConfigurationState implements StorableObject {
 
     @Override
     public boolean clearOnServerSwitch() {
-        return false; // This might be bad
+        return false;
     }
 
     @Override
@@ -99,12 +107,18 @@ public class ConfigurationState implements StorableObject {
     }
 
     public void sendQueuedPackets(final UserConnection connection) throws Exception {
-        if (joinGamePacket != null) {
+        final boolean hasJoinGamePacket = joinGamePacket != null;
+        if (hasJoinGamePacket) {
             packetQueue.add(0, joinGamePacket);
             joinGamePacket = null;
         }
 
-        final ConfigurationState.QueuedPacket[] queuedPackets = packetQueue.toArray(new ConfigurationState.QueuedPacket[0]);
+        final PacketWrapper clientInformationPacket = clientInformationPacket(connection);
+        if (clientInformationPacket != null) {
+            packetQueue.add(hasJoinGamePacket ? 1 : 0, toQueuedPacket(clientInformationPacket, false, true));
+        }
+
+        final ConfigurationState.QueuedPacket[] queuedPackets = packetQueue.toArray(EMPTY_PACKET_ARRAY);
         packetQueue.clear();
 
         for (final ConfigurationState.QueuedPacket packet : queuedPackets) {
@@ -140,6 +154,24 @@ public class ConfigurationState implements StorableObject {
 
     public enum BridgePhase {
         NONE, PROFILE_SENT, CONFIGURATION, REENTERING_CONFIGURATION
+    }
+
+    public @Nullable PacketWrapper clientInformationPacket(final UserConnection connection) {
+        if (clientInformation == null) {
+            // Should never be null, but we also shouldn't error
+            return null;
+        }
+
+        final PacketWrapper settingsPacket = PacketWrapper.create(ServerboundPackets1_19_4.CLIENT_SETTINGS, connection);
+        settingsPacket.write(Type.STRING, clientInformation.language);
+        settingsPacket.write(Type.BYTE, clientInformation.viewDistance);
+        settingsPacket.write(Type.VAR_INT, clientInformation.chatVisibility);
+        settingsPacket.write(Type.BOOLEAN, clientInformation.showChatColors);
+        settingsPacket.write(Type.UNSIGNED_BYTE, clientInformation.modelCustomization);
+        settingsPacket.write(Type.VAR_INT, clientInformation.mainHand);
+        settingsPacket.write(Type.BOOLEAN, clientInformation.textFiltering);
+        settingsPacket.write(Type.BOOLEAN, clientInformation.allowListing);
+        return settingsPacket;
     }
 
     public static final class QueuedPacket {
@@ -187,6 +219,30 @@ public class ConfigurationState implements StorableObject {
                     ", packetId=" + packetId +
                     ", skipCurrentPipeline=" + skipCurrentPipeline +
                     '}';
+        }
+    }
+
+    public static final class ClientInformation {
+        private final String language;
+        private final byte viewDistance;
+        private final int chatVisibility;
+        private final boolean showChatColors;
+        private final short modelCustomization;
+        private final int mainHand;
+        private final boolean textFiltering;
+        private final boolean allowListing;
+
+        public ClientInformation(final String language, final byte viewDistance, final int chatVisibility,
+                                 final boolean showChatColors, final short modelCustomization, final int mainHand,
+                                 final boolean textFiltering, final boolean allowListing) {
+            this.language = language;
+            this.viewDistance = viewDistance;
+            this.chatVisibility = chatVisibility;
+            this.showChatColors = showChatColors;
+            this.modelCustomization = modelCustomization;
+            this.mainHand = mainHand;
+            this.textFiltering = textFiltering;
+            this.allowListing = allowListing;
         }
     }
 }

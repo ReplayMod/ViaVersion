@@ -29,13 +29,14 @@ import com.viaversion.viaversion.api.rewriter.RewriterBase;
 import com.viaversion.viaversion.api.type.Type;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
-public abstract class ItemRewriter<C extends ClientboundPacketType, S extends ServerboundPacketType,
+public class ItemRewriter<C extends ClientboundPacketType, S extends ServerboundPacketType,
         T extends Protocol<C, ?, ?, S>> extends RewriterBase<T> implements com.viaversion.viaversion.api.rewriter.ItemRewriter<T> {
     private final Type<Item> itemType;
     private final Type<Item[]> itemArrayType;
 
+    @Deprecated/*(forRemoval = true)*/
     protected ItemRewriter(T protocol) {
-        this(protocol, Type.FLAT_VAR_INT_ITEM, Type.FLAT_VAR_INT_ITEM_ARRAY_VAR_INT);
+        this(protocol, Type.ITEM1_13_2, Type.ITEM1_13_2_ARRAY);
     }
 
     public ItemRewriter(T protocol, Type<Item> itemType, Type<Item[]> itemArrayType) {
@@ -168,6 +169,10 @@ public abstract class ItemRewriter<C extends ClientboundPacketType, S extends Se
                 });
             }
         });
+    }
+
+    public void registerCreativeInvAction(S packetType) {
+        registerCreativeInvAction(packetType, itemType);
     }
 
     public void registerCreativeInvAction(S packetType, Type<Item> type) {
@@ -312,6 +317,14 @@ public abstract class ItemRewriter<C extends ClientboundPacketType, S extends Se
     }
 
     public void registerAdvancements1_20_2(C packetType) {
+        registerAdvancements1_20_2(packetType, Type.COMPONENT);
+    }
+
+    public void registerAdvancements1_20_3(C packetType) {
+        registerAdvancements1_20_2(packetType, Type.TAG);
+    }
+
+    private void registerAdvancements1_20_2(C packetType, Type<?> componentType) {
         protocol.registerClientbound(packetType, wrapper -> {
             wrapper.passthrough(Type.BOOLEAN); // Reset/clear
             int size = wrapper.passthrough(Type.VAR_INT); // Mapping size
@@ -319,13 +332,14 @@ public abstract class ItemRewriter<C extends ClientboundPacketType, S extends Se
                 wrapper.passthrough(Type.STRING); // Identifier
 
                 // Parent
-                if (wrapper.passthrough(Type.BOOLEAN))
+                if (wrapper.passthrough(Type.BOOLEAN)) {
                     wrapper.passthrough(Type.STRING);
+                }
 
                 // Display data
                 if (wrapper.passthrough(Type.BOOLEAN)) {
-                    wrapper.passthrough(Type.COMPONENT); // Title
-                    wrapper.passthrough(Type.COMPONENT); // Description
+                    wrapper.passthrough(componentType); // Title
+                    wrapper.passthrough(componentType); // Description
                     handleItemToClient(wrapper.passthrough(itemType)); // Icon
                     wrapper.passthrough(Type.VAR_INT); // Frame type
                     int flags = wrapper.passthrough(Type.INT); // Flags

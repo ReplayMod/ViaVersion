@@ -59,31 +59,29 @@ public class EntityPackets {
                 map(Type.INT); // 0 - Entity ID
                 map(Type.INT); // 1 - Vehicle
 
-                // Leash state is removed in new versions
-                map(Type.UNSIGNED_BYTE, new ValueTransformer<Short, Void>(Type.NOTHING) {
-                    @Override
-                    public Void transform(PacketWrapper wrapper, Short inputValue) throws Exception {
-                        EntityTracker1_9 tracker = wrapper.user().getEntityTracker(Protocol1_9To1_8.class);
-                        if (inputValue == 0) {
-                            int passenger = wrapper.get(Type.INT, 0);
-                            int vehicle = wrapper.get(Type.INT, 1);
+                handler(wrapper -> {
+                    final short leashState = wrapper.read(Type.UNSIGNED_BYTE);
+                    EntityTracker1_9 tracker = wrapper.user().getEntityTracker(Protocol1_9To1_8.class);
+                    if (leashState == 0) {
+                        int passenger = wrapper.get(Type.INT, 0);
+                        int vehicle = wrapper.get(Type.INT, 1);
 
-                            wrapper.cancel(); // Don't send current packet
+                        wrapper.cancel(); // Don't send current packet
 
-                            PacketWrapper passengerPacket = wrapper.create(ClientboundPackets1_9.SET_PASSENGERS);
-                            if (vehicle == -1) {
-                                if (!tracker.getVehicleMap().containsKey(passenger))
-                                    return null; // Cancel
-                                passengerPacket.write(Type.VAR_INT, tracker.getVehicleMap().remove(passenger));
-                                passengerPacket.write(Type.VAR_INT_ARRAY_PRIMITIVE, new int[]{});
-                            } else {
-                                passengerPacket.write(Type.VAR_INT, vehicle);
-                                passengerPacket.write(Type.VAR_INT_ARRAY_PRIMITIVE, new int[]{passenger});
-                                tracker.getVehicleMap().put(passenger, vehicle);
+                        PacketWrapper passengerPacket = wrapper.create(ClientboundPackets1_9.SET_PASSENGERS);
+                        if (vehicle == -1) {
+                            if (!tracker.getVehicleMap().containsKey(passenger)) {
+                                return; // Cancel
                             }
-                            passengerPacket.send(Protocol1_9To1_8.class); // Send the packet
+
+                            passengerPacket.write(Type.VAR_INT, tracker.getVehicleMap().remove(passenger));
+                            passengerPacket.write(Type.VAR_INT_ARRAY_PRIMITIVE, new int[]{});
+                        } else {
+                            passengerPacket.write(Type.VAR_INT, vehicle);
+                            passengerPacket.write(Type.VAR_INT_ARRAY_PRIMITIVE, new int[]{passenger});
+                            tracker.getVehicleMap().put(passenger, vehicle);
                         }
-                        return null;
+                        passengerPacket.send(Protocol1_9To1_8.class); // Send the packet
                     }
                 });
             }
@@ -93,9 +91,9 @@ public class EntityPackets {
             @Override
             public void register() {
                 map(Type.VAR_INT); // 0 - Entity ID
-                map(Type.INT, SpawnPackets.toNewDouble); // 1 - X - Needs to be divide by 32
-                map(Type.INT, SpawnPackets.toNewDouble); // 2 - Y - Needs to be divide by 32
-                map(Type.INT, SpawnPackets.toNewDouble); // 3 - Z - Needs to be divide by 32
+                map(Type.INT, SpawnPackets.toNewDouble); // 1 - X - Needs to be divided by 32
+                map(Type.INT, SpawnPackets.toNewDouble); // 2 - Y - Needs to be divided by 32
+                map(Type.INT, SpawnPackets.toNewDouble); // 3 - Z - Needs to be divided by 32
 
                 map(Type.BYTE); // 4 - Pitch
                 map(Type.BYTE); // 5 - Yaw
@@ -164,24 +162,23 @@ public class EntityPackets {
                         return slot > 0 ? slot.intValue() + 1 : slot.intValue();
                     }
                 });
-                map(Type.ITEM); // 2 - Item
+                map(Type.ITEM1_8); // 2 - Item
                 // Item Rewriter
                 handler(wrapper -> {
-                    Item stack = wrapper.get(Type.ITEM, 0);
+                    Item stack = wrapper.get(Type.ITEM1_8, 0);
                     ItemRewriter.toClient(stack);
                 });
                 // Blocking
                 handler(wrapper -> {
                     EntityTracker1_9 entityTracker = wrapper.user().getEntityTracker(Protocol1_9To1_8.class);
                     int entityID = wrapper.get(Type.VAR_INT, 0);
-                    Item stack = wrapper.get(Type.ITEM, 0);
+                    Item stack = wrapper.get(Type.ITEM1_8, 0);
 
-                    if (stack != null) {
-                        if (Protocol1_9To1_8.isSword(stack.identifier())) {
-                            entityTracker.getValidBlocking().add(entityID);
-                            return;
-                        }
+                    if (stack != null && Protocol1_9To1_8.isSword(stack.identifier())) {
+                        entityTracker.getValidBlocking().add(entityID);
+                        return;
                     }
+
                     entityTracker.getValidBlocking().remove(entityID);
                 });
             }
@@ -234,7 +231,7 @@ public class EntityPackets {
                 handler(wrapper -> {
                     boolean showParticles = wrapper.read(Type.BOOLEAN); //In 1.8 = true->Show particles : false->Hide particles
                     boolean newEffect = Via.getConfig().isNewEffectIndicator();
-                    //0: hide, 1: shown without indictator, 2: shown with indicator, 3: hide with beacon indicator but we don't use it.
+                    //0: hide, 1: shown without indictator, 2: shown with indicator, 3: hide with beacon indicator, but we don't use it.
                     wrapper.write(Type.BYTE, (byte) (showParticles ? newEffect ? 2 : 1 : 0));
                 });
             }
