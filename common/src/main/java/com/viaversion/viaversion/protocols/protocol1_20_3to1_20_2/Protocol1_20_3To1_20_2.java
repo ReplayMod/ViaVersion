@@ -35,6 +35,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
+import com.google.gson.internal.LazilyParsedNumber;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.data.MappingData;
@@ -65,6 +66,7 @@ import com.viaversion.viaversion.protocols.protocol1_20_3to1_20_2.rewriter.Entit
 import com.viaversion.viaversion.rewriter.SoundRewriter;
 import com.viaversion.viaversion.rewriter.StatisticsRewriter;
 import com.viaversion.viaversion.rewriter.TagRewriter;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.HashSet;
@@ -264,7 +266,12 @@ public final class Protocol1_20_3To1_20_2 extends AbstractProtocol<ClientboundPa
         registerClientbound(ClientboundPackets1_20_2.ACTIONBAR, this::convertComponent);
         registerClientbound(ClientboundPackets1_20_2.TITLE_TEXT, this::convertComponent);
         registerClientbound(ClientboundPackets1_20_2.TITLE_SUBTITLE, this::convertComponent);
-        registerClientbound(ClientboundPackets1_20_2.DISGUISED_CHAT, this::convertComponent);
+        registerClientbound(ClientboundPackets1_20_2.DISGUISED_CHAT, wrapper -> {
+            convertComponent(wrapper);
+            wrapper.passthrough(Type.VAR_INT); // Chat type
+            convertComponent(wrapper); // Name
+            convertOptionalComponent(wrapper); // Target name
+        });
         registerClientbound(ClientboundPackets1_20_2.SYSTEM_CHAT, this::convertComponent);
         registerClientbound(ClientboundPackets1_20_2.OPEN_WINDOW, wrapper -> {
             wrapper.passthrough(Type.VAR_INT); // Container id
@@ -326,7 +333,7 @@ public final class Protocol1_20_3To1_20_2 extends AbstractProtocol<ClientboundPa
         registerClientbound(State.CONFIGURATION, ClientboundConfigurationPackets1_20_2.RESOURCE_PACK.getId(), ClientboundConfigurationPackets1_20_3.RESOURCE_PACK_PUSH.getId(), resourcePackHandler(ClientboundConfigurationPackets1_20_3.RESOURCE_PACK_POP));
         // TODO Auto map via packet types provider
         registerClientbound(State.CONFIGURATION, ClientboundConfigurationPackets1_20_2.UPDATE_ENABLED_FEATURES.getId(), ClientboundConfigurationPackets1_20_3.UPDATE_ENABLED_FEATURES.getId());
-        registerClientbound(State.CONFIGURATION, ClientboundConfigurationPackets1_20_2.UPDATE_TAGS.getId(), ClientboundConfigurationPackets1_20_3.UPDATE_TAGS.getId());
+        registerClientbound(State.CONFIGURATION, ClientboundConfigurationPackets1_20_2.UPDATE_TAGS.getId(), ClientboundConfigurationPackets1_20_3.UPDATE_TAGS.getId(), tagRewriter.getGenericHandler());
     }
 
     private PacketHandler resourcePackStatusHandler() {
@@ -346,16 +353,19 @@ public final class Protocol1_20_3To1_20_2 extends AbstractProtocol<ClientboundPa
 
     private PacketHandler resourcePackHandler(final ClientboundPacketType popType) {
         return wrapper -> {
-            wrapper.write(Type.UUID, UUID.randomUUID());
-            wrapper.passthrough(Type.STRING); // Url
-            wrapper.passthrough(Type.STRING); // Hash
-            wrapper.passthrough(Type.BOOLEAN); // Required
-            convertOptionalComponent(wrapper);
-
             // Drop old resource packs first
             final PacketWrapper dropPacksPacket = wrapper.create(popType);
             dropPacksPacket.write(Type.OPTIONAL_UUID, null);
             dropPacksPacket.send(Protocol1_20_3To1_20_2.class);
+
+            // Use the hash to write a pack uuid
+            final String url = wrapper.read(Type.STRING);
+            final String hash = wrapper.read(Type.STRING);
+            wrapper.write(Type.UUID, UUID.nameUUIDFromBytes(hash.getBytes(StandardCharsets.UTF_8)));
+            wrapper.write(Type.STRING, url);
+            wrapper.write(Type.STRING, hash);
+            wrapper.passthrough(Type.BOOLEAN); // Required
+            convertOptionalComponent(wrapper);
         };
     }
 
@@ -390,10 +400,12 @@ public final class Protocol1_20_3To1_20_2 extends AbstractProtocol<ClientboundPa
             return null;
         } else if (element.isJsonObject()) {
             final CompoundTag tag = new CompoundTag();
-            for (final Map.Entry<String, JsonElement> entry : element.getAsJsonObject().entrySet()) {
-                // Not strictly needed, but might as well make it more compact
+            final JsonObject jsonObject = element.getAsJsonObject();
+            for (final Map.Entry<String, JsonElement> entry : jsonObject.entrySet()) {
                 convertObjectEntry(entry.getKey(), entry.getValue(), tag);
             }
+
+            addComponentType(jsonObject, tag);
             return tag;
         } else if (element.isJsonArray()) {
             return convertJsonArray(element);
@@ -418,10 +430,35 @@ public final class Protocol1_20_3To1_20_2 extends AbstractProtocol<ClientboundPa
                 return new DoubleTag(number.doubleValue());
             } else if (number instanceof Float) {
                 return new FloatTag(number.floatValue());
+            } else if (number instanceof LazilyParsedNumber) {
+                // TODO: This might need better handling
+                return new IntTag(number.intValue());
             }
-            return new StringTag(primitive.getAsString()); // ???
+            return new IntTag(number.intValue()); // ???
         }
         throw new IllegalArgumentException("Unhandled json type " + element.getClass().getSimpleName() + " with value " + element.getAsString());
+    }
+
+    private static void addComponentType(final JsonObject object, final CompoundTag tag) {
+        if (object.has("type")) {
+            return;
+        }
+
+        // Add the type to speed up deserialization and make DFU errors slightly more useful
+        // Order is important
+        if (object.has("text")) {
+            tag.put("type", new StringTag("text"));
+        } else if (object.has("translate")) {
+            tag.put("type", new StringTag("translatable"));
+        } else if (object.has("score")) {
+            tag.put("type", new StringTag("score"));
+        } else if (object.has("selector")) {
+            tag.put("type", new StringTag("selector"));
+        } else if (object.has("keybind")) {
+            tag.put("type", new StringTag("keybind"));
+        } else if (object.has("nbt")) {
+            tag.put("type", new StringTag("nbt"));
+        }
     }
 
     private static ListTag convertJsonArray(final JsonElement element) {
@@ -454,29 +491,38 @@ public final class Protocol1_20_3To1_20_2 extends AbstractProtocol<ClientboundPa
 
             // Wrap all entries in compound tags as lists can only consist of one type of tag
             final CompoundTag compoundTag = new CompoundTag();
+            compoundTag.put("type", new StringTag("text"));
             compoundTag.put("text", new StringTag());
             compoundTag.put("extra", convertedTag);
         }
         return processedListTag;
     }
 
-    private static void convertObjectEntry(final String key, final JsonElement element, final CompoundTag tag) {
-        if ((key.equals("contents")) && element.isJsonObject()) {
+    /**
+     * Converts a json object entry to a tag entry.
+     *
+     * @param key   key of the entry
+     * @param value value of the entry
+     * @param tag   the resulting compound tag
+     */
+    private static void convertObjectEntry(final String key, final JsonElement value, final CompoundTag tag) {
+        if ((key.equals("contents")) && value.isJsonObject()) {
             // Store show_entity id as int array instead of uuid string
-            final JsonObject hoverEvent = element.getAsJsonObject();
+            // Not really required, but we might as well make it more compact
+            final JsonObject hoverEvent = value.getAsJsonObject();
             final JsonElement id = hoverEvent.get("id");
             final UUID uuid;
             if (id != null && id.isJsonPrimitive() && (uuid = parseUUID(id.getAsString())) != null) {
                 hoverEvent.remove("id");
 
-                final CompoundTag convertedTag = (CompoundTag) convertToTag(element);
+                final CompoundTag convertedTag = (CompoundTag) convertToTag(value);
                 convertedTag.put("id", new IntArrayTag(UUIDIntArrayType.uuidToIntArray(uuid)));
                 tag.put(key, convertedTag);
                 return;
             }
         }
 
-        tag.put(key, convertToTag(element));
+        tag.put(key, convertToTag(value));
     }
 
     private static @Nullable UUID parseUUID(final String uuidString) {
