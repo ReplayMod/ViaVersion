@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2023 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,7 +18,12 @@
 package com.viaversion.viaversion.protocols.protocol1_19_1to1_19;
 
 import com.github.steveice10.opennbt.stringified.SNBT;
-import com.github.steveice10.opennbt.tag.builtin.*;
+import com.github.steveice10.opennbt.tag.builtin.ByteTag;
+import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
+import com.github.steveice10.opennbt.tag.builtin.ListTag;
+import com.github.steveice10.opennbt.tag.builtin.NumberTag;
+import com.github.steveice10.opennbt.tag.builtin.StringTag;
+import com.github.steveice10.opennbt.tag.builtin.Tag;
 import com.google.common.base.Preconditions;
 import com.google.gson.JsonElement;
 import com.viaversion.viaversion.api.Via;
@@ -32,12 +37,6 @@ import com.viaversion.viaversion.api.protocol.AbstractProtocol;
 import com.viaversion.viaversion.api.protocol.packet.State;
 import com.viaversion.viaversion.api.protocol.remapper.PacketHandlers;
 import com.viaversion.viaversion.api.type.Type;
-import com.viaversion.viaversion.libs.kyori.adventure.text.Component;
-import com.viaversion.viaversion.libs.kyori.adventure.text.TranslatableComponent;
-import com.viaversion.viaversion.libs.kyori.adventure.text.format.NamedTextColor;
-import com.viaversion.viaversion.libs.kyori.adventure.text.format.Style;
-import com.viaversion.viaversion.libs.kyori.adventure.text.format.TextDecoration;
-import com.viaversion.viaversion.libs.kyori.adventure.text.serializer.gson.GsonComponentSerializer;
 import com.viaversion.viaversion.protocols.base.ClientboundLoginPackets;
 import com.viaversion.viaversion.protocols.base.ServerboundLoginPackets;
 import com.viaversion.viaversion.protocols.protocol1_19_1to1_19.storage.ChatTypeStorage;
@@ -46,11 +45,16 @@ import com.viaversion.viaversion.protocols.protocol1_19to1_18_2.ClientboundPacke
 import com.viaversion.viaversion.protocols.protocol1_19to1_18_2.ServerboundPackets1_19;
 import com.viaversion.viaversion.util.CipherUtil;
 import com.viaversion.viaversion.util.Pair;
-import org.checkerframework.checker.nullness.qual.Nullable;
-
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import net.lenni0451.mcstructs.core.TextFormatting;
+import net.lenni0451.mcstructs.text.ATextComponent;
+import net.lenni0451.mcstructs.text.Style;
+import net.lenni0451.mcstructs.text.components.TranslationComponent;
+import net.lenni0451.mcstructs.text.serializer.TextComponentSerializer;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 public final class Protocol1_19_1To1_19 extends AbstractProtocol<ClientboundPackets1_19, ClientboundPackets1_19_1, ServerboundPackets1_19, ServerboundPackets1_19_1> {
 
@@ -84,7 +88,7 @@ public final class Protocol1_19_1To1_19 extends AbstractProtocol<ClientboundPack
     private static final CompoundTag CHAT_REGISTRY;
 
     static {
-        CHAT_REGISTRY = SNBT.deserializeCompoundTag(CHAT_REGISTRY_SNBT).get("minecraft:chat_type");
+        CHAT_REGISTRY = SNBT.deserializeCompoundTag(CHAT_REGISTRY_SNBT).getCompoundTag("minecraft:chat_type");
     }
 
     public Protocol1_19_1To1_19() {
@@ -218,15 +222,14 @@ public final class Protocol1_19_1To1_19 extends AbstractProtocol<ClientboundPack
                     chatTypeStorage.clear();
 
                     final CompoundTag registry = wrapper.passthrough(Type.NAMED_COMPOUND_TAG);
-                    final ListTag chatTypes = ((CompoundTag) registry.get("minecraft:chat_type")).get("value");
-                    for (final Tag chatType : chatTypes) {
-                        final CompoundTag chatTypeCompound = (CompoundTag) chatType;
-                        final NumberTag idTag = chatTypeCompound.get("id");
-                        chatTypeStorage.addChatType(idTag.asInt(), chatTypeCompound);
+                    final ListTag<CompoundTag> chatTypes = registry.getCompoundTag("minecraft:chat_type").getListTag("value", CompoundTag.class);
+                    for (final CompoundTag chatType : chatTypes) {
+                        final NumberTag idTag = chatType.getNumberTag("id");
+                        chatTypeStorage.addChatType(idTag.asInt(), chatType);
                     }
 
                     // Replace chat types - they won't actually be used
-                    registry.put("minecraft:chat_type", CHAT_REGISTRY.clone());
+                    registry.put("minecraft:chat_type", CHAT_REGISTRY.copy());
                 });
             }
         });
@@ -326,16 +329,22 @@ public final class Protocol1_19_1To1_19 extends AbstractProtocol<ClientboundPack
         connection.put(new ChatTypeStorage());
     }
 
-    public static @Nullable ChatDecorationResult decorateChatMessage(final CompoundTag chatType, final int chatTypeId, final JsonElement senderName, @Nullable final JsonElement teamName, final JsonElement message) {
+    public static @Nullable ChatDecorationResult decorateChatMessage(
+            final CompoundTag chatType,
+            final int chatTypeId,
+            final JsonElement senderName,
+            @Nullable final JsonElement teamName,
+            final JsonElement message
+    ) {
         if (chatType == null) {
             Via.getPlatform().getLogger().warning("Chat message has unknown chat type id " + chatTypeId + ". Message: " + message);
             return null;
         }
 
-        CompoundTag chatData = chatType.<CompoundTag>get("element").get("chat");
+        CompoundTag chatData = chatType.getCompoundTag("element").getCompoundTag("chat");
         boolean overlay = false;
         if (chatData == null) {
-            chatData = chatType.<CompoundTag>get("element").get("overlay");
+            chatData = chatType.getCompoundTag("element").getCompoundTag("overlay");
             if (chatData == null) {
                 // Either narration or something we don't know
                 return null;
@@ -344,41 +353,63 @@ public final class Protocol1_19_1To1_19 extends AbstractProtocol<ClientboundPack
             overlay = true;
         }
 
-        final CompoundTag decoaration = chatData.get("decoration");
-        if (decoaration == null) {
+        final CompoundTag decoration = chatData.getCompoundTag("decoration");
+        if (decoration == null) {
             return new ChatDecorationResult(message, overlay);
         }
 
-        final String translationKey = (String) decoaration.get("translation_key").getValue();
-        final TranslatableComponent.Builder componentBuilder = Component.translatable().key(translationKey);
+        return new ChatDecorationResult(translatabaleComponentFromTag(decoration, senderName, teamName, message), overlay);
+    }
+
+    public static JsonElement translatabaleComponentFromTag(
+            final CompoundTag tag,
+            final JsonElement senderName,
+            @Nullable final JsonElement targetName,
+            final JsonElement message
+    ) {
+        final String translationKey = tag.getStringTag("translation_key").getValue();
+        final Style style = new Style();
 
         // Add the style
-        final CompoundTag style = decoaration.get("style");
-        if (style != null) {
-            final Style.Builder styleBuilder = Style.style();
-            final StringTag color = style.get("color");
+        final CompoundTag styleTag = tag.getCompoundTag("style");
+        if (styleTag != null) {
+            final StringTag color = styleTag.getStringTag("color");
             if (color != null) {
-                final NamedTextColor textColor = NamedTextColor.NAMES.value(color.getValue());
+                final TextFormatting textColor = TextFormatting.getByName(color.getValue());
                 if (textColor != null) {
-                    styleBuilder.color(NamedTextColor.NAMES.value(color.getValue()));
+                    style.setFormatting(textColor);
                 }
             }
 
-            for (final String key : TextDecoration.NAMES.keys()) {
-                if (style.contains(key)) {
-                    styleBuilder.decoration(TextDecoration.NAMES.value(key), style.<ByteTag>get(key).asByte() == 1);
+            for (final Map.Entry<String, TextFormatting> entry : TextFormatting.FORMATTINGS.entrySet()) {
+                final NumberTag formattingTag = styleTag.getNumberTag(entry.getKey());
+                if (!(formattingTag instanceof ByteTag)) {
+                    continue;
+                }
+
+                final boolean value = formattingTag.asBoolean();
+                final TextFormatting formatting = entry.getValue();
+                if (formatting == TextFormatting.OBFUSCATED) {
+                    style.setObfuscated(value);
+                } else if (formatting == TextFormatting.BOLD) {
+                    style.setBold(value);
+                } else if (formatting == TextFormatting.STRIKETHROUGH) {
+                    style.setStrikethrough(value);
+                } else if (formatting == TextFormatting.UNDERLINE) {
+                    style.setUnderlined(value);
+                } else if (formatting == TextFormatting.ITALIC) {
+                    style.setItalic(value);
                 }
             }
-            componentBuilder.style(styleBuilder.build());
         }
 
         // Add the replacements
-        final ListTag parameters = decoaration.get("parameters");
+        final ListTag<StringTag> parameters = tag.getListTag("parameters", StringTag.class);
+        final List<ATextComponent> arguments = new ArrayList<>();
         if (parameters != null) {
-            final List<Component> arguments = new ArrayList<>();
-            for (final Tag element : parameters) {
+            for (final StringTag element : parameters) {
                 JsonElement argument = null;
-                switch ((String) element.getValue()) {
+                switch (element.getValue()) {
                     case "sender":
                         argument = senderName;
                         break;
@@ -386,18 +417,19 @@ public final class Protocol1_19_1To1_19 extends AbstractProtocol<ClientboundPack
                         argument = message;
                         break;
                     case "team_name":
-                        Preconditions.checkNotNull(teamName, "Team name is null");
-                        argument = teamName;
+                    case "target": // So that this method can also be used in VB
+                        Preconditions.checkNotNull(targetName, "Team name is null");
+                        argument = targetName;
                         break;
                     default:
                         Via.getPlatform().getLogger().warning("Unknown parameter for chat decoration: " + element.getValue());
                 }
                 if (argument != null) {
-                    arguments.add(GsonComponentSerializer.gson().deserializeFromTree(argument));
+                    arguments.add(TextComponentSerializer.V1_18.deserialize(argument));
                 }
             }
-            componentBuilder.args(arguments);
         }
-        return new ChatDecorationResult(GsonComponentSerializer.gson().serializeToTree(componentBuilder.build()), overlay);
+
+        return TextComponentSerializer.V1_18.serializeJson(new TranslationComponent(translationKey, arguments));
     }
 }

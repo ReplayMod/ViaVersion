@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2023-2023 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,7 +25,7 @@ package com.viaversion.viaversion.api.minecraft.signature.storage;
 import com.viaversion.viaversion.api.minecraft.ProfileKey;
 import com.viaversion.viaversion.api.minecraft.signature.model.DecoratableMessage;
 import com.viaversion.viaversion.api.minecraft.signature.model.MessageMetadata;
-import com.viaversion.viaversion.util.GsonUtil;
+import net.lenni0451.mcstructs.text.utils.JsonUtils;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -48,7 +48,7 @@ public class ChatSession1_19_0 extends ChatSession {
             buffer.putLong(metadata.sender().getMostSignificantBits()).putLong(metadata.sender().getLeastSignificantBits());
             buffer.putLong(metadata.timestamp().getEpochSecond());
             signer.accept(data);
-            signer.accept(GsonUtil.toSortedString(content.decorated(), null).getBytes(StandardCharsets.UTF_8));
+            signer.accept(JsonUtils.toSortedString(content.decorated(), null).getBytes(StandardCharsets.UTF_8));
         });
     }
 

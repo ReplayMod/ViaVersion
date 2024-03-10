@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2023 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,7 +23,6 @@ import com.viaversion.viaversion.api.minecraft.Position;
 import com.viaversion.viaversion.util.Key;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
-
 import java.util.HashSet;
 import java.util.Set;
 

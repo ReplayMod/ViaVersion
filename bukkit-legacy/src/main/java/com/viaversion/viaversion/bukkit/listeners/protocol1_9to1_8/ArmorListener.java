@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2023 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,6 +25,7 @@ import com.viaversion.viaversion.protocols.protocol1_9to1_8.ArmorType;
 import com.viaversion.viaversion.protocols.protocol1_9to1_8.ClientboundPackets1_9;
 import com.viaversion.viaversion.protocols.protocol1_9to1_8.Protocol1_9To1_8;
 import java.util.UUID;
+import java.util.logging.Level;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
@@ -71,7 +72,7 @@ public class ArmorListener extends ViaBukkitListener {
 
             wrapper.scheduleSend(Protocol1_9To1_8.class);
         } catch (Exception e) {
-            e.printStackTrace();
+            Via.getPlatform().getLogger().log(Level.WARNING, "Failed to send armor update", e);
         }
     }
 

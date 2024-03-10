@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2023 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -103,7 +103,9 @@ public final class EntityPacketRewriter1_20_2 extends EntityRewriter<Clientbound
                         // No change, so no need to re-enter the configuration state - just let this one through
                         final PacketWrapper clientInformationPacket = configurationBridge.clientInformationPacket(wrapper.user());
                         if (clientInformationPacket != null) {
-                            clientInformationPacket.sendToServer(Protocol1_20_2To1_20.class);
+                            // Schedule the sending to ensure it arrives later, this fixes an issue where on
+                            // servers running < 1.20.2 a client changing servers on a proxy lost skin layers
+                            clientInformationPacket.scheduleSendToServer(Protocol1_20_2To1_20.class);
                         }
                         return;
                     }
@@ -172,12 +174,12 @@ public final class EntityPacketRewriter1_20_2 extends EntityRewriter<Clientbound
 
     @Override
     protected void registerRewrites() {
-        filter().handler((event, meta) -> meta.setMetaType(Types1_20_2.META_TYPES.byId(meta.metaType().typeId())));
+        filter().mapMetaType(Types1_20_2.META_TYPES::byId);
         registerMetaTypeHandler(Types1_20_2.META_TYPES.itemType, Types1_20_2.META_TYPES.blockStateType, Types1_20_2.META_TYPES.optionalBlockStateType, Types1_20_2.META_TYPES.particleType);
 
-        filter().filterFamily(EntityTypes1_19_4.DISPLAY).addIndex(10);
+        filter().type(EntityTypes1_19_4.DISPLAY).addIndex(10);
 
-        filter().filterFamily(EntityTypes1_19_4.MINECART_ABSTRACT).index(11).handler((event, meta) -> {
+        filter().type(EntityTypes1_19_4.MINECART_ABSTRACT).index(11).handler((event, meta) -> {
             final int blockState = meta.value();
             meta.setValue(protocol.getMappingData().getNewBlockStateId(blockState));
         });

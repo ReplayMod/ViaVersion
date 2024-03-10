@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2023 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,7 +25,6 @@ import com.viaversion.viaversion.api.minecraft.BlockChangeRecord;
 import com.viaversion.viaversion.api.minecraft.blockentity.BlockEntity;
 import com.viaversion.viaversion.api.protocol.remapper.PacketHandlers;
 import com.viaversion.viaversion.api.type.Type;
-import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.ChatRewriter;
 import com.viaversion.viaversion.api.type.types.chunk.ChunkType1_18;
 import com.viaversion.viaversion.protocols.protocol1_19_4to1_19_3.ClientboundPackets1_19_4;
 import com.viaversion.viaversion.protocols.protocol1_19_4to1_19_3.ServerboundPackets1_19_4;
@@ -34,6 +33,7 @@ import com.viaversion.viaversion.protocols.protocol1_20to1_19_4.Protocol1_20To1_
 import com.viaversion.viaversion.rewriter.BlockRewriter;
 import com.viaversion.viaversion.rewriter.ItemRewriter;
 import com.viaversion.viaversion.rewriter.RecipeRewriter;
+import com.viaversion.viaversion.util.ComponentUtil;
 import com.viaversion.viaversion.util.Key;
 
 public final class InventoryPackets extends ItemRewriter<ClientboundPackets1_19_4, ServerboundPackets1_19_4, Protocol1_20To1_19_4> {
@@ -57,7 +57,7 @@ public final class InventoryPackets extends ItemRewriter<ClientboundPackets1_19_
         registerEntityEquipmentArray(ClientboundPackets1_19_4.ENTITY_EQUIPMENT);
         registerClickWindow1_17_1(ServerboundPackets1_19_4.CLICK_WINDOW);
         registerTradeList1_19(ClientboundPackets1_19_4.TRADE_LIST);
-        registerCreativeInvAction(ServerboundPackets1_19_4.CREATIVE_INVENTORY_ACTION, Type.ITEM1_13_2);
+        registerCreativeInvAction(ServerboundPackets1_19_4.CREATIVE_INVENTORY_ACTION);
         registerWindowPropertyEnchantmentHandler(ClientboundPackets1_19_4.WINDOW_PROPERTY);
         registerSpawnParticle1_19(ClientboundPackets1_19_4.SPAWN_PARTICLE);
 
@@ -170,17 +170,17 @@ public final class InventoryPackets extends ItemRewriter<ClientboundPackets1_19_
         final CompoundTag frontText = new CompoundTag();
         tag.put("front_text", frontText);
 
-        final ListTag messages = new ListTag(StringTag.class);
+        final ListTag<StringTag> messages = new ListTag<>(StringTag.class);
         for (int i = 1; i < 5; i++) {
             final Tag text = tag.remove("Text" + i);
-            messages.add(text != null ? text : new StringTag(ChatRewriter.emptyComponentString()));
+            messages.add(text instanceof StringTag ? (StringTag) text : new StringTag(ComponentUtil.emptyJsonComponentString()));
         }
         frontText.put("messages", messages);
 
-        final ListTag filteredMessages = new ListTag(StringTag.class);
+        final ListTag<StringTag> filteredMessages = new ListTag<>(StringTag.class);
         for (int i = 1; i < 5; i++) {
             final Tag text = tag.remove("FilteredText" + i);
-            filteredMessages.add(text != null ? text : messages.get(i - 1));
+            filteredMessages.add(text instanceof StringTag ? (StringTag) text : messages.get(i - 1));
         }
         if (!filteredMessages.equals(messages)) {
             frontText.put("filtered_messages", filteredMessages);

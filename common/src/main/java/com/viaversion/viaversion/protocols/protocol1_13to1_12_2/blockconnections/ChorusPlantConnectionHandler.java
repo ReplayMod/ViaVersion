@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2023 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -39,7 +39,7 @@ public class ChorusPlantConnectionHandler extends AbstractFenceConnectionHandler
         endstone = ConnectionData.getId("minecraft:end_stone");
     }
 
-    public ConnectionData.ConnectorInitAction getExtraAction() {
+    private ConnectionData.ConnectorInitAction getExtraAction() {
         return blockData -> {
             if (blockData.getMinecraftKey().equals("minecraft:chorus_flower")) {
                 getBlockStates().add(blockData.getSavedBlockStateId());

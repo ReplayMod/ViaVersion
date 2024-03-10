@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2023 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,6 +22,7 @@ import com.github.steveice10.opennbt.tag.builtin.IntTag;
 import com.github.steveice10.opennbt.tag.builtin.StringTag;
 import com.google.gson.JsonElement;
 import com.viaversion.viaversion.api.connection.UserConnection;
+import com.viaversion.viaversion.api.minecraft.ClientWorld;
 import com.viaversion.viaversion.api.minecraft.Position;
 import com.viaversion.viaversion.api.minecraft.chunks.Chunk;
 import com.viaversion.viaversion.api.minecraft.chunks.ChunkSection;
@@ -32,10 +33,9 @@ import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.protocol.remapper.PacketHandlers;
 import com.viaversion.viaversion.api.protocol.remapper.ValueTransformer;
 import com.viaversion.viaversion.api.type.Type;
+import com.viaversion.viaversion.api.type.types.chunk.ChunkType1_9_1;
 import com.viaversion.viaversion.api.type.types.chunk.ChunkType1_9_3;
 import com.viaversion.viaversion.protocols.protocol1_9_3to1_9_1_2.chunks.FakeTileEntity;
-import com.viaversion.viaversion.api.minecraft.ClientWorld;
-import com.viaversion.viaversion.api.type.types.chunk.ChunkType1_9_1;
 import com.viaversion.viaversion.protocols.protocol1_9to1_8.ClientboundPackets1_9;
 import com.viaversion.viaversion.protocols.protocol1_9to1_8.ServerboundPackets1_9;
 import java.util.List;
@@ -155,7 +155,7 @@ public class Protocol1_9_3To1_9_1_2 extends AbstractProtocol<ClientboundPackets1
     @Override
     public void init(UserConnection user) {
         if (!user.has(ClientWorld.class)) {
-            user.put(new ClientWorld(user));
+            user.put(new ClientWorld());
         }
     }
 }

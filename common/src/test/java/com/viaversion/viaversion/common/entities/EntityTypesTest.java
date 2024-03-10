@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2021 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,12 +17,12 @@
  */
 package com.viaversion.viaversion.common.entities;
 
+import com.viaversion.viaversion.api.minecraft.entities.EntityType;
 import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_14;
 import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_15;
 import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_16;
 import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_16_2;
 import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_17;
-import com.viaversion.viaversion.api.minecraft.entities.EntityType;
 import java.util.function.Function;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

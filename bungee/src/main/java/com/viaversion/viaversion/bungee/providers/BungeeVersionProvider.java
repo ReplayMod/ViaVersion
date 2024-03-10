@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2023 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -68,10 +68,9 @@ public class BungeeVersionProvider extends BaseVersionProvider {
         try {
             list = ReflectionUtil.getStatic(ProtocolConstants.class, "SUPPORTED_VERSION_IDS", List.class);
             return list.get(0);
-        } catch (NoSuchFieldException | IllegalAccessException e) {
-            e.printStackTrace();
+        } catch (NoSuchFieldException | IllegalAccessException ignored) {
+            // Fallback
+            return ProxyServer.getInstance().getProtocolVersion();
         }
-        // Fallback
-        return ProxyServer.getInstance().getProtocolVersion();
     }
 }

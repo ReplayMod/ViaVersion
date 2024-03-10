@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2023 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,7 +17,12 @@
  */
 package com.viaversion.viaversion.protocols.protocol1_20to1_19_4.packets;
 
-import com.github.steveice10.opennbt.tag.builtin.*;
+import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
+import com.github.steveice10.opennbt.tag.builtin.FloatTag;
+import com.github.steveice10.opennbt.tag.builtin.IntTag;
+import com.github.steveice10.opennbt.tag.builtin.ListTag;
+import com.github.steveice10.opennbt.tag.builtin.StringTag;
+import com.github.steveice10.opennbt.tag.builtin.Tag;
 import com.viaversion.viaversion.api.minecraft.Quaternion;
 import com.viaversion.viaversion.api.minecraft.entities.EntityType;
 import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_19_4;
@@ -71,11 +76,11 @@ public final class EntityPackets extends EntityRewriter<ClientboundPackets1_19_4
                 handler(worldDataTrackerHandlerByKey()); // Tracks world height and name for chunk data and entity (un)tracking
                 handler(wrapper -> {
                     final CompoundTag registry = wrapper.get(Type.NAMED_COMPOUND_TAG, 0);
-                    final CompoundTag damageTypeRegistry = registry.get("minecraft:damage_type");
-                    final ListTag damageTypes = damageTypeRegistry.get("value");
+                    final CompoundTag damageTypeRegistry = registry.getCompoundTag("minecraft:damage_type");
+                    final ListTag<CompoundTag> damageTypes = damageTypeRegistry.getListTag("value", CompoundTag.class);
                     int highestId = -1;
-                    for (final Tag damageType : damageTypes) {
-                        final IntTag id = ((CompoundTag) damageType).get("id");
+                    for (final CompoundTag damageType : damageTypes) {
+                        final IntTag id = damageType.getUnchecked("id");
                         highestId = Math.max(highestId, id.asInt());
                     }
 
@@ -123,11 +128,11 @@ public final class EntityPackets extends EntityRewriter<ClientboundPackets1_19_4
 
     @Override
     protected void registerRewrites() {
-        filter().handler((event, meta) -> meta.setMetaType(Types1_20.META_TYPES.byId(meta.metaType().typeId())));
+        filter().mapMetaType(Types1_20.META_TYPES::byId);
         registerMetaTypeHandler(Types1_20.META_TYPES.itemType, Types1_20.META_TYPES.blockStateType, Types1_20.META_TYPES.optionalBlockStateType, Types1_20.META_TYPES.particleType);
 
         // Rotate item display by 180 degrees around the Y axis
-        filter().filterFamily(EntityTypes1_19_4.ITEM_DISPLAY).handler((event, meta) -> {
+        filter().type(EntityTypes1_19_4.ITEM_DISPLAY).handler((event, meta) -> {
             if (event.trackedEntity().hasSentMetadata() || event.hasExtraMeta()) {
                 return;
             }
@@ -136,12 +141,12 @@ public final class EntityPackets extends EntityRewriter<ClientboundPackets1_19_4
                 event.createExtraMeta(new Metadata(12, Types1_20.META_TYPES.quaternionType, Y_FLIPPED_ROTATION));
             }
         });
-        filter().filterFamily(EntityTypes1_19_4.ITEM_DISPLAY).index(12).handler((event, meta) -> {
+        filter().type(EntityTypes1_19_4.ITEM_DISPLAY).index(12).handler((event, meta) -> {
             final Quaternion quaternion = meta.value();
             meta.setValue(rotateY180(quaternion));
         });
 
-        filter().filterFamily(EntityTypes1_19_4.MINECART_ABSTRACT).index(11).handler((event, meta) -> {
+        filter().type(EntityTypes1_19_4.MINECART_ABSTRACT).index(11).handler((event, meta) -> {
             final int blockState = meta.value();
             meta.setValue(protocol.getMappingData().getNewBlockStateId(blockState));
         });

@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2023 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -43,7 +43,8 @@ public final class BukkitEncodeHandler extends MessageToMessageEncoder<ByteBuf> 
 
     @Override
     protected void encode(final ChannelHandlerContext ctx, final ByteBuf bytebuf, final List<Object> out) throws Exception {
-        if (!connection.checkClientboundPacket()) {
+        // Check if the channel is open as older servers might start sending packets through the pipeline despite the channel being closed
+        if (!connection.checkClientboundPacket() || !ctx.channel().isOpen()) {
             throw CancelEncoderException.generate(null);
         }
         if (!connection.shouldTransformPacket()) {

@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2023 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,12 +22,14 @@
  */
 package com.viaversion.viaversion.api.data;
 
-import com.github.steveice10.opennbt.NBTIO;
 import com.github.steveice10.opennbt.tag.builtin.ByteTag;
 import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
 import com.github.steveice10.opennbt.tag.builtin.IntArrayTag;
 import com.github.steveice10.opennbt.tag.builtin.IntTag;
 import com.github.steveice10.opennbt.tag.builtin.ListTag;
+import com.github.steveice10.opennbt.tag.builtin.StringTag;
+import com.github.steveice10.opennbt.tag.io.NBTIO;
+import com.github.steveice10.opennbt.tag.io.TagReader;
 import com.google.common.annotations.Beta;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -51,17 +53,13 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 
 public final class MappingDataLoader {
 
+    private static final Map<String, CompoundTag> MAPPINGS_CACHE = new HashMap<>();
+    private static final TagReader<CompoundTag> MAPPINGS_READER = NBTIO.reader(CompoundTag.class).named();
     private static final byte DIRECT_ID = 0;
     private static final byte SHIFTS_ID = 1;
     private static final byte CHANGES_ID = 2;
     private static final byte IDENTITY_ID = 3;
-    private static final Map<String, CompoundTag> MAPPINGS_CACHE = new HashMap<>();
     private static boolean cacheValid = true;
-
-    @Deprecated/*(forRemoval = true)*/
-    public static void enableMappingsCache() {
-        // Always enabled
-    }
 
     public static void clearCache() {
         MAPPINGS_CACHE.clear();
@@ -131,14 +129,14 @@ public final class MappingDataLoader {
         return loadNBT(name, false);
     }
 
-    private static @Nullable CompoundTag loadNBTFromFile(final String name) {
+    public static @Nullable CompoundTag loadNBTFromFile(final String name) {
         final InputStream resource = getResource(name);
         if (resource == null) {
             return null;
         }
 
         try (final InputStream stream = resource) {
-            return NBTIO.readTag(stream);
+            return MAPPINGS_READER.read(stream);
         } catch (final IOException e) {
             throw new RuntimeException(e);
         }
@@ -160,22 +158,22 @@ public final class MappingDataLoader {
             final AddConsumer<V> addConsumer,
             final MappingsSupplier<M, V> mappingsSupplier
     ) {
-        final CompoundTag tag = mappingsTag.get(key);
+        final CompoundTag tag = mappingsTag.getCompoundTag(key);
         if (tag == null) {
             return null;
         }
 
-        final ByteTag serializationStragetyTag = tag.get("id");
-        final IntTag mappedSizeTag = tag.get("mappedSize");
+        final ByteTag serializationStragetyTag = tag.getUnchecked("id");
+        final IntTag mappedSizeTag = tag.getUnchecked("mappedSize");
         final byte strategy = serializationStragetyTag.asByte();
         final V mappings;
         if (strategy == DIRECT_ID) {
-            final IntArrayTag valuesTag = tag.get("val");
+            final IntArrayTag valuesTag = tag.getIntArrayTag("val");
             return IntArrayMappings.of(valuesTag.getValue(), mappedSizeTag.asInt());
         } else if (strategy == SHIFTS_ID) {
-            final IntArrayTag shiftsAtTag = tag.get("at");
-            final IntArrayTag shiftsTag = tag.get("to");
-            final IntTag sizeTag = tag.get("size");
+            final IntArrayTag shiftsAtTag = tag.getIntArrayTag("at");
+            final IntArrayTag shiftsTag = tag.getIntArrayTag("to");
+            final IntTag sizeTag = tag.getUnchecked("size");
             final int[] shiftsAt = shiftsAtTag.getValue();
             final int[] shiftsTo = shiftsTag.getValue();
             final int size = sizeTag.asInt();
@@ -199,9 +197,9 @@ public final class MappingDataLoader {
                 }
             }
         } else if (strategy == CHANGES_ID) {
-            final IntArrayTag changesAtTag = tag.get("at");
-            final IntArrayTag valuesTag = tag.get("val");
-            final IntTag sizeTag = tag.get("size");
+            final IntArrayTag changesAtTag = tag.getIntArrayTag("at");
+            final IntArrayTag valuesTag = tag.getIntArrayTag("val");
+            final IntTag sizeTag = tag.getUnchecked("size");
             final boolean fillBetween = tag.get("nofill") == null;
             final int[] changesAt = changesAtTag.getValue();
             final int[] values = valuesTag.getValue();
@@ -221,7 +219,7 @@ public final class MappingDataLoader {
                 addConsumer.addTo(mappings, id, values[i]);
             }
         } else if (strategy == IDENTITY_ID) {
-            final IntTag sizeTag = tag.get("size");
+            final IntTag sizeTag = tag.getUnchecked("size");
             return new IdentityMappings(sizeTag.asInt(), mappedSizeTag.asInt());
         } else {
             throw new IllegalArgumentException("Unknown serialization strategy: " + strategy);
@@ -230,8 +228,8 @@ public final class MappingDataLoader {
     }
 
     public static FullMappings loadFullMappings(final CompoundTag mappingsTag, final CompoundTag unmappedIdentifiers, final CompoundTag mappedIdentifiers, final String key) {
-        final ListTag unmappedElements = unmappedIdentifiers.get(key);
-        final ListTag mappedElements = mappedIdentifiers.get(key);
+        final ListTag<StringTag> unmappedElements = unmappedIdentifiers.getListTag(key, StringTag.class);
+        final ListTag<StringTag> mappedElements = mappedIdentifiers.getListTag(key, StringTag.class);
         if (unmappedElements == null || mappedElements == null) {
             return null;
         }
@@ -242,60 +240,10 @@ public final class MappingDataLoader {
         }
 
         return new FullMappingsBase(
-                unmappedElements.getValue().stream().map(t -> (String) t.getValue()).collect(Collectors.toList()),
-                mappedElements.getValue().stream().map(t -> (String) t.getValue()).collect(Collectors.toList()),
+                unmappedElements.stream().map(StringTag::getValue).collect(Collectors.toList()),
+                mappedElements.stream().map(StringTag::getValue).collect(Collectors.toList()),
                 mappings
         );
-    }
-
-    @Deprecated
-    public static void mapIdentifiers(final int[] output, final JsonObject unmappedIdentifiers, final JsonObject mappedIdentifiers, @Nullable final JsonObject diffIdentifiers, final boolean warnOnMissing) {
-        final Object2IntMap<String> newIdentifierMap = MappingDataLoader.indexedObjectToMap(mappedIdentifiers);
-        for (final Map.Entry<String, JsonElement> entry : unmappedIdentifiers.entrySet()) {
-            final int id = Integer.parseInt(entry.getKey());
-            final int mappedId = mapIdentifierEntry(id, entry.getValue().getAsString(), newIdentifierMap, diffIdentifiers, warnOnMissing);
-            if (mappedId != -1) {
-                output[id] = mappedId;
-            }
-        }
-    }
-
-    private static int mapIdentifierEntry(final int id, final String val, final Object2IntMap<String> mappedIdentifiers, @Nullable final JsonObject diffIdentifiers, final boolean warnOnMissing) {
-        int mappedId = mappedIdentifiers.getInt(val);
-        if (mappedId == -1) {
-            // Search in diff mappings
-            if (diffIdentifiers != null) {
-                JsonElement diffElement = diffIdentifiers.get(val);
-                if (diffElement != null || (diffElement = diffIdentifiers.get(Integer.toString(id))) != null) {
-                    final String mappedName = diffElement.getAsString();
-                    if (mappedName.isEmpty()) {
-                        return -1; // "empty" remaps without warnings
-                    }
-
-                    mappedId = mappedIdentifiers.getInt(mappedName);
-
-                }
-            }
-            if (mappedId == -1) {
-                if (warnOnMissing && !Via.getConfig().isSuppressConversionWarnings() || Via.getManager().isDebug()) {
-                    Via.getPlatform().getLogger().warning("No key for " + val + " :( ");
-                }
-                return -1;
-            }
-        }
-        return mappedId;
-    }
-
-    @Deprecated
-    public static void mapIdentifiers(final int[] output, final JsonArray unmappedIdentifiers, final JsonArray mappedIdentifiers, @Nullable final JsonObject diffIdentifiers, final boolean warnOnMissing) {
-        final Object2IntMap<String> newIdentifierMap = MappingDataLoader.arrayToMap(mappedIdentifiers);
-        for (int id = 0; id < unmappedIdentifiers.size(); id++) {
-            final JsonElement unmappedIdentifier = unmappedIdentifiers.get(id);
-            final int mappedId = mapIdentifierEntry(id, unmappedIdentifier.getAsString(), newIdentifierMap, diffIdentifiers, warnOnMissing);
-            if (mappedId != -1) {
-                output[id] = mappedId;
-            }
-        }
     }
 
     /**

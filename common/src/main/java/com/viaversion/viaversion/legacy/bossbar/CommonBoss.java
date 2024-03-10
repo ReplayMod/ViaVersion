@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2023 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -31,10 +31,12 @@ import com.viaversion.viaversion.protocols.protocol1_9to1_8.ClientboundPackets1_
 import com.viaversion.viaversion.protocols.protocol1_9to1_8.Protocol1_9To1_8;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.logging.Level;
 
 public class CommonBoss implements BossBar {
     private final UUID uuid;
@@ -56,7 +58,7 @@ public class CommonBoss implements BossBar {
         this.color = color == null ? BossColor.PURPLE : color;
         this.style = style == null ? BossStyle.SOLID : style;
         this.connections = new MapMaker().weakValues().makeMap();
-        this.flags = new HashSet<>();
+        this.flags = EnumSet.noneOf(BossFlag.class);
         this.visible = true;
     }
 
@@ -232,7 +234,7 @@ public class CommonBoss implements BossBar {
         try {
             wrapper.scheduleSend(Protocol1_9To1_8.class);
         } catch (Exception e) {
-            e.printStackTrace();
+            Via.getPlatform().getLogger().log(Level.WARNING, "Failed to send bossbar packet", e);
         }
     }
 
@@ -268,7 +270,7 @@ public class CommonBoss implements BossBar {
 
             return wrapper;
         } catch (Exception e) {
-            e.printStackTrace();
+            Via.getPlatform().getLogger().log(Level.WARNING, "Failed to create bossbar packet", e);
         }
         return null;
     }

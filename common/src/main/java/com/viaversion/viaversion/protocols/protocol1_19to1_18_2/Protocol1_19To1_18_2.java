@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2023 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -32,7 +32,6 @@ import com.viaversion.viaversion.api.type.types.version.Types1_19;
 import com.viaversion.viaversion.data.entity.EntityTrackerBase;
 import com.viaversion.viaversion.protocols.base.ClientboundLoginPackets;
 import com.viaversion.viaversion.protocols.base.ServerboundLoginPackets;
-import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.ChatRewriter;
 import com.viaversion.viaversion.protocols.protocol1_17to1_16_4.ServerboundPackets1_17;
 import com.viaversion.viaversion.protocols.protocol1_18to1_17_1.ClientboundPackets1_18;
 import com.viaversion.viaversion.protocols.protocol1_19to1_18_2.data.MappingData;
@@ -48,6 +47,7 @@ import com.viaversion.viaversion.rewriter.SoundRewriter;
 import com.viaversion.viaversion.rewriter.StatisticsRewriter;
 import com.viaversion.viaversion.rewriter.TagRewriter;
 import com.viaversion.viaversion.util.CipherUtil;
+import com.viaversion.viaversion.util.ComponentUtil;
 import java.util.concurrent.ThreadLocalRandom;
 
 public final class Protocol1_19To1_18_2 extends AbstractProtocol<ClientboundPackets1_18, ClientboundPackets1_19, ServerboundPackets1_17, ServerboundPackets1_19> {
@@ -61,14 +61,14 @@ public final class Protocol1_19To1_18_2 extends AbstractProtocol<ClientboundPack
     }
 
     public static boolean isTextComponentNull(final JsonElement element) {
-        return element == null || element.isJsonNull() || (element.isJsonArray() && element.getAsJsonArray().size() == 0);
+        return element == null || element.isJsonNull() || (element.isJsonArray() && element.getAsJsonArray().isEmpty());
     }
 
     public static JsonElement mapTextComponentIfNull(JsonElement component) {
         if (!isTextComponentNull(component)) {
             return component;
         } else {
-            return ChatRewriter.emptyComponent();
+            return ComponentUtil.emptyJsonComponent();
         }
     }
 
@@ -126,9 +126,7 @@ public final class Protocol1_19To1_18_2 extends AbstractProtocol<ClientboundPack
 
         new StatisticsRewriter<>(this).register(ClientboundPackets1_18.STATISTICS);
 
-        final PacketHandler singleNullTextComponentMapper = wrapper -> {
-            wrapper.write(Type.COMPONENT, mapTextComponentIfNull(wrapper.read(Type.COMPONENT)));
-        };
+        final PacketHandler singleNullTextComponentMapper = wrapper -> wrapper.write(Type.COMPONENT, mapTextComponentIfNull(wrapper.read(Type.COMPONENT)));
         registerClientbound(ClientboundPackets1_18.TITLE_TEXT, singleNullTextComponentMapper);
         registerClientbound(ClientboundPackets1_18.TITLE_SUBTITLE, singleNullTextComponentMapper);
         registerClientbound(ClientboundPackets1_18.ACTIONBAR, singleNullTextComponentMapper);

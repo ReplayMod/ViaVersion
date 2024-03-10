@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2023 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -68,11 +68,6 @@ public class BukkitViaLoader implements ViaPlatformLoader {
 
     public void registerListener(Listener listener) {
         plugin.getServer().getPluginManager().registerEvents(listener, plugin);
-    }
-
-    @Deprecated/*(forRemoval = true)*/
-    public <T extends Listener> T storeListener(T listener) {
-        return listener;
     }
 
     @Override

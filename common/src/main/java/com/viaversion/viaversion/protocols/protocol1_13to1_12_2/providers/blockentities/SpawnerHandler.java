@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2023 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,7 +19,6 @@ package com.viaversion.viaversion.protocols.protocol1_13to1_12_2.providers.block
 
 import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
 import com.github.steveice10.opennbt.tag.builtin.StringTag;
-import com.github.steveice10.opennbt.tag.builtin.Tag;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.data.EntityNameRewriter;
 import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.providers.BlockEntityProvider;
@@ -27,13 +26,12 @@ import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.providers.BlockE
 public class SpawnerHandler implements BlockEntityProvider.BlockEntityHandler {
     @Override
     public int transform(UserConnection user, CompoundTag tag) {
-        Tag data = tag.get("SpawnData");
-        if (data instanceof CompoundTag) {
-            Tag id = ((CompoundTag) data).get("id");
-            if (id instanceof StringTag) {
-                ((StringTag) id).setValue(EntityNameRewriter.rewrite(((StringTag) id).getValue()));
+        CompoundTag data = tag.getCompoundTag("SpawnData");
+        if (data != null) {
+            StringTag id = data.getStringTag("id");
+            if (id != null) {
+                id.setValue(EntityNameRewriter.rewrite(id.getValue()));
             }
-
         }
 
         // Always return -1 because the block is still the same id

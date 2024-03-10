@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2023 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,7 +20,6 @@ package com.viaversion.viaversion.protocols.protocol1_14to1_13_2.packets;
 import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
 import com.github.steveice10.opennbt.tag.builtin.ListTag;
 import com.github.steveice10.opennbt.tag.builtin.StringTag;
-import com.github.steveice10.opennbt.tag.builtin.Tag;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.minecraft.Position;
 import com.viaversion.viaversion.api.minecraft.item.Item;
@@ -58,18 +57,20 @@ public class PlayerPackets {
             CompoundTag tag = item.tag();
             if (tag == null) return;
 
-            Tag pages = tag.get("pages");
+            ListTag<StringTag> pages = tag.getListTag("pages", StringTag.class);
 
             // Fix for https://github.com/ViaVersion/ViaVersion/issues/2660
             if (pages == null) {
-                tag.put("pages", new ListTag(Collections.singletonList(new StringTag())));
+                pages = new ListTag<>(StringTag.class);
+                pages.add(new StringTag());
+                tag.put("pages", pages);
+                return;
             }
 
             // Client limit when editing a book was upped from 50 to 100 in 1.14, but some anti-exploit plugins ban with a size higher than the old client limit
-            if (Via.getConfig().isTruncate1_14Books() && pages instanceof ListTag) {
-                ListTag listTag = (ListTag) pages;
-                if (listTag.size() > 50) {
-                    listTag.setValue(listTag.getValue().subList(0, 50));
+            if (Via.getConfig().isTruncate1_14Books()) {
+                if (pages.size() > 50) {
+                    pages.setValue(pages.getValue().subList(0, 50));
                 }
             }
         });

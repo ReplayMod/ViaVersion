@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2023 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -106,7 +106,7 @@ public class CollisionChecker {
     }
 
     private static class DummyList<T> extends AbstractList<T> {
-        private boolean any = false;
+        private boolean any;
 
         @Override
         public T get(int index) {

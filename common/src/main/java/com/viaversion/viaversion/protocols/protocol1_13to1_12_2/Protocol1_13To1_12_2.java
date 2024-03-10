@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2023 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,6 +23,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.connection.UserConnection;
+import com.viaversion.viaversion.api.minecraft.ClientWorld;
 import com.viaversion.viaversion.api.minecraft.Position;
 import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_13;
 import com.viaversion.viaversion.api.minecraft.item.DataItem;
@@ -59,15 +60,16 @@ import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.providers.Player
 import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.storage.BlockConnectionStorage;
 import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.storage.BlockStorage;
 import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.storage.TabCompleteTracker;
-import com.viaversion.viaversion.api.minecraft.ClientWorld;
 import com.viaversion.viaversion.rewriter.SoundRewriter;
 import com.viaversion.viaversion.util.ChatColorUtil;
+import com.viaversion.viaversion.util.ComponentUtil;
 import com.viaversion.viaversion.util.GsonUtil;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Level;
 
 public class Protocol1_13To1_12_2 extends AbstractProtocol<ClientboundPackets1_12_1, ClientboundPackets1_13, ServerboundPackets1_12_1, ServerboundPackets1_13> {
 
@@ -161,8 +163,7 @@ public class Protocol1_13To1_12_2 extends AbstractProtocol<ClientboundPackets1_1
 
     @Override
     protected void registerPackets() {
-        entityRewriter.register();
-        itemRewriter.register();
+        super.registerPackets();
 
         EntityPackets.register(this);
         WorldPackets.register(this);
@@ -182,7 +183,7 @@ public class Protocol1_13To1_12_2 extends AbstractProtocol<ClientboundPackets1_1
                         }
                         wrapper.set(Type.STRING, 0, GsonUtil.getGson().toJson(json));
                     } catch (JsonParseException e) {
-                        e.printStackTrace();
+                        Via.getPlatform().getLogger().log(Level.SEVERE, "Error transforming status response", e);
                     }
                 });
             }
@@ -435,7 +436,7 @@ public class Protocol1_13To1_12_2 extends AbstractProtocol<ClientboundPackets1_1
                     // On create or update
                     if (mode == 0 || mode == 2) {
                         String value = wrapper.read(Type.STRING); // Value
-                        wrapper.write(Type.COMPONENT, ChatRewriter.legacyTextToJson(value));
+                        wrapper.write(Type.COMPONENT, ComponentUtil.legacyToJson(value));
 
                         String type = wrapper.read(Type.STRING);
                         // integer or hearts
@@ -456,7 +457,7 @@ public class Protocol1_13To1_12_2 extends AbstractProtocol<ClientboundPackets1_1
 
                     if (action == 0 || action == 2) {
                         String displayName = wrapper.read(Type.STRING); // Display Name
-                        wrapper.write(Type.COMPONENT, ChatRewriter.legacyTextToJson(displayName));
+                        wrapper.write(Type.COMPONENT, ComponentUtil.legacyToJson(displayName));
 
                         String prefix = wrapper.read(Type.STRING); // Prefix moved
                         String suffix = wrapper.read(Type.STRING); // Suffix moved
@@ -480,8 +481,8 @@ public class Protocol1_13To1_12_2 extends AbstractProtocol<ClientboundPackets1_1
 
                         wrapper.write(Type.VAR_INT, colour);
 
-                        wrapper.write(Type.COMPONENT, ChatRewriter.legacyTextToJson(prefix)); // Prefix
-                        wrapper.write(Type.COMPONENT, ChatRewriter.legacyTextToJson(suffix)); // Suffix
+                        wrapper.write(Type.COMPONENT, ComponentUtil.legacyToJson(prefix)); // Prefix
+                        wrapper.write(Type.COMPONENT, ComponentUtil.legacyToJson(suffix)); // Suffix
                     }
 
                     if (action == 0 || action == 3 || action == 4) {
@@ -499,13 +500,6 @@ public class Protocol1_13To1_12_2 extends AbstractProtocol<ClientboundPackets1_1
             String displayName = wrapper.read(Type.STRING); // Display Name
             displayName = rewriteTeamMemberName(displayName);
             wrapper.write(Type.STRING, displayName);
-
-            byte action = wrapper.read(Type.BYTE);
-            wrapper.write(Type.BYTE, action);
-            wrapper.passthrough(Type.STRING); // Objective Name
-            if (action != 1) {
-                wrapper.passthrough(Type.VAR_INT); // Value
-            }
         });
 
         componentRewriter.registerTitle(ClientboundPackets1_12_1.TITLE);

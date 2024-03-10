@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2023 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -33,6 +33,7 @@ import com.viaversion.viaversion.protocols.protocol1_20_2to1_20.packet.Clientbou
 import com.viaversion.viaversion.protocols.protocol1_20_3to1_20_2.Protocol1_20_3To1_20_2;
 import com.viaversion.viaversion.protocols.protocol1_20_3to1_20_2.packet.ClientboundPackets1_20_3;
 import com.viaversion.viaversion.rewriter.EntityRewriter;
+import com.viaversion.viaversion.util.ComponentUtil;
 import com.viaversion.viaversion.util.Key;
 
 public final class EntityPacketRewriter1_20_3 extends EntityRewriter<ClientboundPackets1_20_2, Protocol1_20_3To1_20_2> {
@@ -84,6 +85,9 @@ public final class EntityPacketRewriter1_20_3 extends EntityRewriter<Clientbound
                 handler(wrapper -> sendChunksSentGameEvent(wrapper));
             }
         });
+
+        // https://github.com/ViaVersion/ViaVersion/issues/3630, should still investigate why sending it with respawn/login doesn't work on Velocity
+        protocol.registerClientbound(ClientboundPackets1_20_2.WORLD_BORDER_INIT, this::sendChunksSentGameEvent);
     }
 
     private void sendChunksSentGameEvent(final PacketWrapper wrapper) throws Exception {
@@ -102,27 +106,27 @@ public final class EntityPacketRewriter1_20_3 extends EntityRewriter<Clientbound
         filter().handler((event, meta) -> {
             final MetaType type = meta.metaType();
             if (type == Types1_20_2.META_TYPES.componentType) {
-                meta.setTypeAndValue(Types1_20_3.META_TYPES.componentType, Protocol1_20_3To1_20_2.jsonComponentToTag(meta.value()));
+                meta.setTypeAndValue(Types1_20_3.META_TYPES.componentType, ComponentUtil.jsonToTag(meta.value()));
             } else if (type == Types1_20_2.META_TYPES.optionalComponentType) {
-                meta.setTypeAndValue(Types1_20_3.META_TYPES.optionalComponentType, Protocol1_20_3To1_20_2.jsonComponentToTag(meta.value()));
-            } else if (type == Types1_20_2.META_TYPES.particleType) {
-                final Particle particle = (Particle) meta.getValue();
-                final ParticleMappings particleMappings = protocol.getMappingData().getParticleMappings();
-                if (particle.getId() == particleMappings.id("vibration")) {
-                    // Change the type of the resource key argument
-                    final String resourceLocation = particle.<String>removeArgument(0).getValue();
-                    if (Key.stripMinecraftNamespace(resourceLocation).equals("block")) {
-                        particle.add(0, Type.VAR_INT, 0);
-                    } else { // Entity
-                        particle.add(0, Type.VAR_INT, 1);
-                    }
-                }
-
-                rewriteParticle(particle);
-                meta.setMetaType(Types1_20_3.META_TYPES.particleType);
+                meta.setTypeAndValue(Types1_20_3.META_TYPES.optionalComponentType, ComponentUtil.jsonToTag(meta.value()));
             } else {
                 meta.setMetaType(Types1_20_3.META_TYPES.byId(type.typeId()));
             }
+        });
+        filter().metaType(Types1_20_3.META_TYPES.particleType).handler((event, meta) -> {
+            final Particle particle = meta.value();
+            final ParticleMappings particleMappings = protocol.getMappingData().getParticleMappings();
+            if (particle.getId() == particleMappings.id("vibration")) {
+                // Change the type of the resource key argument
+                final String resourceLocation = particle.<String>removeArgument(0).getValue();
+                if (Key.stripMinecraftNamespace(resourceLocation).equals("block")) {
+                    particle.add(0, Type.VAR_INT, 0);
+                } else { // Entity
+                    particle.add(0, Type.VAR_INT, 1);
+                }
+            }
+
+            rewriteParticle(particle);
         });
 
         registerMetaTypeHandler(
@@ -132,7 +136,7 @@ public final class EntityPacketRewriter1_20_3 extends EntityRewriter<Clientbound
                 Types1_20_3.META_TYPES.particleType
         );
 
-        filter().filterFamily(EntityTypes1_20_3.MINECART_ABSTRACT).index(11).handler((event, meta) -> {
+        filter().type(EntityTypes1_20_3.MINECART_ABSTRACT).index(11).handler((event, meta) -> {
             final int blockState = meta.value();
             meta.setValue(protocol.getMappingData().getNewBlockStateId(blockState));
         });

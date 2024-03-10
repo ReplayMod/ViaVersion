@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2023 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -36,6 +36,7 @@ import com.viaversion.viaversion.protocols.protocol1_9to1_8.providers.Compressio
 import com.viaversion.viaversion.protocols.protocol1_9to1_8.providers.MainHandProvider;
 import com.viaversion.viaversion.protocols.protocol1_9to1_8.storage.ClientChunks;
 import com.viaversion.viaversion.protocols.protocol1_9to1_8.storage.EntityTracker1_9;
+import java.util.logging.Level;
 
 public class PlayerPackets {
     public static void register(Protocol1_9To1_8 protocol) {
@@ -43,14 +44,14 @@ public class PlayerPackets {
             @Override
             public void register() {
                 map(Type.STRING, Protocol1_9To1_8.FIX_JSON); // 0 - Chat Message (json)
-                map(Type.BYTE); // 1 - Chat Positon
+                map(Type.BYTE); // 1 - Chat Position
 
                 handler(wrapper -> {
                     try {
                         JsonObject obj = (JsonObject) wrapper.get(Type.COMPONENT, 0);
                         ChatRewriter.toClient(obj, wrapper.user());
                     } catch (Exception e) {
-                        e.printStackTrace();
+                        Via.getPlatform().getLogger().log(Level.SEVERE, "Failed to transform chat component", e);
                     }
                 });
             }
@@ -253,8 +254,6 @@ public class PlayerPackets {
                             String displayName = wrapper.read(Type.OPTIONAL_STRING);
                             wrapper.write(Type.OPTIONAL_COMPONENT, displayName != null ?
                                     Protocol1_9To1_8.FIX_JSON.transform(wrapper, displayName) : null);
-                        } else if (action == 4) { // remove player
-                            // no fields
                         }
                     }
                 });

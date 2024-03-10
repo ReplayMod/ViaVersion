@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2023 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -81,18 +81,16 @@ public final class EntityPackets extends EntityRewriter<ClientboundPackets1_17_1
 
     @Override
     protected void registerRewrites() {
-        filter().handler((event, meta) -> {
-            meta.setMetaType(Types1_18.META_TYPES.byId(meta.metaType().typeId()));
-            if (meta.metaType() == Types1_18.META_TYPES.particleType) {
-                final Particle particle = (Particle) meta.getValue();
-                if (particle.getId() == 2) { // Barrier
-                    particle.setId(3); // Block marker
-                    particle.add(Type.VAR_INT, 7754); // Barrier state
-                } else if (particle.getId() == 3) { // Light block
-                    particle.add(Type.VAR_INT, 7786); // Light block state
-                } else {
-                    rewriteParticle(particle);
-                }
+        filter().mapMetaType(Types1_18.META_TYPES::byId);
+        filter().metaType(Types1_18.META_TYPES.particleType).handler((event, meta) -> {
+            final Particle particle = (Particle) meta.getValue();
+            if (particle.getId() == 2) { // Barrier
+                particle.setId(3); // Block marker
+                particle.add(Type.VAR_INT, 7754); // Barrier state
+            } else if (particle.getId() == 3) { // Light block
+                particle.add(Type.VAR_INT, 7786); // Light block state
+            } else {
+                rewriteParticle(particle);
             }
         });
 

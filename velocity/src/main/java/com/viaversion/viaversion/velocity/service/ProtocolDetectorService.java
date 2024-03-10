@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2023 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,6 +27,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Level;
 
 public final class ProtocolDetectorService extends AbstractProtocolDetectorService {
 
@@ -90,7 +91,7 @@ public final class ProtocolDetectorService extends AbstractProtocolDetectorServi
         try {
             return ProtocolVersion.getProtocol(Via.getManager().getInjector().getServerProtocolVersion()).getVersion();
         } catch (final Exception e) {
-            e.printStackTrace();
+            Via.getPlatform().getLogger().log(Level.WARNING, "Failed to get lowest supported protocol version", e);
             return ProtocolVersion.v1_8.getVersion();
         }
     }

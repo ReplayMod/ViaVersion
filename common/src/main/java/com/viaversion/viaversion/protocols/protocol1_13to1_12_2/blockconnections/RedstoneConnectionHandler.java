@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2023 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -59,13 +59,12 @@ public class RedstoneConnectionHandler extends ConnectionHandler {
     private static int getState(String value) {
         switch (value) {
             case "none":
+            default:
                 return 0;
             case "side":
                 return 1;
             case "up":
                 return 2;
-            default:
-                return 0;
         }
     }
 

@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2023 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -30,6 +30,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.plugin.Plugin;
+import java.util.logging.Level;
 
 public class DeathListener extends ViaBukkitListener {
 
@@ -66,7 +67,7 @@ public class DeathListener extends ViaBukkitListener {
 
                     wrapper.scheduleSend(Protocol1_9To1_8.class);
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    Via.getPlatform().getLogger().log(Level.WARNING, "Failed to send death message", e);
                 }
             }
         });

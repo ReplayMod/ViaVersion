@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2023 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -31,7 +31,6 @@ import com.viaversion.viaversion.api.minecraft.Particle;
 import com.viaversion.viaversion.api.minecraft.Position;
 import com.viaversion.viaversion.api.minecraft.entities.EntityType;
 import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_19;
-import com.viaversion.viaversion.api.minecraft.metadata.MetaType;
 import com.viaversion.viaversion.api.minecraft.metadata.Metadata;
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.protocol.remapper.PacketHandlers;
@@ -46,8 +45,11 @@ import com.viaversion.viaversion.protocols.protocol1_19to1_18_2.storage.Dimensio
 import com.viaversion.viaversion.rewriter.EntityRewriter;
 import com.viaversion.viaversion.util.Key;
 import com.viaversion.viaversion.util.Pair;
-
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public final class EntityPackets extends EntityRewriter<ClientboundPackets1_18, Protocol1_19To1_18_2> {
 
@@ -78,7 +80,7 @@ public final class EntityPackets extends EntityRewriter<ClientboundPackets1_18, 
     public static final CompoundTag CHAT_REGISTRY;
 
     static {
-        CHAT_REGISTRY = SNBT.deserializeCompoundTag(CHAT_REGISTRY_SNBT).get("minecraft:chat_type");
+        CHAT_REGISTRY = SNBT.deserializeCompoundTag(CHAT_REGISTRY_SNBT).getCompoundTag("minecraft:chat_type");
     }
 
     public EntityPackets(final Protocol1_19To1_18_2 protocol) {
@@ -204,19 +206,18 @@ public final class EntityPackets extends EntityRewriter<ClientboundPackets1_18, 
                     final CompoundTag tag = wrapper.get(Type.NAMED_COMPOUND_TAG, 0);
 
                     // Add necessary chat types
-                    tag.put("minecraft:chat_type", CHAT_REGISTRY.clone());
+                    tag.put("minecraft:chat_type", CHAT_REGISTRY.copy());
 
                     // Cache a whole lot of data
-                    final ListTag dimensions = ((CompoundTag) tag.get("minecraft:dimension_type")).get("value");
+                    final ListTag<CompoundTag> dimensions = tag.getCompoundTag("minecraft:dimension_type").getListTag("value", CompoundTag.class);
                     final Map<String, DimensionData> dimensionDataMap = new HashMap<>(dimensions.size());
                     final Map<CompoundTag, String> dimensionsMap = new HashMap<>(dimensions.size());
-                    for (final Tag dimension : dimensions) {
-                        final CompoundTag dimensionCompound = (CompoundTag) dimension;
-                        final CompoundTag element = dimensionCompound.get("element");
-                        final String name = (String) dimensionCompound.get("name").getValue();
+                    for (final CompoundTag dimension : dimensions) {
+                        final CompoundTag element = dimension.getCompoundTag("element");
+                        final String name = dimension.getStringTag("name").getValue();
                         addMonsterSpawnData(element);
                         dimensionDataMap.put(name, new DimensionDataImpl(element));
-                        dimensionsMap.put(element.clone(), name);
+                        dimensionsMap.put(element.copy(), name);
                     }
                     tracker(wrapper.user()).setDimensions(dimensionDataMap);
 
@@ -349,37 +350,33 @@ public final class EntityPackets extends EntityRewriter<ClientboundPackets1_18, 
 
     @Override
     protected void registerRewrites() {
-        filter().handler((event, meta) -> {
-            meta.setMetaType(Types1_19.META_TYPES.byId(meta.metaType().typeId()));
+        filter().mapMetaType(Types1_19.META_TYPES::byId);
+        filter().metaType(Types1_19.META_TYPES.particleType).handler((event, meta) -> {
+            final Particle particle = (Particle) meta.getValue();
+            final ParticleMappings particleMappings = protocol.getMappingData().getParticleMappings();
+            if (particle.getId() == particleMappings.id("vibration")) {
+                // Remove the position
+                particle.getArguments().remove(0);
 
-            final MetaType type = meta.metaType();
-            if (type == Types1_19.META_TYPES.particleType) {
-                final Particle particle = (Particle) meta.getValue();
-                final ParticleMappings particleMappings = protocol.getMappingData().getParticleMappings();
-                if (particle.getId() == particleMappings.id("vibration")) {
-                    // Remove the position
-                    particle.getArguments().remove(0);
-
-                    final String resourceLocation = Key.stripMinecraftNamespace(particle.<String>getArgument(0).getValue());
-                    if (resourceLocation.equals("entity")) {
-                        // Add Y offset
-                        particle.getArguments().add(2, new Particle.ParticleData<>(Type.FLOAT, 0F));
-                    }
+                final String resourceLocation = Key.stripMinecraftNamespace(particle.<String>getArgument(0).getValue());
+                if (resourceLocation.equals("entity")) {
+                    // Add Y offset
+                    particle.getArguments().add(2, new Particle.ParticleData<>(Type.FLOAT, 0F));
                 }
-
-                rewriteParticle(particle);
             }
+
+            rewriteParticle(particle);
         });
 
         registerMetaTypeHandler(Types1_19.META_TYPES.itemType, Types1_19.META_TYPES.blockStateType, null, null);
 
-        filter().filterFamily(EntityTypes1_19.MINECART_ABSTRACT).index(11).handler((event, meta) -> {
+        filter().type(EntityTypes1_19.MINECART_ABSTRACT).index(11).handler((event, meta) -> {
             // Convert to new block id
             final int data = (int) meta.getValue();
             meta.setValue(protocol.getMappingData().getNewBlockStateId(data));
         });
 
-        filter().type(EntityTypes1_19.CAT).index(19).handler((event, meta) -> meta.setMetaType(Types1_19.META_TYPES.catVariantType));
+        filter().type(EntityTypes1_19.CAT).index(19).mapMetaType(typeId -> Types1_19.META_TYPES.catVariantType);
     }
 
     @Override

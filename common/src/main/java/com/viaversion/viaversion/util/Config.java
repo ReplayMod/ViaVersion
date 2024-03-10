@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2023 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,12 +18,9 @@
 package com.viaversion.viaversion.util;
 
 import com.google.gson.JsonElement;
-import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.compatibility.YamlCompat;
 import com.viaversion.viaversion.compatibility.unsafe.Yaml1Compat;
 import com.viaversion.viaversion.compatibility.unsafe.Yaml2Compat;
-import com.viaversion.viaversion.libs.kyori.adventure.text.serializer.gson.GsonComponentSerializer;
-import com.viaversion.viaversion.libs.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -41,7 +38,7 @@ import org.yaml.snakeyaml.Yaml;
 
 @SuppressWarnings("VulnerableCodeUsages")
 public abstract class Config {
-    private static final Logger LOGGER = Logger.getLogger("ViaVersion Config");
+    protected static final Logger LOGGER = Logger.getLogger("ViaVersion Config");
     private static final YamlCompat YAMP_COMPAT = YamlCompat.isVersion1() ? new Yaml1Compat() : new Yaml2Compat();
     private static final ThreadLocal<Yaml> YAML = ThreadLocal.withInitial(() -> {
         DumperOptions options = new DumperOptions();
@@ -69,14 +66,26 @@ public abstract class Config {
         return getClass().getClassLoader().getResource("assets/viaversion/config.yml");
     }
 
+    public InputStream getDefaultConfigInputStream() {
+        return getClass().getClassLoader().getResourceAsStream("assets/viaversion/config.yml");
+    }
+
     public Map<String, Object> loadConfig(File location) {
-        return loadConfig(location, getDefaultConfigURL());
+        final URL defaultConfigUrl = getDefaultConfigURL();
+        if (defaultConfigUrl != null) {
+            return loadConfig(location, defaultConfigUrl);
+        }
+        return loadConfig(location, this::getDefaultConfigInputStream);
     }
 
     public synchronized Map<String, Object> loadConfig(File location, URL jarConfigFile) {
+        return loadConfig(location, jarConfigFile::openStream);
+    }
+
+    private synchronized Map<String, Object> loadConfig(File location, InputStreamSupplier configSupplier) {
         List<String> unsupported = getUnsupportedOptions();
         try {
-            commentStore.storeComments(jarConfigFile.openStream());
+            commentStore.storeComments(configSupplier.get());
             for (String option : unsupported) {
                 List<String> comments = commentStore.header(option);
                 if (comments != null) {
@@ -99,7 +108,7 @@ public abstract class Config {
         }
 
         Map<String, Object> defaults = config;
-        try (InputStream stream = jarConfigFile.openStream()) {
+        try (InputStream stream = configSupplier.get()) {
             defaults = (Map<String, Object>) YAML.get().load(stream);
             for (String option : unsupported) {
                 defaults.remove(option);
@@ -239,7 +248,7 @@ public abstract class Config {
     public @Nullable JsonElement getSerializedComponent(String key) {
         final Object o = this.config.get(key);
         if (o != null && !((String) o).isEmpty()) {
-            return GsonComponentSerializer.gson().serializeToTree(LegacyComponentSerializer.legacySection().deserialize((String) o));
+            return ComponentUtil.legacyToJson((String) o);
         } else {
             return null;
         }

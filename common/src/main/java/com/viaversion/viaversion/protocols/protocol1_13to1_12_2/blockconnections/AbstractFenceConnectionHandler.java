@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2023 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -36,7 +36,7 @@ public abstract class AbstractFenceConnectionHandler extends ConnectionHandler {
         Arrays.fill(connectedBlockStates, -1);
     }
 
-    public ConnectionData.ConnectorInitAction getInitAction(final String key) {
+    ConnectionData.ConnectorInitAction getInitAction(final String key) {
         final AbstractFenceConnectionHandler handler = this;
         return blockData -> {
             if (key.equals(blockData.getMinecraftKey())) {

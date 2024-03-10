@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2023 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.WeakHashMap;
+import java.util.logging.Level;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -148,7 +149,7 @@ public class PlayerSneakListener extends ViaBukkitListener {
         try {
             setSize.invoke(getHandle.invoke(player), DEFAULT_WIDTH, height);
         } catch (IllegalAccessException | InvocationTargetException e) {
-            e.printStackTrace();
+            Via.getPlatform().getLogger().log(Level.SEVERE, "Failed to set player height", e);
         }
     }
 }

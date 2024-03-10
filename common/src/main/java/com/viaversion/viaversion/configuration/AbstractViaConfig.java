@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2023 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,7 +18,6 @@
 package com.viaversion.viaversion.configuration;
 
 import com.google.gson.JsonElement;
-import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.configuration.ViaVersionConfig;
 import com.viaversion.viaversion.api.minecraft.WorldIdentifiers;
 import com.viaversion.viaversion.api.protocol.version.BlockedProtocolVersions;
@@ -180,12 +179,12 @@ public abstract class AbstractViaConfig extends Config implements ViaVersionConf
 
                 if (c == '<') {
                     if (lowerBound != -1) {
-                        Via.getPlatform().getLogger().warning("Already set lower bound " + lowerBound + " overridden by " + protocolVersion.getName());
+                        LOGGER.warning("Already set lower bound " + lowerBound + " overridden by " + protocolVersion.getName());
                     }
                     lowerBound = protocolVersion.getVersion();
                 } else {
                     if (upperBound != -1) {
-                        Via.getPlatform().getLogger().warning("Already set upper bound " + upperBound + " overridden by " + protocolVersion.getName());
+                        LOGGER.warning("Already set upper bound " + upperBound + " overridden by " + protocolVersion.getName());
                     }
                     upperBound = protocolVersion.getVersion();
                 }
@@ -199,7 +198,7 @@ public abstract class AbstractViaConfig extends Config implements ViaVersionConf
 
             // Add single protocol version and check for duplication
             if (!blockedProtocols.add(protocolVersion.getVersion())) {
-                Via.getPlatform().getLogger().warning("Duplicated blocked protocol version " + protocolVersion.getName() + "/" + protocolVersion.getVersion());
+                LOGGER.warning("Duplicated blocked protocol version " + protocolVersion.getName() + "/" + protocolVersion.getVersion());
             }
         }
 
@@ -210,8 +209,7 @@ public abstract class AbstractViaConfig extends Config implements ViaVersionConf
             blockedProtocols.removeIf((IntPredicate) version -> {
                 if (finalLowerBound != -1 && version < finalLowerBound || finalUpperBound != -1 && version > finalUpperBound) {
                     ProtocolVersion protocolVersion = ProtocolVersion.getProtocol(version);
-                    Via.getPlatform().getLogger().warning("Blocked protocol version "
-                            + protocolVersion.getName() + "/" + protocolVersion.getVersion() + " already covered by upper or lower bound");
+                    LOGGER.warning("Blocked protocol version " + protocolVersion.getName() + "/" + protocolVersion.getVersion() + " already covered by upper or lower bound");
                     return true;
                 }
                 return false;
@@ -223,7 +221,7 @@ public abstract class AbstractViaConfig extends Config implements ViaVersionConf
     private @Nullable ProtocolVersion protocolVersion(String s) {
         ProtocolVersion protocolVersion = ProtocolVersion.getClosest(s);
         if (protocolVersion == null) {
-            Via.getPlatform().getLogger().warning("Unknown protocol version in block-versions: " + s);
+            LOGGER.warning("Unknown protocol version in block-versions: " + s);
             return null;
         }
         return protocolVersion;

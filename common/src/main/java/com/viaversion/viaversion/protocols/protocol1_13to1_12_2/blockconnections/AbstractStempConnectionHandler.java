@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2023 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -38,7 +38,7 @@ public abstract class AbstractStempConnectionHandler extends ConnectionHandler {
         this.baseStateId = ConnectionData.getId(baseStateId);
     }
 
-    public ConnectionData.ConnectorInitAction getInitAction(final String blockId, final String toKey) {
+    ConnectionData.ConnectorInitAction getInitAction(final String blockId, final String toKey) {
         final AbstractStempConnectionHandler handler = this;
         return blockData -> {
             if (blockData.getSavedBlockStateId() == baseStateId || blockId.equals(blockData.getMinecraftKey())) {

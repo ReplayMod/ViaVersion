@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2023 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -77,10 +77,10 @@ public final class EntityPackets extends EntityRewriter<ClientboundPackets1_16_2
                 map(Type.NAMED_COMPOUND_TAG); // Current dimension
                 handler(wrapper -> {
                     // Add new dimension fields
-                    CompoundTag dimensionRegistry = wrapper.get(Type.NAMED_COMPOUND_TAG, 0).get("minecraft:dimension_type");
-                    ListTag dimensions = dimensionRegistry.get("value");
-                    for (Tag dimension : dimensions) {
-                        CompoundTag dimensionCompound = ((CompoundTag) dimension).get("element");
+                    CompoundTag dimensionRegistry = wrapper.get(Type.NAMED_COMPOUND_TAG, 0).getCompoundTag("minecraft:dimension_type");
+                    ListTag<CompoundTag> dimensions = dimensionRegistry.getListTag("value", CompoundTag.class);
+                    for (CompoundTag dimension : dimensions) {
+                        CompoundTag dimensionCompound = dimension.getCompoundTag("element");
                         addNewDimensionData(dimensionCompound);
                     }
 
@@ -151,23 +151,20 @@ public final class EntityPackets extends EntityRewriter<ClientboundPackets1_16_2
 
     @Override
     protected void registerRewrites() {
-        filter().handler((event, meta) -> {
-            meta.setMetaType(Types1_17.META_TYPES.byId(meta.metaType().typeId()));
-
-            if (meta.metaType() == Types1_17.META_TYPES.poseType) {
-                int pose = meta.value();
-                if (pose > 5) {
-                    // Added LONG_JUMP at 6
-                    meta.setValue(pose + 1);
-                }
+        filter().mapMetaType(Types1_17.META_TYPES::byId);
+        filter().metaType(Types1_17.META_TYPES.poseType).handler((event, meta) -> {
+            int pose = meta.value();
+            if (pose > 5) {
+                // Added LONG_JUMP at 6
+                meta.setValue(pose + 1);
             }
         });
         registerMetaTypeHandler(Types1_17.META_TYPES.itemType, Types1_17.META_TYPES.blockStateType, null, Types1_17.META_TYPES.particleType);
 
         // Ticks frozen added with id 7
-        filter().filterFamily(EntityTypes1_17.ENTITY).addIndex(7);
+        filter().type(EntityTypes1_17.ENTITY).addIndex(7);
 
-        filter().filterFamily(EntityTypes1_17.MINECART_ABSTRACT).index(11).handler((event, meta) -> {
+        filter().type(EntityTypes1_17.MINECART_ABSTRACT).index(11).handler((event, meta) -> {
             // Convert to new block id
             int data = (int) meta.getValue();
             meta.setValue(protocol.getMappingData().getNewBlockStateId(data));

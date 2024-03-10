@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2023 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -153,7 +153,7 @@ public class BukkitInventoryQuickMoveProvider extends InventoryQuickMoveProvider
             // send
             packetMethod.invoke(playerConnection, packet);
         } catch (IllegalAccessException | InvocationTargetException e) {
-            e.printStackTrace();
+            Via.getPlatform().getLogger().log(Level.SEVERE, "Failed to send packet to server", e);
             return false;
         }
         return true;
@@ -199,10 +199,6 @@ public class BukkitInventoryQuickMoveProvider extends InventoryQuickMoveProvider
 
     private boolean isSupported() {
         int protocolId = Via.getAPI().getServerVersion().lowestSupportedVersion();
-        if (protocolId >= ProtocolVersion.v1_8.getVersion() && protocolId <= ProtocolVersion.v1_11_1.getVersion()) {
-            return true; // 1.8-1.11.2
-        }
-        // this is not needed on 1.12+ servers
-        return false;
+        return protocolId >= ProtocolVersion.v1_8.getVersion() && protocolId <= ProtocolVersion.v1_11_1.getVersion(); // 1.8-1.11.2, not needed with 1.12
     }
 }

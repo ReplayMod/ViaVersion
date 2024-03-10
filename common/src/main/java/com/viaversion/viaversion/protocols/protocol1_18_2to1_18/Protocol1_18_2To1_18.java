@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2023 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -69,10 +69,10 @@ public final class Protocol1_18_2To1_18 extends AbstractProtocol<ClientboundPack
                 map(Type.NAMED_COMPOUND_TAG); // Current dimension data
                 handler(wrapper -> {
                     final CompoundTag registry = wrapper.get(Type.NAMED_COMPOUND_TAG, 0);
-                    final CompoundTag dimensionsHolder = registry.get("minecraft:dimension_type");
-                    final ListTag dimensions = dimensionsHolder.get("value");
-                    for (final Tag dimension : dimensions) {
-                        addTagPrefix(((CompoundTag) dimension).get("element"));
+                    final CompoundTag dimensionsHolder = registry.getCompoundTag("minecraft:dimension_type");
+                    final ListTag<CompoundTag> dimensions = dimensionsHolder.getListTag("value", CompoundTag.class);
+                    for (final CompoundTag dimension : dimensions) {
+                        addTagPrefix(dimension.getCompoundTag("element"));
                     }
 
                     addTagPrefix(wrapper.get(Type.NAMED_COMPOUND_TAG, 1));

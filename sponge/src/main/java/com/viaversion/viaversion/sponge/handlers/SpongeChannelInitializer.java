@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2023 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -52,7 +52,7 @@ public class SpongeChannelInitializer extends ChannelInitializer<Channel> implem
         // Ensure ViaVersion is loaded
         if (Via.getAPI().getServerVersion().isKnown()
                 && channel instanceof SocketChannel) { // channel can be LocalChannel on internal server
-            UserConnection info = new UserConnectionImpl((SocketChannel) channel);
+            UserConnection info = new UserConnectionImpl(channel);
             // init protocol
             new ProtocolPipelineImpl(info);
             // Add originals
@@ -66,11 +66,6 @@ public class SpongeChannelInitializer extends ChannelInitializer<Channel> implem
         } else {
             INIT_CHANNEL_METHOD.invoke(this.original, channel);
         }
-    }
-
-    /*@Deprecated(forRemoval = true)*/
-    public ChannelInitializer<Channel> getOriginal() {
-        return original;
     }
 
     @Override

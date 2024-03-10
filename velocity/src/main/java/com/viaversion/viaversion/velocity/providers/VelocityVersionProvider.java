@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2023 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,6 +27,7 @@ import com.viaversion.viaversion.velocity.platform.VelocityViaInjector;
 import io.netty.channel.ChannelHandler;
 import java.lang.reflect.Method;
 import java.util.Arrays;
+import java.util.logging.Level;
 import java.util.stream.IntStream;
 import org.jetbrains.annotations.Nullable;
 
@@ -37,7 +38,7 @@ public class VelocityVersionProvider extends BaseVersionProvider {
         try {
             return Class.forName("com.velocitypowered.proxy.connection.MinecraftConnection").getMethod("getAssociation");
         } catch (NoSuchMethodException | ClassNotFoundException e) {
-            e.printStackTrace();
+            Via.getPlatform().getLogger().log(Level.SEVERE, "Failed to get association method from Velocity, please report this issue on our GitHub.", e);
             return null;
         }
     }

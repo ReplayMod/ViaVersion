@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2023 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,6 +20,7 @@ package com.viaversion.viaversion.protocols.protocol1_13_1to1_13;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.data.MappingData;
 import com.viaversion.viaversion.api.data.MappingDataBase;
+import com.viaversion.viaversion.api.minecraft.ClientWorld;
 import com.viaversion.viaversion.api.minecraft.RegistryType;
 import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_13;
 import com.viaversion.viaversion.api.minecraft.item.Item;
@@ -35,7 +36,6 @@ import com.viaversion.viaversion.protocols.protocol1_13_1to1_13.packets.Inventor
 import com.viaversion.viaversion.protocols.protocol1_13_1to1_13.packets.WorldPackets;
 import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.ClientboundPackets1_13;
 import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.ServerboundPackets1_13;
-import com.viaversion.viaversion.api.minecraft.ClientWorld;
 import com.viaversion.viaversion.rewriter.StatisticsRewriter;
 import com.viaversion.viaversion.rewriter.TagRewriter;
 
@@ -51,8 +51,7 @@ public class Protocol1_13_1To1_13 extends AbstractProtocol<ClientboundPackets1_1
 
     @Override
     protected void registerPackets() {
-        entityRewriter.register();
-        itemRewriter.register();
+        super.registerPackets();
 
         EntityPackets.register(this);
         WorldPackets.register(this);

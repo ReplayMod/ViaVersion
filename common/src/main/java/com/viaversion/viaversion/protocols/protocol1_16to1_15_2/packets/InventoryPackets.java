@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2023 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,7 +20,6 @@ package com.viaversion.viaversion.protocols.protocol1_16to1_15_2.packets;
 import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
 import com.github.steveice10.opennbt.tag.builtin.IntArrayTag;
 import com.github.steveice10.opennbt.tag.builtin.ListTag;
-import com.github.steveice10.opennbt.tag.builtin.LongTag;
 import com.github.steveice10.opennbt.tag.builtin.NumberTag;
 import com.github.steveice10.opennbt.tag.builtin.StringTag;
 import com.github.steveice10.opennbt.tag.builtin.Tag;
@@ -29,7 +28,6 @@ import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.protocol.remapper.PacketHandler;
 import com.viaversion.viaversion.api.protocol.remapper.PacketHandlers;
 import com.viaversion.viaversion.api.type.Type;
-import com.viaversion.viaversion.api.type.types.UUIDIntArrayType;
 import com.viaversion.viaversion.protocols.protocol1_15to1_14_4.ClientboundPackets1_15;
 import com.viaversion.viaversion.protocols.protocol1_16to1_15_2.ClientboundPackets1_16;
 import com.viaversion.viaversion.protocols.protocol1_16to1_15_2.Protocol1_16To1_15_2;
@@ -38,12 +36,13 @@ import com.viaversion.viaversion.protocols.protocol1_16to1_15_2.storage.Inventor
 import com.viaversion.viaversion.rewriter.ItemRewriter;
 import com.viaversion.viaversion.rewriter.RecipeRewriter;
 import com.viaversion.viaversion.util.Key;
+import com.viaversion.viaversion.util.UUIDUtil;
 import java.util.UUID;
 
 public class InventoryPackets extends ItemRewriter<ClientboundPackets1_15, ServerboundPackets1_16, Protocol1_16To1_15_2> {
 
     public InventoryPackets(Protocol1_16To1_15_2 protocol) {
-        super(protocol, Type.ITEM1_13_2, Type.ITEM1_13_2_ARRAY);
+        super(protocol, Type.ITEM1_13_2, Type.ITEM1_13_2_SHORT_ARRAY);
     }
 
     @Override
@@ -107,10 +106,10 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_15, Serve
         });
 
         registerSetCooldown(ClientboundPackets1_15.COOLDOWN);
-        registerWindowItems(ClientboundPackets1_15.WINDOW_ITEMS, Type.ITEM1_13_2_SHORT_ARRAY);
+        registerWindowItems(ClientboundPackets1_15.WINDOW_ITEMS);
         registerTradeList(ClientboundPackets1_15.TRADE_LIST);
-        registerSetSlot(ClientboundPackets1_15.SET_SLOT, Type.ITEM1_13_2);
-        registerAdvancements(ClientboundPackets1_15.ADVANCEMENTS, Type.ITEM1_13_2);
+        registerSetSlot(ClientboundPackets1_15.SET_SLOT);
+        registerAdvancements(ClientboundPackets1_15.ADVANCEMENTS);
 
         protocol.registerClientbound(ClientboundPackets1_15.ENTITY_EQUIPMENT, new PacketHandlers() {
             @Override
@@ -127,8 +126,8 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_15, Serve
 
         new RecipeRewriter<>(protocol).register(ClientboundPackets1_15.DECLARE_RECIPES);
 
-        registerClickWindow(ServerboundPackets1_16.CLICK_WINDOW, Type.ITEM1_13_2);
-        registerCreativeInvAction(ServerboundPackets1_16.CREATIVE_INVENTORY_ACTION, Type.ITEM1_13_2);
+        registerClickWindow(ServerboundPackets1_16.CLICK_WINDOW);
+        registerCreativeInvAction(ServerboundPackets1_16.CREATIVE_INVENTORY_ACTION);
 
         protocol.registerServerbound(ServerboundPackets1_16.CLOSE_WINDOW, wrapper -> {
             InventoryTracker1_16 inventoryTracker = wrapper.user().get(InventoryTracker1_16.class);
@@ -137,7 +136,7 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_15, Serve
 
         protocol.registerServerbound(ServerboundPackets1_16.EDIT_BOOK, wrapper -> handleItemToServer(wrapper.passthrough(Type.ITEM1_13_2)));
 
-        registerSpawnParticle(ClientboundPackets1_15.SPAWN_PARTICLE, Type.ITEM1_13_2, Type.DOUBLE);
+        registerSpawnParticle(ClientboundPackets1_15.SPAWN_PARTICLE, Type.DOUBLE);
     }
 
     @Override
@@ -147,24 +146,19 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_15, Serve
         CompoundTag tag = item.tag();
 
         if (item.identifier() == 771 && tag != null) {
-            Tag ownerTag = tag.get("SkullOwner");
-            if (ownerTag instanceof CompoundTag) {
-                CompoundTag ownerCompundTag = (CompoundTag) ownerTag;
-                Tag idTag = ownerCompundTag.get("Id");
-                if (idTag instanceof StringTag) {
-                    UUID id = UUID.fromString((String) idTag.getValue());
-                    ownerCompundTag.put("Id", new IntArrayTag(UUIDIntArrayType.uuidToIntArray(id)));
+            CompoundTag ownerTag = tag.getCompoundTag("SkullOwner");
+            if (ownerTag != null) {
+                StringTag idTag = ownerTag.getStringTag("Id");
+                if (idTag != null) {
+                    UUID id = UUID.fromString(idTag.getValue());
+                    ownerTag.put("Id", new IntArrayTag(UUIDUtil.toIntArray(id)));
                 }
             }
         } else if (item.identifier() == 759 && tag != null) {
-            Tag pages = tag.get("pages");
-            if (pages instanceof ListTag) {
-                for (Tag pageTag : (ListTag) pages) {
-                    if (!(pageTag instanceof StringTag)) {
-                        continue;
-                    }
-                    StringTag page = (StringTag) pageTag;
-                    page.setValue(protocol.getComponentRewriter().processText(page.getValue()).toString());
+            ListTag<StringTag> pages = tag.getListTag("pages", StringTag.class);
+            if (pages != null) {
+                for (StringTag pageTag : pages) {
+                    pageTag.setValue(protocol.getComponentRewriter().processText(pageTag.getValue()).toString());
                 }
             }
         }
@@ -182,13 +176,12 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_15, Serve
 
         if (item.identifier() == 771 && item.tag() != null) {
             CompoundTag tag = item.tag();
-            Tag ownerTag = tag.get("SkullOwner");
-            if (ownerTag instanceof CompoundTag) {
-                CompoundTag ownerCompundTag = (CompoundTag) ownerTag;
-                Tag idTag = ownerCompundTag.get("Id");
-                if (idTag instanceof IntArrayTag) {
-                    UUID id = UUIDIntArrayType.uuidFromIntArray((int[]) idTag.getValue());
-                    ownerCompundTag.put("Id", new StringTag(id.toString()));
+            CompoundTag ownerTag = tag.getCompoundTag("SkullOwner");
+            if (ownerTag != null) {
+                IntArrayTag idTag = ownerTag.getIntArrayTag("Id");
+                if (idTag != null) {
+                    UUID id = UUIDUtil.fromIntArray(idTag.getValue());
+                    ownerTag.putString("Id", id.toString());
                 }
             }
         }
@@ -200,17 +193,16 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_15, Serve
     public static void oldToNewAttributes(Item item) {
         if (item.tag() == null) return;
 
-        ListTag attributes = item.tag().get("AttributeModifiers");
+        ListTag<CompoundTag> attributes = item.tag().getListTag("AttributeModifiers", CompoundTag.class);
         if (attributes == null) return;
 
-        for (Tag tag : attributes) {
-            CompoundTag attribute = (CompoundTag) tag;
+        for (CompoundTag attribute : attributes) {
             rewriteAttributeName(attribute, "AttributeName", false);
             rewriteAttributeName(attribute, "Name", false);
-            Tag leastTag = attribute.get("UUIDLeast");
-            if (leastTag != null) {
-                Tag mostTag = attribute.get("UUIDMost");
-                int[] uuidIntArray = UUIDIntArrayType.bitsToIntArray(((NumberTag) leastTag).asLong(), ((NumberTag) mostTag).asLong());
+            NumberTag leastTag = attribute.getNumberTag("UUIDLeast");
+            NumberTag mostTag = attribute.getNumberTag("UUIDMost");
+            if (leastTag != null && mostTag != null) {
+                int[] uuidIntArray = UUIDUtil.toIntArray(leastTag.asLong(), mostTag.asLong());
                 attribute.put("UUID", new IntArrayTag(uuidIntArray));
             }
         }
@@ -219,24 +211,23 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_15, Serve
     public static void newToOldAttributes(Item item) {
         if (item.tag() == null) return;
 
-        ListTag attributes = item.tag().get("AttributeModifiers");
+        ListTag<CompoundTag> attributes = item.tag().getListTag("AttributeModifiers", CompoundTag.class);
         if (attributes == null) return;
 
-        for (Tag tag : attributes) {
-            CompoundTag attribute = (CompoundTag) tag;
+        for (CompoundTag attribute : attributes) {
             rewriteAttributeName(attribute, "AttributeName", true);
             rewriteAttributeName(attribute, "Name", true);
-            IntArrayTag uuidTag = attribute.get("UUID");
+            IntArrayTag uuidTag = attribute.getIntArrayTag("UUID");
             if (uuidTag != null && uuidTag.getValue().length == 4) {
-                UUID uuid = UUIDIntArrayType.uuidFromIntArray(uuidTag.getValue());
-                attribute.put("UUIDLeast", new LongTag(uuid.getLeastSignificantBits()));
-                attribute.put("UUIDMost", new LongTag(uuid.getMostSignificantBits()));
+                UUID uuid = UUIDUtil.fromIntArray(uuidTag.getValue());
+                attribute.putLong("UUIDLeast", uuid.getLeastSignificantBits());
+                attribute.putLong("UUIDMost", uuid.getMostSignificantBits());
             }
         }
     }
 
     public static void rewriteAttributeName(CompoundTag compoundTag, String entryName, boolean inverse) {
-        StringTag attributeNameTag = compoundTag.get(entryName);
+        StringTag attributeNameTag = compoundTag.getStringTag(entryName);
         if (attributeNameTag == null) return;
 
         String attributeName = attributeNameTag.getValue();

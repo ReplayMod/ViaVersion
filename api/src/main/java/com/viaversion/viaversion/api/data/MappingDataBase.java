@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2023 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,6 +25,7 @@ package com.viaversion.viaversion.api.data;
 import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
 import com.github.steveice10.opennbt.tag.builtin.IntArrayTag;
 import com.github.steveice10.opennbt.tag.builtin.ListTag;
+import com.github.steveice10.opennbt.tag.builtin.StringTag;
 import com.github.steveice10.opennbt.tag.builtin.Tag;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.minecraft.RegistryType;
@@ -83,21 +84,21 @@ public class MappingDataBase implements MappingData {
             entityMappings = loadFullMappings(data, unmappedIdentifierData, mappedIdentifierData, "entities");
             argumentTypeMappings = loadFullMappings(data, unmappedIdentifierData, mappedIdentifierData, "argumenttypes");
 
-            final ListTag unmappedParticles = unmappedIdentifierData.get("particles");
-            final ListTag mappedParticles = mappedIdentifierData.get("particles");
+            final ListTag<StringTag> unmappedParticles = unmappedIdentifierData.getListTag("particles", StringTag.class);
+            final ListTag<StringTag> mappedParticles = mappedIdentifierData.getListTag("particles", StringTag.class);
             if (unmappedParticles != null && mappedParticles != null) {
                 Mappings particleMappings = loadMappings(data, "particles");
                 if (particleMappings == null) {
                     particleMappings = new IdentityMappings(unmappedParticles.size(), mappedParticles.size());
                 }
 
-                final List<String> identifiers = unmappedParticles.getValue().stream().map(t -> (String) t.getValue()).collect(Collectors.toList());
-                final List<String> mappedIdentifiers = mappedParticles.getValue().stream().map(t -> (String) t.getValue()).collect(Collectors.toList());
+                final List<String> identifiers = unmappedParticles.stream().map(StringTag::getValue).collect(Collectors.toList());
+                final List<String> mappedIdentifiers = mappedParticles.stream().map(StringTag::getValue).collect(Collectors.toList());
                 this.particleMappings = new ParticleMappings(identifiers, mappedIdentifiers, particleMappings);
             }
         }
 
-        final CompoundTag tagsTag = data.get("tags");
+        final CompoundTag tagsTag = data.getCompoundTag("tags");
         if (tagsTag != null) {
             this.tags = new EnumMap<>(RegistryType.class);
             loadTags(RegistryType.ITEM, tagsTag);
@@ -125,7 +126,7 @@ public class MappingDataBase implements MappingData {
     }
 
     private void loadTags(final RegistryType type, final CompoundTag data) {
-        final CompoundTag tag = data.get(type.resourceLocation());
+        final CompoundTag tag = data.getCompoundTag(type.resourceLocation());
         if (tag == null) {
             return;
         }

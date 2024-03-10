@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2023 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,7 +17,13 @@
  */
 package com.viaversion.viaversion.protocols.protocol1_16to1_15_2.packets;
 
-import com.github.steveice10.opennbt.tag.builtin.*;
+import com.github.steveice10.opennbt.tag.builtin.ByteTag;
+import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
+import com.github.steveice10.opennbt.tag.builtin.FloatTag;
+import com.github.steveice10.opennbt.tag.builtin.IntTag;
+import com.github.steveice10.opennbt.tag.builtin.ListTag;
+import com.github.steveice10.opennbt.tag.builtin.LongTag;
+import com.github.steveice10.opennbt.tag.builtin.StringTag;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.minecraft.WorldIdentifiers;
 import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_16;
@@ -33,7 +39,6 @@ import com.viaversion.viaversion.protocols.protocol1_16to1_15_2.ServerboundPacke
 import com.viaversion.viaversion.protocols.protocol1_16to1_15_2.metadata.MetadataRewriter1_16To1_15_2;
 import com.viaversion.viaversion.protocols.protocol1_16to1_15_2.storage.InventoryTracker1_16;
 import com.viaversion.viaversion.util.Key;
-
 import java.util.Arrays;
 import java.util.UUID;
 
@@ -74,7 +79,7 @@ public class EntityPackets {
     private static final String[] WORLD_NAMES = {"minecraft:overworld", "minecraft:the_nether", "minecraft:the_end"};
 
     static {
-        ListTag list = new ListTag(CompoundTag.class);
+        ListTag<CompoundTag> list = new ListTag<>(CompoundTag.class);
         list.add(createOverworldEntry());
         list.add(createOverworldCavesEntry());
         list.add(createNetherEntry());
@@ -210,7 +215,7 @@ public class EntityPackets {
                 handler(wrapper -> {
                     wrapper.write(Type.BYTE, (byte) -1); // Previous gamemode, set to none
                     wrapper.write(Type.STRING_ARRAY, Arrays.copyOf(WORLD_NAMES, WORLD_NAMES.length)); // World list - only used for command completion
-                    wrapper.write(Type.NAMED_COMPOUND_TAG, DIMENSIONS_TAG.clone()); // Dimension registry
+                    wrapper.write(Type.NAMED_COMPOUND_TAG, DIMENSIONS_TAG.copy()); // Dimension registry
                 });
                 handler(DIMENSION_HANDLER); // Dimension
                 map(Type.LONG); // Seed

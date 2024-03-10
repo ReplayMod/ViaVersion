@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2023 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,7 +17,11 @@
  */
 package com.viaversion.viaversion.protocols.protocol1_14to1_13_2.packets;
 
-import com.github.steveice10.opennbt.tag.builtin.*;
+import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
+import com.github.steveice10.opennbt.tag.builtin.DoubleTag;
+import com.github.steveice10.opennbt.tag.builtin.ListTag;
+import com.github.steveice10.opennbt.tag.builtin.StringTag;
+import com.github.steveice10.opennbt.tag.builtin.Tag;
 import com.google.common.collect.Sets;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -27,7 +31,6 @@ import com.viaversion.viaversion.api.minecraft.item.Item;
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.protocol.remapper.PacketHandlers;
 import com.viaversion.viaversion.api.type.Type;
-import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.ChatRewriter;
 import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.ClientboundPackets1_13;
 import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.ServerboundPackets1_13;
 import com.viaversion.viaversion.protocols.protocol1_14to1_13_2.ClientboundPackets1_14;
@@ -37,8 +40,8 @@ import com.viaversion.viaversion.protocols.protocol1_14to1_13_2.storage.EntityTr
 import com.viaversion.viaversion.rewriter.ComponentRewriter;
 import com.viaversion.viaversion.rewriter.ItemRewriter;
 import com.viaversion.viaversion.rewriter.RecipeRewriter;
+import com.viaversion.viaversion.util.ComponentUtil;
 import com.viaversion.viaversion.util.Key;
-
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -57,13 +60,13 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_13, Serve
     };
 
     public InventoryPackets(Protocol1_14To1_13_2 protocol) {
-        super(protocol, Type.ITEM1_13_2, Type.ITEM1_13_2_ARRAY);
+        super(protocol, Type.ITEM1_13_2, Type.ITEM1_13_2_SHORT_ARRAY);
     }
 
     @Override
     public void registerPackets() {
         registerSetCooldown(ClientboundPackets1_13.COOLDOWN);
-        registerAdvancements(ClientboundPackets1_13.ADVANCEMENTS, Type.ITEM1_13_2);
+        registerAdvancements(ClientboundPackets1_13.ADVANCEMENTS);
 
         protocol.registerClientbound(ClientboundPackets1_13.OPEN_WINDOW, null, wrapper -> {
             Short windowId = wrapper.read(Type.UNSIGNED_BYTE);
@@ -133,8 +136,8 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_13, Serve
             }
         });
 
-        registerWindowItems(ClientboundPackets1_13.WINDOW_ITEMS, Type.ITEM1_13_2_SHORT_ARRAY);
-        registerSetSlot(ClientboundPackets1_13.SET_SLOT, Type.ITEM1_13_2);
+        registerWindowItems(ClientboundPackets1_13.WINDOW_ITEMS);
+        registerSetSlot(ClientboundPackets1_13.SET_SLOT);
 
         protocol.registerClientbound(ClientboundPackets1_13.PLUGIN_MESSAGE, new PacketHandlers() {
             @Override
@@ -187,7 +190,7 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_13, Serve
             }
         });
 
-        registerEntityEquipment(ClientboundPackets1_13.ENTITY_EQUIPMENT, Type.ITEM1_13_2);
+        registerEntityEquipment(ClientboundPackets1_13.ENTITY_EQUIPMENT);
 
         RecipeRewriter<ClientboundPackets1_13> recipeRewriter = new RecipeRewriter<>(protocol);
         protocol.registerClientbound(ClientboundPackets1_13.DECLARE_RECIPES, wrapper -> {
@@ -209,7 +212,7 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_13, Serve
         });
 
 
-        registerClickWindow(ServerboundPackets1_14.CLICK_WINDOW, Type.ITEM1_13_2);
+        registerClickWindow(ServerboundPackets1_14.CLICK_WINDOW);
 
         protocol.registerServerbound(ServerboundPackets1_14.SELECT_TRADE, wrapper -> {
             // Selecting trade now moves the items, we need to resync the inventory
@@ -226,9 +229,9 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_13, Serve
             resyncPacket.scheduleSendToServer(Protocol1_14To1_13_2.class);
         });
 
-        registerCreativeInvAction(ServerboundPackets1_14.CREATIVE_INVENTORY_ACTION, Type.ITEM1_13_2);
+        registerCreativeInvAction(ServerboundPackets1_14.CREATIVE_INVENTORY_ACTION);
 
-        registerSpawnParticle(ClientboundPackets1_13.SPAWN_PARTICLE, Type.ITEM1_13_2, Type.FLOAT);
+        registerSpawnParticle(ClientboundPackets1_13.SPAWN_PARTICLE, Type.FLOAT);
     }
 
     @Override
@@ -239,18 +242,14 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_13, Serve
         if (item.tag() == null) return item;
 
         // Display Lore now uses JSON
-        Tag displayTag = item.tag().get("display");
-        if (displayTag instanceof CompoundTag) {
-            CompoundTag display = (CompoundTag) displayTag;
-            Tag loreTag = display.get("Lore");
-            if (loreTag instanceof ListTag) {
-                ListTag lore = (ListTag) loreTag;
-                display.put(NBT_TAG_NAME + "|Lore", new ListTag(lore.clone().getValue())); // Save old lore
-                for (Tag loreEntry : lore) {
-                    if (loreEntry instanceof StringTag) {
-                        String jsonText = ChatRewriter.legacyTextToJsonString(((StringTag) loreEntry).getValue(), true);
-                        ((StringTag) loreEntry).setValue(jsonText);
-                    }
+        CompoundTag display = item.tag().getCompoundTag("display");
+        if (display != null) {
+            ListTag<StringTag> lore = display.getListTag("Lore", StringTag.class);
+            if (lore != null) {
+                display.put(NBT_TAG_NAME + "|Lore", new ListTag<>(lore.copy().getValue())); // Save old lore
+                for (StringTag loreEntry : lore) {
+                    String jsonText = ComponentUtil.legacyToJsonString(loreEntry.getValue(), true);
+                    loreEntry.setValue(jsonText);
                 }
             }
         }
@@ -265,20 +264,16 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_13, Serve
         if (item.tag() == null) return item;
 
         // Display Name now uses JSON
-        Tag displayTag = item.tag().get("display");
-        if (displayTag instanceof CompoundTag) {
-            CompoundTag display = (CompoundTag) displayTag;
-            Tag loreTag = display.get("Lore");
-            if (loreTag instanceof ListTag) {
-                ListTag lore = (ListTag) loreTag;
-                ListTag savedLore = display.remove(NBT_TAG_NAME + "|Lore");
-                if (savedLore != null) {
-                    display.put("Lore", new ListTag(savedLore.getValue()));
+        CompoundTag display = item.tag().getCompoundTag("display");
+        if (display != null) {
+            ListTag<StringTag> lore = display.getListTag("Lore", StringTag.class);
+            if (lore != null) {
+                Tag savedLore = display.remove(NBT_TAG_NAME + "|Lore");
+                if (savedLore instanceof ListTag) {
+                    display.put("Lore", new ListTag<>(((ListTag<?>) savedLore).getValue()));
                 } else {
-                    for (Tag loreEntry : lore) {
-                        if (loreEntry instanceof StringTag) {
-                            ((StringTag) loreEntry).setValue(ChatRewriter.jsonToLegacyText(((StringTag) loreEntry).getValue()));
-                        }
+                    for (StringTag loreEntry : lore) {
+                        loreEntry.setValue(ComponentUtil.jsonToLegacy(loreEntry.getValue()));
                     }
                 }
             }

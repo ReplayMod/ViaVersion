@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2023 ViaVersion and contributors
+ * Copyright (C) 2016-2024 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -26,6 +26,7 @@ import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
 import com.viaversion.viaversion.api.type.OptionalType;
 import com.viaversion.viaversion.api.type.Type;
 import io.netty.buffer.ByteBuf;
+import java.io.IOException;
 
 
 /**
@@ -41,12 +42,12 @@ public class CompoundTagType extends Type<CompoundTag> {
     }
 
     @Override
-    public CompoundTag read(final ByteBuf buffer) throws Exception {
+    public CompoundTag read(final ByteBuf buffer) throws IOException {
         return NamedCompoundTagType.read(buffer, false);
     }
 
     @Override
-    public void write(final ByteBuf buffer, final CompoundTag object) throws Exception {
+    public void write(final ByteBuf buffer, final CompoundTag object) throws IOException {
         NamedCompoundTagType.write(buffer, object, null);
     }
 
