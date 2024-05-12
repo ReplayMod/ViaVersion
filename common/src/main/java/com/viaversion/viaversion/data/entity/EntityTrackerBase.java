@@ -26,14 +26,15 @@ import com.viaversion.viaversion.api.data.entity.EntityTracker;
 import com.viaversion.viaversion.api.data.entity.StoredEntityData;
 import com.viaversion.viaversion.api.data.entity.TrackedEntity;
 import com.viaversion.viaversion.api.minecraft.entities.EntityType;
+import com.viaversion.viaversion.util.Key;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.Collections;
 import java.util.Map;
 import org.checkerframework.checker.nullness.qual.Nullable;
-import space.vectrix.flare.fastutil.Int2ObjectSyncMap;
 
 public class EntityTrackerBase implements EntityTracker, ClientEntityIdChangeListener {
-    private final Int2ObjectMap<TrackedEntity> entities = Int2ObjectSyncMap.hashmap();
+    private final Int2ObjectMap<TrackedEntity> entities = new Int2ObjectOpenHashMap<>();
     private final UserConnection connection;
     private final EntityType playerType;
     private int clientEntityId = -1;
@@ -171,7 +172,12 @@ public class EntityTrackerBase implements EntityTracker, ClientEntityIdChangeLis
 
     @Override
     public @Nullable DimensionData dimensionData(String dimension) {
-        return dimensions.get(dimension);
+        return dimensions.get(Key.stripMinecraftNamespace(dimension));
+    }
+
+    @Override
+    public @Nullable DimensionData dimensionData(int dimensionId) {
+        return dimensions.values().stream().filter(data -> data.id() == dimensionId).findFirst().orElse(null); // TODO Store as array as well
     }
 
     @Override

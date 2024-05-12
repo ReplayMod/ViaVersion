@@ -32,9 +32,8 @@ public class VelocityViaConfig extends AbstractViaConfig {
     private boolean velocityPingSave;
     private Map<String, Integer> velocityServerProtocols;
 
-    public VelocityViaConfig(File configFile) {
-        super(new File(configFile, "config.yml"));
-        reload();
+    public VelocityViaConfig(File folder) {
+        super(new File(folder, "config.yml"));
     }
 
     @Override
@@ -42,7 +41,7 @@ public class VelocityViaConfig extends AbstractViaConfig {
         super.loadFields();
         velocityPingInterval = getInt("velocity-ping-interval", 60);
         velocityPingSave = getBoolean("velocity-ping-save", true);
-        velocityServerProtocols = get("velocity-servers", Map.class, new HashMap<>());
+        velocityServerProtocols = get("velocity-servers", new HashMap<>());
     }
 
     @Override

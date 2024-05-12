@@ -17,14 +17,15 @@
  */
 package com.viaversion.viaversion.protocols.base;
 
-import com.viaversion.viaversion.api.protocol.packet.ServerboundPacketType;
 import com.viaversion.viaversion.api.protocol.packet.State;
+import com.viaversion.viaversion.protocols.base.packet.BaseServerboundPacket;
 
-public enum ServerboundLoginPackets implements ServerboundPacketType {
+public enum ServerboundLoginPackets implements BaseServerboundPacket {
     HELLO, // 0x00
     ENCRYPTION_KEY, // 0x01
     CUSTOM_QUERY_ANSWER, // 0x02
-    LOGIN_ACKNOWLEDGED; // 0x03
+    LOGIN_ACKNOWLEDGED, // 0x03
+    COOKIE_RESPONSE; // 0x04
 
     @Override
     public final int getId() {

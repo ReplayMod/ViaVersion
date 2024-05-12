@@ -20,16 +20,14 @@ package com.viaversion.viaversion.template.protocols;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.data.MappingData;
 import com.viaversion.viaversion.api.data.MappingDataBase;
-import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_20_3;
+import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_20_5;
 import com.viaversion.viaversion.api.protocol.AbstractProtocol;
-import com.viaversion.viaversion.api.protocol.packet.ClientboundPacketType;
-import com.viaversion.viaversion.api.protocol.packet.ServerboundPacketType;
-import com.viaversion.viaversion.api.protocol.packet.State;
 import com.viaversion.viaversion.data.entity.EntityTrackerBase;
-import com.viaversion.viaversion.protocols.protocol1_20_2to1_20.packet.ClientboundPackets1_20_2;
-import com.viaversion.viaversion.protocols.protocol1_20_2to1_20.packet.ServerboundConfigurationPackets1_20_2;
-import com.viaversion.viaversion.protocols.protocol1_20_3to1_20_2.packet.ClientboundConfigurationPackets1_20_3;
-import com.viaversion.viaversion.protocols.protocol1_20_3to1_20_2.packet.ServerboundPackets1_20_3;
+import com.viaversion.viaversion.protocols.protocol1_20_5to1_20_3.packet.ClientboundConfigurationPackets1_20_5;
+import com.viaversion.viaversion.protocols.protocol1_20_5to1_20_3.packet.ClientboundPacket1_20_5;
+import com.viaversion.viaversion.protocols.protocol1_20_5to1_20_3.packet.ClientboundPackets1_20_5;
+import com.viaversion.viaversion.protocols.protocol1_20_5to1_20_3.packet.ServerboundPacket1_20_5;
+import com.viaversion.viaversion.rewriter.AttributeRewriter;
 import com.viaversion.viaversion.rewriter.SoundRewriter;
 import com.viaversion.viaversion.rewriter.StatisticsRewriter;
 import com.viaversion.viaversion.rewriter.TagRewriter;
@@ -38,42 +36,38 @@ import com.viaversion.viaversion.template.protocols.rewriter.EntityPacketRewrite
 
 // Placeholders to replace (in the entire package):
 //   Protocol1_99To_98, EntityPacketRewriter1_99, BlockItemPacketRewriter1_99
-//   ClientboundPackets1_20_2
-//   ServerboundPackets1_20_3
-//   ClientboundConfigurationPackets1_20_3
-//   ServerboundConfigurationPackets1_20_2
-//   Entity1_19_4Types (MAPPED type)
+//   ClientboundPacket1_20_5
+//   ServerboundPacket1_20_5
+//   EntityTypes1_20_5 (MAPPED type)
 //   1.99, 1.98
-public final class Protocol1_99To_98 extends AbstractProtocol<ClientboundPackets1_20_2, ClientboundPackets1_20_2, ServerboundPackets1_20_3, ServerboundPackets1_20_3> {
+public final class Protocol1_99To_98 extends AbstractProtocol<ClientboundPacket1_20_5, ClientboundPacket1_20_5, ServerboundPacket1_20_5, ServerboundPacket1_20_5> {
 
     public static final MappingData MAPPINGS = new MappingDataBase("1.98", "1.99");
     private final EntityPacketRewriter1_99 entityRewriter = new EntityPacketRewriter1_99(this);
     private final BlockItemPacketRewriter1_99 itemRewriter = new BlockItemPacketRewriter1_99(this);
+    private final TagRewriter<ClientboundPacket1_20_5> tagRewriter = new TagRewriter<>(this);
 
     public Protocol1_99To_98() {
         // Passing the class types into the super constructor is needed for automatic packet type id remapping, but can otherwise be omitted
-        super(ClientboundPackets1_20_2.class, ClientboundPackets1_20_2.class, ServerboundPackets1_20_3.class, ServerboundPackets1_20_3.class);
+        super(ClientboundPacket1_20_5.class, ClientboundPacket1_20_5.class, ServerboundPacket1_20_5.class, ServerboundPacket1_20_5.class);
     }
 
     @Override
     protected void registerPackets() {
         super.registerPackets();
 
-        // Registers renames etc. as well as registry type id changes
-        final TagRewriter<ClientboundPackets1_20_2> tagRewriter = new TagRewriter<>(this);
-        tagRewriter.registerGeneric(ClientboundPackets1_20_2.TAGS);
-        tagRewriter.registerGeneric(State.CONFIGURATION, ClientboundConfigurationPackets1_20_3.UPDATE_TAGS);
+        tagRewriter.registerGeneric(ClientboundPackets1_20_5.TAGS);
+        tagRewriter.registerGeneric(ClientboundConfigurationPackets1_20_5.UPDATE_TAGS);
 
-        // Registers sound id changes
-        final SoundRewriter<ClientboundPackets1_20_2> soundRewriter = new SoundRewriter<>(this);
-        soundRewriter.register1_19_3Sound(ClientboundPackets1_20_2.SOUND);
-        soundRewriter.registerSound(ClientboundPackets1_20_2.ENTITY_SOUND);
+        final SoundRewriter<ClientboundPacket1_20_5> soundRewriter = new SoundRewriter<>(this);
+        soundRewriter.register1_19_3Sound(ClientboundPackets1_20_5.SOUND);
+        soundRewriter.register1_19_3Sound(ClientboundPackets1_20_5.ENTITY_SOUND);
 
-        // Registers registry type id changes as well as stat id changes if also included in the json mappings
-        new StatisticsRewriter<>(this).register(ClientboundPackets1_20_2.STATISTICS);
+        new StatisticsRewriter<>(this).register(ClientboundPackets1_20_5.STATISTICS);
+        new AttributeRewriter<>(this).register1_20_5(ClientboundPackets1_20_5.ENTITY_PROPERTIES);
 
         // Uncomment if an existing type changed serialization format. Mappings for argument type keys can also be defined in mapping files
-        /*final CommandRewriter1_19_4<ClientboundPackets1_20_2> commandRewriter = new CommandRewriter1_19_4<ClientboundPackets1_20_2>(this) {
+        /*final CommandRewriter1_19_4<ClientboundPackets1_20_5> commandRewriter = new CommandRewriter1_19_4<ClientboundPackets1_20_5>(this) {
             @Override
             public void handleArgument(final PacketWrapper wrapper, final String argumentType) throws Exception {
                 if (argumentType.equals("minecraft:abc")) {
@@ -83,18 +77,19 @@ public final class Protocol1_99To_98 extends AbstractProtocol<ClientboundPackets
                     super.handleArgument(wrapper, argumentType);
                 }
             }
-        }.registerDeclareCommands1_19(ClientboundPackets1_20_2.DECLARE_COMMANDS);*/
+        }.registerDeclareCommands1_19(ClientboundPackets1_20_5.DECLARE_COMMANDS);*/
+
+        // TODO Rewrite structured data ids and items within them
+
     }
 
     @Override
     protected void onMappingDataLoaded() {
-        super.onMappingDataLoaded(); // Calls load methods on rewriters
-
-        // Uncomment this if the entity types enum has been newly added specificly for this Protocol
-        // Entity1_20_3Types.initialize(this);
+        // Uncomment this if the entity types enum has been newly added specifically for this Protocol
+        // EntityTypes1_20_5.initialize(this);
 
         // Uncomment if a new particle was added = ids shifted; requires a new Types_ class copied from the last
-        /*Types1_20_3.PARTICLE.filler(this)
+        /*Types1_20_5.PARTICLE.filler(this)
                 .reader("block", ParticleType.Readers.BLOCK)
                 .reader("block_marker", ParticleType.Readers.BLOCK)
                 .reader("dust", ParticleType.Readers.DUST)
@@ -104,15 +99,18 @@ public final class Protocol1_99To_98 extends AbstractProtocol<ClientboundPackets
                 .reader("vibration", ParticleType.Readers.VIBRATION1_20_3)
                 .reader("sculk_charge", ParticleType.Readers.SCULK_CHARGE)
                 .reader("shriek", ParticleType.Readers.SHRIEK);*/
+
+        super.onMappingDataLoaded(); // Calls load methods on rewriters. Last in case the rewriters access the above filled data
     }
 
     @Override
     public void init(final UserConnection connection) {
         // Register the entity tracker - used for entity id/metadata rewriting AND for tracking world data sent to the client (then used for chunk data rewriting)
-        addEntityTracker(connection, new EntityTrackerBase(connection, EntityTypes1_20_3.PLAYER));
+        addEntityTracker(connection, new EntityTrackerBase(connection, EntityTypes1_20_5.PLAYER));
     }
 
-    // Overriding these three methods is important as they are relied on various rewriter classes
+    // Overriding these four methods is important as they are relied on various rewriter classes
+    // and have mapping load methods called in AbstractProtocol via the getters
     @Override
     public MappingData getMappingData() {
         return MAPPINGS;
@@ -129,12 +127,7 @@ public final class Protocol1_99To_98 extends AbstractProtocol<ClientboundPackets
     }
 
     @Override
-    protected ClientboundPacketType clientboundFinishConfigurationPacket() {
-        return ClientboundConfigurationPackets1_20_3.FINISH_CONFIGURATION;
-    }
-
-    @Override
-    protected ServerboundPacketType serverboundFinishConfigurationPacket() {
-        return ServerboundConfigurationPackets1_20_2.FINISH_CONFIGURATION;
+    public TagRewriter<ClientboundPacket1_20_5> getTagRewriter() {
+        return tagRewriter;
     }
 }

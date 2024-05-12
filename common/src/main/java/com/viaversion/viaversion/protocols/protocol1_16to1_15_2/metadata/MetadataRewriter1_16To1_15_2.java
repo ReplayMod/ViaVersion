@@ -18,7 +18,6 @@
 package com.viaversion.viaversion.protocols.protocol1_16to1_15_2.metadata;
 
 import com.viaversion.viaversion.api.minecraft.entities.EntityType;
-import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_15;
 import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_16;
 import com.viaversion.viaversion.api.minecraft.metadata.Metadata;
 import com.viaversion.viaversion.api.type.types.version.Types1_16;
@@ -30,14 +29,12 @@ public class MetadataRewriter1_16To1_15_2 extends EntityRewriter<ClientboundPack
 
     public MetadataRewriter1_16To1_15_2(Protocol1_16To1_15_2 protocol) {
         super(protocol);
-        mapEntityType(EntityTypes1_15.ZOMBIE_PIGMAN, EntityTypes1_16.ZOMBIFIED_PIGLIN);
-        mapTypes(EntityTypes1_15.values(), EntityTypes1_16.class);
     }
 
     @Override
     protected void registerRewrites() {
         filter().mapMetaType(Types1_16.META_TYPES::byId);
-        registerMetaTypeHandler(Types1_16.META_TYPES.itemType, Types1_16.META_TYPES.blockStateType, null, Types1_16.META_TYPES.particleType);
+        registerMetaTypeHandler(Types1_16.META_TYPES.itemType, Types1_16.META_TYPES.blockStateType, Types1_16.META_TYPES.particleType);
         filter().type(EntityTypes1_16.MINECART_ABSTRACT).index(10).handler((metadatas, meta) -> {
             int data = meta.value();
             meta.setValue(protocol.getMappingData().getNewBlockStateId(data));
@@ -48,6 +45,11 @@ public class MetadataRewriter1_16To1_15_2 extends EntityRewriter<ClientboundPack
             int angerTime = (mask & 0x02) != 0 ? Integer.MAX_VALUE : 0;
             event.createExtraMeta(new Metadata(20, Types1_16.META_TYPES.varIntType, angerTime));
         });
+    }
+
+    @Override
+    public void onMappingDataLoaded() {
+        mapTypes();
     }
 
     @Override

@@ -188,8 +188,6 @@ public final class Protocol1_17To1_16_4 extends AbstractProtocol<ClientboundPack
 
     @Override
     protected void onMappingDataLoaded() {
-        tagRewriter.loadFromMappingData(); // Load filled extra tags
-
         tagRewriter.addEmptyTags(RegistryType.ITEM, "minecraft:candles", "minecraft:ignored_by_piglin_babies", "minecraft:piglin_food", "minecraft:freeze_immune_wearables",
                 "minecraft:axolotl_tempt_items", "minecraft:occludes_vibration_signals", "minecraft:fox_food",
                 "minecraft:diamond_ores", "minecraft:iron_ores", "minecraft:lapis_ores", "minecraft:redstone_ores",
@@ -203,6 +201,7 @@ public final class Protocol1_17To1_16_4 extends AbstractProtocol<ClientboundPack
         tagRewriter.addEmptyTags(RegistryType.ENTITY, "minecraft:powder_snow_walkable_mobs", "minecraft:axolotl_always_hostiles", "minecraft:axolotl_tempted_hostiles",
                 "minecraft:axolotl_hunt_targets", "minecraft:freeze_hurts_extra_types", "minecraft:freeze_immune_entity_types");
 
+        EntityTypes1_17.initialize(this);
         Types1_17.PARTICLE.filler(this)
                 .reader("block", ParticleType.Readers.BLOCK)
                 .reader("dust", ParticleType.Readers.DUST)
@@ -210,6 +209,8 @@ public final class Protocol1_17To1_16_4 extends AbstractProtocol<ClientboundPack
                 .reader("dust_color_transition", ParticleType.Readers.DUST_TRANSITION)
                 .reader("item", ParticleType.Readers.ITEM1_13_2)
                 .reader("vibration", ParticleType.Readers.VIBRATION);
+
+        super.onMappingDataLoaded();
     }
 
     @Override
@@ -231,5 +232,10 @@ public final class Protocol1_17To1_16_4 extends AbstractProtocol<ClientboundPack
     @Override
     public InventoryPackets getItemRewriter() {
         return itemRewriter;
+    }
+
+    @Override
+    public TagRewriter<ClientboundPackets1_16_2> getTagRewriter() {
+        return tagRewriter;
     }
 }

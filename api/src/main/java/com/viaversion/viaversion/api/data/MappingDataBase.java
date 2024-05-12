@@ -24,8 +24,6 @@ package com.viaversion.viaversion.api.data;
 
 import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
 import com.github.steveice10.opennbt.tag.builtin.IntArrayTag;
-import com.github.steveice10.opennbt.tag.builtin.ListTag;
-import com.github.steveice10.opennbt.tag.builtin.StringTag;
 import com.github.steveice10.opennbt.tag.builtin.Tag;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.minecraft.RegistryType;
@@ -35,7 +33,6 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 public class MappingDataBase implements MappingData {
@@ -45,6 +42,8 @@ public class MappingDataBase implements MappingData {
     protected BiMappings itemMappings;
     protected FullMappings argumentTypeMappings;
     protected FullMappings entityMappings;
+    protected FullMappings recipeSerializerMappings;
+    protected FullMappings itemDataSerializerMappings;
     protected ParticleMappings particleMappings;
     protected Mappings blockMappings;
     protected Mappings blockStateMappings;
@@ -54,6 +53,7 @@ public class MappingDataBase implements MappingData {
     protected Mappings enchantmentMappings;
     protected Mappings paintingMappings;
     protected Mappings menuMappings;
+    protected Mappings attributeMappings;
     protected Map<RegistryType, List<TagData>> tags;
 
     public MappingDataBase(final String unmappedVersion, final String mappedVersion) {
@@ -67,7 +67,7 @@ public class MappingDataBase implements MappingData {
             getLogger().info("Loading " + unmappedVersion + " -> " + mappedVersion + " mappings...");
         }
 
-        final CompoundTag data = readNBTFile("mappings-" + unmappedVersion + "to" + mappedVersion + ".nbt");
+        final CompoundTag data = readMappingsFile("mappings-" + unmappedVersion + "to" + mappedVersion + ".nbt");
         blockMappings = loadMappings(data, "blocks");
         blockStateMappings = loadMappings(data, "blockstates");
         blockEntityMappings = loadMappings(data, "blockentities");
@@ -76,26 +76,30 @@ public class MappingDataBase implements MappingData {
         menuMappings = loadMappings(data, "menus");
         enchantmentMappings = loadMappings(data, "enchantments");
         paintingMappings = loadMappings(data, "paintings");
-        itemMappings = loadBiMappings(data, "items");
+        attributeMappings = loadMappings(data, "attributes");
 
-        final CompoundTag unmappedIdentifierData = MappingDataLoader.loadNBT("identifiers-" + unmappedVersion + ".nbt", true);
-        final CompoundTag mappedIdentifierData = MappingDataLoader.loadNBT("identifiers-" + mappedVersion + ".nbt", true);
+
+        final CompoundTag unmappedIdentifierData = readUnmappedIdentifiersFile("identifiers-" + unmappedVersion + ".nbt");
+        final CompoundTag mappedIdentifierData = readMappedIdentifiersFile("identifiers-" + mappedVersion + ".nbt");
         if (unmappedIdentifierData != null && mappedIdentifierData != null) {
+            itemMappings = loadFullMappings(data, unmappedIdentifierData, mappedIdentifierData, "items");
             entityMappings = loadFullMappings(data, unmappedIdentifierData, mappedIdentifierData, "entities");
             argumentTypeMappings = loadFullMappings(data, unmappedIdentifierData, mappedIdentifierData, "argumenttypes");
+            recipeSerializerMappings = loadFullMappings(data, unmappedIdentifierData, mappedIdentifierData, "recipe_serializers");
+            itemDataSerializerMappings = loadFullMappings(data, unmappedIdentifierData, mappedIdentifierData, "data_component_type");
 
-            final ListTag<StringTag> unmappedParticles = unmappedIdentifierData.getListTag("particles", StringTag.class);
-            final ListTag<StringTag> mappedParticles = mappedIdentifierData.getListTag("particles", StringTag.class);
+            final List<String> unmappedParticles = identifiersFromGlobalIds(unmappedIdentifierData, "particles");
+            final List<String> mappedParticles = identifiersFromGlobalIds(mappedIdentifierData, "particles");
             if (unmappedParticles != null && mappedParticles != null) {
                 Mappings particleMappings = loadMappings(data, "particles");
                 if (particleMappings == null) {
                     particleMappings = new IdentityMappings(unmappedParticles.size(), mappedParticles.size());
                 }
-
-                final List<String> identifiers = unmappedParticles.stream().map(StringTag::getValue).collect(Collectors.toList());
-                final List<String> mappedIdentifiers = mappedParticles.stream().map(StringTag::getValue).collect(Collectors.toList());
-                this.particleMappings = new ParticleMappings(identifiers, mappedIdentifiers, particleMappings);
+                this.particleMappings = new ParticleMappings(unmappedParticles, mappedParticles, particleMappings);
             }
+        } else {
+            // Might not have identifiers in older versions
+            itemMappings = loadBiMappings(data, "items");
         }
 
         final CompoundTag tagsTag = data.getCompoundTag("tags");
@@ -108,16 +112,39 @@ public class MappingDataBase implements MappingData {
         loadExtras(data);
     }
 
-    protected @Nullable CompoundTag readNBTFile(final String name) {
-        return MappingDataLoader.loadNBT(name);
+    protected @Nullable List<String> identifiersFromGlobalIds(final CompoundTag mappingsTag, final String key) {
+        return MappingDataLoader.INSTANCE.identifiersFromGlobalIds(mappingsTag, key);
+    }
+
+    protected @Nullable CompoundTag readMappingsFile(final String name) {
+        return MappingDataLoader.INSTANCE.loadNBT(name);
+    }
+
+    protected @Nullable CompoundTag readUnmappedIdentifiersFile(final String name) {
+        return MappingDataLoader.INSTANCE.loadNBT(name, true);
+    }
+
+    protected @Nullable CompoundTag readMappedIdentifiersFile(final String name) {
+        return MappingDataLoader.INSTANCE.loadNBT(name, true);
     }
 
     protected @Nullable Mappings loadMappings(final CompoundTag data, final String key) {
-        return MappingDataLoader.loadMappings(data, key);
+        return MappingDataLoader.INSTANCE.loadMappings(data, key);
     }
 
-    protected @Nullable FullMappings loadFullMappings(final CompoundTag data, final CompoundTag unmappedIdentifiers, final CompoundTag mappedIdentifiers, final String key) {
-        return MappingDataLoader.loadFullMappings(data, unmappedIdentifiers, mappedIdentifiers, key);
+    protected @Nullable FullMappings loadFullMappings(final CompoundTag data, final CompoundTag unmappedIdentifiersTag, final CompoundTag mappedIdentifiersTag, final String key) {
+        if (!unmappedIdentifiersTag.contains(key) || !mappedIdentifiersTag.contains(key)) {
+            return null;
+        }
+
+        final List<String> unmappedIdentifiers = identifiersFromGlobalIds(unmappedIdentifiersTag, key);
+        final List<String> mappedIdentifiers = identifiersFromGlobalIds(mappedIdentifiersTag, key);
+        Mappings mappings = loadBiMappings(data, key); // Load as bi-mappings to keep the inverse cached
+        if (mappings == null) {
+            mappings = new IdentityMappings(unmappedIdentifiers.size(), mappedIdentifiers.size());
+        }
+
+        return new FullMappingsBase(unmappedIdentifiers, mappedIdentifiers, mappings);
     }
 
     protected @Nullable BiMappings loadBiMappings(final CompoundTag data, final String key) {
@@ -166,6 +193,11 @@ public class MappingDataBase implements MappingData {
     }
 
     @Override
+    public int getNewAttributeId(final int id) {
+        return checkValidity(id, attributeMappings.getNewId(id), "attributes");
+    }
+
+    @Override
     public @Nullable List<TagData> getTags(final RegistryType type) {
         return tags != null ? tags.get(type) : null;
     }
@@ -173,6 +205,14 @@ public class MappingDataBase implements MappingData {
     @Override
     public @Nullable BiMappings getItemMappings() {
         return itemMappings;
+    }
+
+    @Override
+    public @Nullable FullMappings getFullItemMappings() {
+        if (itemMappings instanceof FullMappings) {
+            return (FullMappings) itemMappings;
+        }
+        return null;
     }
 
     @Override
@@ -216,6 +256,11 @@ public class MappingDataBase implements MappingData {
     }
 
     @Override
+    public @Nullable Mappings getAttributeMappings() {
+        return attributeMappings;
+    }
+
+    @Override
     public @Nullable FullMappings getEntityMappings() {
         return entityMappings;
     }
@@ -226,8 +271,18 @@ public class MappingDataBase implements MappingData {
     }
 
     @Override
+    public @Nullable FullMappings getDataComponentSerializerMappings() {
+        return itemDataSerializerMappings;
+    }
+
+    @Override
     public @Nullable Mappings getPaintingMappings() {
         return paintingMappings;
+    }
+
+    @Override
+    public @Nullable FullMappings getRecipeSerializerMappings() {
+        return recipeSerializerMappings;
     }
 
     protected Logger getLogger() {

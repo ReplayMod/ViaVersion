@@ -23,15 +23,18 @@ import com.viaversion.viaversion.api.data.entity.DimensionData;
 
 public final class DimensionDataImpl implements DimensionData {
 
+    private final int id;
     private final int minY;
     private final int height;
 
-    public DimensionDataImpl(final int minY, final int height) {
+    public DimensionDataImpl(final int id, final int minY, final int height) {
+        this.id = id;
         this.minY = minY;
         this.height = height;
     }
 
-    public DimensionDataImpl(final CompoundTag dimensionData) {
+    public DimensionDataImpl(final int id, final CompoundTag dimensionData) {
+        this.id = id;
         final NumberTag height = dimensionData.getNumberTag("height");
         if (height == null) {
             throw new IllegalArgumentException("height missing in dimension data: " + dimensionData);
@@ -43,6 +46,11 @@ public final class DimensionDataImpl implements DimensionData {
             throw new IllegalArgumentException("min_y missing in dimension data: " + dimensionData);
         }
         this.minY = minY.asInt();
+    }
+
+    @Override
+    public int id() {
+        return id;
     }
 
     @Override

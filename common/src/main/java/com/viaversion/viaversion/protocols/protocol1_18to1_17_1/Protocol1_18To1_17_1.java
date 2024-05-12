@@ -18,6 +18,8 @@
 package com.viaversion.viaversion.protocols.protocol1_18to1_17_1;
 
 import com.viaversion.viaversion.api.connection.UserConnection;
+import com.viaversion.viaversion.api.data.MappingData;
+import com.viaversion.viaversion.api.data.MappingDataBase;
 import com.viaversion.viaversion.api.minecraft.RegistryType;
 import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_17;
 import com.viaversion.viaversion.api.protocol.AbstractProtocol;
@@ -28,7 +30,6 @@ import com.viaversion.viaversion.api.type.types.version.Types1_18;
 import com.viaversion.viaversion.data.entity.EntityTrackerBase;
 import com.viaversion.viaversion.protocols.protocol1_17_1to1_17.ClientboundPackets1_17_1;
 import com.viaversion.viaversion.protocols.protocol1_17to1_16_4.ServerboundPackets1_17;
-import com.viaversion.viaversion.protocols.protocol1_18to1_17_1.data.MappingData;
 import com.viaversion.viaversion.protocols.protocol1_18to1_17_1.packets.EntityPackets;
 import com.viaversion.viaversion.protocols.protocol1_18to1_17_1.packets.InventoryPackets;
 import com.viaversion.viaversion.protocols.protocol1_18to1_17_1.packets.WorldPackets;
@@ -39,9 +40,10 @@ import com.viaversion.viaversion.rewriter.TagRewriter;
 
 public final class Protocol1_18To1_17_1 extends AbstractProtocol<ClientboundPackets1_17_1, ClientboundPackets1_18, ServerboundPackets1_17, ServerboundPackets1_17> {
 
-    public static final MappingData MAPPINGS = new MappingData();
+    public static final MappingData MAPPINGS = new MappingDataBase("1.17", "1.18");
     private final EntityPackets entityRewriter = new EntityPackets(this);
     private final InventoryPackets itemRewriter = new InventoryPackets(this);
+    private final TagRewriter<ClientboundPackets1_17_1> tagRewriter = new TagRewriter<>(this);
 
     public Protocol1_18To1_17_1() {
         super(ClientboundPackets1_17_1.class, ClientboundPackets1_18.class, ServerboundPackets1_17.class, ServerboundPackets1_17.class);
@@ -57,7 +59,6 @@ public final class Protocol1_18To1_17_1 extends AbstractProtocol<ClientboundPack
         soundRewriter.registerSound(ClientboundPackets1_17_1.SOUND);
         soundRewriter.registerSound(ClientboundPackets1_17_1.ENTITY_SOUND);
 
-        final TagRewriter<ClientboundPackets1_17_1> tagRewriter = new TagRewriter<>(this);
         tagRewriter.registerGeneric(ClientboundPackets1_17_1.TAGS);
         tagRewriter.addEmptyTags(RegistryType.BLOCK, "minecraft:lava_pool_stone_cannot_replace", "minecraft:big_dripleaf_placeable",
                 "minecraft:wolves_spawnable_on", "minecraft:rabbits_spawnable_on", "minecraft:polar_bears_spawnable_on_in_frozen_ocean", "minecraft:parrots_spawnable_on",
@@ -92,6 +93,8 @@ public final class Protocol1_18To1_17_1 extends AbstractProtocol<ClientboundPack
                 .reader("dust_color_transition", ParticleType.Readers.DUST_TRANSITION)
                 .reader("item", ParticleType.Readers.ITEM1_13_2)
                 .reader("vibration", ParticleType.Readers.VIBRATION);
+
+        super.onMappingDataLoaded();
     }
 
     @Override

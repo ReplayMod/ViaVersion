@@ -33,9 +33,8 @@ public class BungeeViaConfig extends AbstractViaConfig {
     private boolean bungeePingSave;
     private Map<String, Integer> bungeeServerProtocols;
 
-    public BungeeViaConfig(File configFile) {
-        super(new File(configFile, "config.yml"));
-        reload();
+    public BungeeViaConfig(File folder) {
+        super(new File(folder, "config.yml"));
     }
 
     @Override
@@ -43,7 +42,7 @@ public class BungeeViaConfig extends AbstractViaConfig {
         super.loadFields();
         bungeePingInterval = getInt("bungee-ping-interval", 60);
         bungeePingSave = getBoolean("bungee-ping-save", true);
-        bungeeServerProtocols = get("bungee-servers", Map.class, new HashMap<>());
+        bungeeServerProtocols = get("bungee-servers", new HashMap<>());
     }
 
     @Override
@@ -72,7 +71,7 @@ public class BungeeViaConfig extends AbstractViaConfig {
         }
         // Ensure default exists
         if (!servers.containsKey("default")) {
-            servers.put("default", BungeeVersionProvider.getLowestSupportedVersion());
+            servers.put("default", BungeeVersionProvider.getLowestSupportedVersion().getVersion());
         }
         // Put back
         config.put("bungee-servers", servers);

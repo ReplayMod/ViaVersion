@@ -34,6 +34,7 @@ public interface EntityTracker {
      *
      * @return user connection
      */
+    @Deprecated
     UserConnection user();
 
     /**
@@ -164,6 +165,8 @@ public interface EntityTracker {
     EntityType playerType();
 
     @Nullable DimensionData dimensionData(String dimension);
+
+    @Nullable DimensionData dimensionData(int dimensionId);
 
     void setDimensions(Map<String, DimensionData> dimensions);
 

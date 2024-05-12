@@ -46,6 +46,13 @@ public interface PacketMapping {
      */
     @Nullable PacketHandler handler();
 
+    /**
+     * Appends a packet transformer to the current packet transformer.
+     *
+     * @param handler packet transformer
+     */
+    void appendHandler(PacketHandler handler);
+
     static PacketMapping of(final int mappedPacketId, @Nullable final PacketHandler handler) {
         return new PacketIdMapping(mappedPacketId, handler);
     }

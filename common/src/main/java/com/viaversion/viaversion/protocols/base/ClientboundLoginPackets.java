@@ -17,15 +17,16 @@
  */
 package com.viaversion.viaversion.protocols.base;
 
-import com.viaversion.viaversion.api.protocol.packet.ClientboundPacketType;
 import com.viaversion.viaversion.api.protocol.packet.State;
+import com.viaversion.viaversion.protocols.base.packet.BaseClientboundPacket;
 
-public enum ClientboundLoginPackets implements ClientboundPacketType {
+public enum ClientboundLoginPackets implements BaseClientboundPacket {
     LOGIN_DISCONNECT, // 0x00
     HELLO, // 0x01
     GAME_PROFILE, // 0x02
     LOGIN_COMPRESSION, // 0x03
-    CUSTOM_QUERY; // 0x04
+    CUSTOM_QUERY, // 0x04
+    COOKIE_REQUEST; // 0x05
 
     @Override
     public final int getId() {

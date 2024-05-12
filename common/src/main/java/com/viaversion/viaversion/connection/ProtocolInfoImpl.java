@@ -29,8 +29,8 @@ public class ProtocolInfoImpl implements ProtocolInfo {
     private final UserConnection connection;
     private State clientState = State.HANDSHAKE;
     private State serverState = State.HANDSHAKE;
-    private int protocolVersion = -1;
-    private int serverProtocolVersion = -1;
+    private ProtocolVersion serverProtocolVersion = ProtocolVersion.unknown;
+    private ProtocolVersion protocolVersion = ProtocolVersion.unknown;
     private String username;
     private UUID uuid;
     private ProtocolPipeline pipeline;
@@ -66,26 +66,23 @@ public class ProtocolInfoImpl implements ProtocolInfo {
     }
 
     @Override
-    public int getProtocolVersion() {
+    public ProtocolVersion protocolVersion() {
         return protocolVersion;
     }
 
     @Override
-    public void setProtocolVersion(int protocolVersion) {
-        // Map snapshot versions to the higher/orderer release version
-        ProtocolVersion protocol = ProtocolVersion.getProtocol(protocolVersion);
-        this.protocolVersion = protocol.getVersion();
+    public void setProtocolVersion(ProtocolVersion protocolVersion) {
+        this.protocolVersion = protocolVersion;
     }
 
     @Override
-    public int getServerProtocolVersion() {
+    public ProtocolVersion serverProtocolVersion() {
         return serverProtocolVersion;
     }
 
     @Override
-    public void setServerProtocolVersion(int serverProtocolVersion) {
-        ProtocolVersion protocol = ProtocolVersion.getProtocol(serverProtocolVersion);
-        this.serverProtocolVersion = protocol.getVersion();
+    public void setServerProtocolVersion(ProtocolVersion serverProtocolVersion) {
+        this.serverProtocolVersion = serverProtocolVersion;
     }
 
     @Override
@@ -126,12 +123,12 @@ public class ProtocolInfoImpl implements ProtocolInfo {
     @Override
     public String toString() {
         return "ProtocolInfo{" +
-                "clientState=" + clientState +
-                ", serverState=" + serverState +
-                ", protocolVersion=" + protocolVersion +
-                ", serverProtocolVersion=" + serverProtocolVersion +
-                ", username='" + username + '\'' +
-                ", uuid=" + uuid +
-                '}';
+            "clientState=" + clientState +
+            ", serverState=" + serverState +
+            ", protocolVersion=" + protocolVersion +
+            ", serverProtocolVersion=" + serverProtocolVersion +
+            ", username='" + username + '\'' +
+            ", uuid=" + uuid +
+            '}';
     }
 }

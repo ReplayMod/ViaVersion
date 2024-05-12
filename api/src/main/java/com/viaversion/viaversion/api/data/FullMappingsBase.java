@@ -22,6 +22,7 @@
  */
 package com.viaversion.viaversion.api.data;
 
+import com.google.common.base.Preconditions;
 import com.viaversion.viaversion.util.Key;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
@@ -37,6 +38,7 @@ public class FullMappingsBase implements FullMappings {
     private final Mappings mappings;
 
     public FullMappingsBase(final List<String> unmappedIdentifiers, final List<String> mappedIdentifiers, final Mappings mappings) {
+        Preconditions.checkNotNull(mappings, "Mappings cannot be null");
         this.mappings = mappings;
         this.stringToId = toInverseMap(unmappedIdentifiers);
         this.mappedStringToId = toInverseMap(mappedIdentifiers);
@@ -64,12 +66,20 @@ public class FullMappingsBase implements FullMappings {
 
     @Override
     public String identifier(final int id) {
+        if (id < 0 || id >= idToString.length) {
+            return null;
+        }
+
         final String identifier = idToString[id];
         return Key.namespaced(identifier);
     }
 
     @Override
     public String mappedIdentifier(final int mappedId) {
+        if (mappedId < 0 || mappedId >= mappedIdToString.length) {
+            return null;
+        }
+
         final String identifier = mappedIdToString[mappedId];
         return Key.namespaced(identifier);
     }

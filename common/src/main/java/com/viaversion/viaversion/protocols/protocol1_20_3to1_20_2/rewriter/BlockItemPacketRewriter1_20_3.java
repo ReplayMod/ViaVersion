@@ -23,6 +23,7 @@ import com.github.steveice10.opennbt.tag.builtin.StringTag;
 import com.github.steveice10.opennbt.tag.builtin.Tag;
 import com.google.gson.JsonElement;
 import com.viaversion.viaversion.api.Via;
+import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.data.ParticleMappings;
 import com.viaversion.viaversion.api.minecraft.Particle;
 import com.viaversion.viaversion.api.minecraft.item.Item;
@@ -31,17 +32,20 @@ import com.viaversion.viaversion.api.protocol.remapper.PacketHandlers;
 import com.viaversion.viaversion.api.type.Type;
 import com.viaversion.viaversion.api.type.types.chunk.ChunkType1_20_2;
 import com.viaversion.viaversion.api.type.types.version.Types1_20_3;
+import com.viaversion.viaversion.protocols.protocol1_20_2to1_20.packet.ClientboundPacket1_20_2;
 import com.viaversion.viaversion.protocols.protocol1_20_2to1_20.packet.ClientboundPackets1_20_2;
 import com.viaversion.viaversion.protocols.protocol1_20_2to1_20.rewriter.RecipeRewriter1_20_2;
 import com.viaversion.viaversion.protocols.protocol1_20_3to1_20_2.Protocol1_20_3To1_20_2;
+import com.viaversion.viaversion.protocols.protocol1_20_3to1_20_2.packet.ServerboundPacket1_20_3;
 import com.viaversion.viaversion.protocols.protocol1_20_3to1_20_2.packet.ServerboundPackets1_20_3;
 import com.viaversion.viaversion.rewriter.BlockRewriter;
 import com.viaversion.viaversion.rewriter.ItemRewriter;
 import com.viaversion.viaversion.util.ComponentUtil;
 import com.viaversion.viaversion.util.Key;
+import com.viaversion.viaversion.util.SerializerVersion;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
-public final class BlockItemPacketRewriter1_20_3 extends ItemRewriter<ClientboundPackets1_20_2, ServerboundPackets1_20_3, Protocol1_20_3To1_20_2> {
+public final class BlockItemPacketRewriter1_20_3 extends ItemRewriter<ClientboundPacket1_20_2, ServerboundPacket1_20_3, Protocol1_20_3To1_20_2> {
 
     public BlockItemPacketRewriter1_20_3(final Protocol1_20_3To1_20_2 protocol) {
         super(protocol, Type.ITEM1_20_2, Type.ITEM1_20_2_ARRAY);
@@ -49,7 +53,7 @@ public final class BlockItemPacketRewriter1_20_3 extends ItemRewriter<Clientboun
 
     @Override
     public void registerPackets() {
-        final BlockRewriter<ClientboundPackets1_20_2> blockRewriter = BlockRewriter.for1_20_2(protocol);
+        final BlockRewriter<ClientboundPacket1_20_2> blockRewriter = BlockRewriter.for1_20_2(protocol);
         blockRewriter.registerBlockAction(ClientboundPackets1_20_2.BLOCK_ACTION);
         blockRewriter.registerBlockChange(ClientboundPackets1_20_2.BLOCK_CHANGE);
         blockRewriter.registerVarLongMultiBlockChange1_20(ClientboundPackets1_20_2.MULTI_BLOCK_CHANGE);
@@ -91,7 +95,7 @@ public final class BlockItemPacketRewriter1_20_3 extends ItemRewriter<Clientboun
             }
         });
 
-        new RecipeRewriter1_20_2<ClientboundPackets1_20_2>(protocol) {
+        new RecipeRewriter1_20_2<ClientboundPacket1_20_2>(protocol) {
             @Override
             public void handleCraftingShaped(final PacketWrapper wrapper) throws Exception {
                 // Move width and height down
@@ -107,7 +111,7 @@ public final class BlockItemPacketRewriter1_20_3 extends ItemRewriter<Clientboun
                 for (int i = 0; i < ingredients; i++) {
                     handleIngredient(wrapper);
                 }
-                rewrite(wrapper.passthrough(itemType())); // Result
+                rewrite(wrapper.user(), wrapper.passthrough(itemType())); // Result
                 wrapper.passthrough(Type.BOOLEAN); // Show notification
             }
         }.register(ClientboundPackets1_20_2.DECLARE_RECIPES);
@@ -136,7 +140,7 @@ public final class BlockItemPacketRewriter1_20_3 extends ItemRewriter<Clientboun
     }
 
     @Override
-    public @Nullable Item handleItemToClient(@Nullable final Item item) {
+    public @Nullable Item handleItemToClient(final UserConnection connection, @Nullable final Item item) {
         if (item == null) {
             return null;
         }
@@ -144,9 +148,9 @@ public final class BlockItemPacketRewriter1_20_3 extends ItemRewriter<Clientboun
         final CompoundTag tag = item.tag();
         if (tag != null && item.identifier() == 1047) { // Written book
             updatePages(tag, "pages");
-            updatePages(tag, "filtered_pages");
+            updatePages(tag, "filtered_pages"); // TODO This isn't a list
         }
-        return super.handleItemToClient(item);
+        return super.handleItemToClient(connection, item);
     }
 
     private void updatePages(final CompoundTag tag, final String key) {
@@ -157,7 +161,7 @@ public final class BlockItemPacketRewriter1_20_3 extends ItemRewriter<Clientboun
 
         for (final StringTag pageTag : pages) {
             try {
-                final JsonElement updatedComponent = ComponentUtil.convertJson(pageTag.getValue(), ComponentUtil.SerializerVersion.V1_19_4, ComponentUtil.SerializerVersion.V1_20_3);
+                final JsonElement updatedComponent = ComponentUtil.convertJson(pageTag.getValue(), SerializerVersion.V1_19_4, SerializerVersion.V1_20_3);
                 pageTag.setValue(updatedComponent.toString());
             } catch (final Exception e) {
                 Via.getManager().debugHandler().error("Error during book conversion", e);

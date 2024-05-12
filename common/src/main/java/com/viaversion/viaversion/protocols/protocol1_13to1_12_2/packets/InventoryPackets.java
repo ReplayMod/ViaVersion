@@ -26,6 +26,7 @@ import com.github.steveice10.opennbt.tag.builtin.Tag;
 import com.google.common.base.Joiner;
 import com.google.common.primitives.Ints;
 import com.viaversion.viaversion.api.Via;
+import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.minecraft.item.Item;
 import com.viaversion.viaversion.api.protocol.remapper.PacketHandlers;
 import com.viaversion.viaversion.api.type.Type;
@@ -39,6 +40,7 @@ import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.data.SoundSource
 import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.data.SpawnEggRewriter;
 import com.viaversion.viaversion.rewriter.ItemRewriter;
 import com.viaversion.viaversion.util.ComponentUtil;
+import com.viaversion.viaversion.util.IdAndData;
 import com.viaversion.viaversion.util.Key;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -47,7 +49,6 @@ import java.util.Locale;
 import java.util.Optional;
 
 public class InventoryPackets extends ItemRewriter<ClientboundPackets1_12_1, ServerboundPackets1_13, Protocol1_13To1_12_2> {
-    private static final String NBT_TAG_NAME = "ViaVersion|" + Protocol1_13To1_12_2.class.getSimpleName();
 
     public InventoryPackets(Protocol1_13To1_12_2 protocol) {
         super(protocol, null, null);
@@ -62,7 +63,7 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_12_1, Ser
                 map(Type.SHORT); // 1 - Slot ID
                 map(Type.ITEM1_8, Type.ITEM1_13); // 2 - Slot Value
 
-                handler(itemToClientHandler(Type.ITEM1_13));
+                handler(wrapper -> handleItemToClient(wrapper.user(), wrapper.get(Type.ITEM1_13, 0)));
             }
         });
         protocol.registerClientbound(ClientboundPackets1_12_1.WINDOW_ITEMS, new PacketHandlers() {
@@ -71,7 +72,12 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_12_1, Ser
                 map(Type.UNSIGNED_BYTE); // 0 - Window ID
                 map(Type.ITEM1_8_SHORT_ARRAY, Type.ITEM1_13_SHORT_ARRAY); // 1 - Window Values
 
-                handler(itemArrayToClientHandler(Type.ITEM1_13_SHORT_ARRAY));
+                handler(wrapper -> {
+                    Item[] items = wrapper.get(Type.ITEM1_13_SHORT_ARRAY, 0);
+                    for (Item item : items) {
+                        handleItemToClient(wrapper.user(), item);
+                    }
+                });
             }
         });
         protocol.registerClientbound(ClientboundPackets1_12_1.WINDOW_PROPERTY, new PacketHandlers() {
@@ -96,10 +102,10 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_12_1, Ser
             public void register() {
                 map(Type.STRING); // 0 - Channel
 
-                handler(wrapper -> {
+                handlerSoftFail(wrapper -> {
                     String channel = wrapper.get(Type.STRING, 0);
                     // Handle stopsound change
-                    if (channel.equalsIgnoreCase("MC|StopSound")) {
+                    if (channel.equals("MC|StopSound")) {
                         String originalSource = wrapper.read(Type.STRING);
                         String originalSound = wrapper.read(Type.STRING);
 
@@ -129,7 +135,7 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_12_1, Ser
 
                         wrapper.set(Type.BYTE, 0, flags); // Update flags
                         return;
-                    } else if (channel.equalsIgnoreCase("MC|TrList")) {
+                    } else if (channel.equals("MC|TrList")) {
                         channel = "minecraft:trader_list";
                         wrapper.passthrough(Type.INT); // Passthrough Window ID
 
@@ -137,18 +143,18 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_12_1, Ser
                         for (int i = 0; i < size; i++) {
                             // Input Item
                             Item input = wrapper.read(Type.ITEM1_8);
-                            handleItemToClient(input);
+                            handleItemToClient(wrapper.user(), input);
                             wrapper.write(Type.ITEM1_13, input);
                             // Output Item
                             Item output = wrapper.read(Type.ITEM1_8);
-                            handleItemToClient(output);
+                            handleItemToClient(wrapper.user(), output);
                             wrapper.write(Type.ITEM1_13, output);
 
                             boolean secondItem = wrapper.passthrough(Type.BOOLEAN); // Has second item
                             if (secondItem) {
                                 // Second Item
                                 Item second = wrapper.read(Type.ITEM1_8);
-                                handleItemToClient(second);
+                                handleItemToClient(wrapper.user(), second);
                                 wrapper.write(Type.ITEM1_13, second);
                             }
 
@@ -161,7 +167,7 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_12_1, Ser
                         channel = getNewPluginChannelId(channel);
                         if (channel == null) {
                             if (!Via.getConfig().isSuppressConversionWarnings() || Via.getManager().isDebug()) {
-                                Via.getPlatform().getLogger().warning("Ignoring outgoing plugin message with channel: " + old);
+                                Via.getPlatform().getLogger().warning("Ignoring clientbound plugin message with channel: " + old);
                             }
                             wrapper.cancel();
                             return;
@@ -173,7 +179,7 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_12_1, Ser
                                 if (rewritten != null) {
                                     rewrittenChannels.add(rewritten);
                                 } else if (!Via.getConfig().isSuppressConversionWarnings() || Via.getManager().isDebug()) {
-                                    Via.getPlatform().getLogger().warning("Ignoring plugin channel in outgoing REGISTER: " + s);
+                                    Via.getPlatform().getLogger().warning("Ignoring plugin channel in clientbound " + Key.stripMinecraftNamespace(channel).toUpperCase(Locale.ROOT) + ": " + s);
                                 }
                             }
                             if (!rewrittenChannels.isEmpty()) {
@@ -196,7 +202,7 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_12_1, Ser
                 map(Type.VAR_INT); // 1 - Slot ID
                 map(Type.ITEM1_8, Type.ITEM1_13); // 2 - Item
 
-                handler(itemToClientHandler(Type.ITEM1_13));
+                handler(wrapper -> handleItemToClient(wrapper.user(), wrapper.get(Type.ITEM1_13, 0)));
             }
         });
 
@@ -211,7 +217,7 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_12_1, Ser
                 map(Type.VAR_INT); // 4 - Mode
                 map(Type.ITEM1_13, Type.ITEM1_8); // 5 - Clicked Item
 
-                handler(itemToServerHandler(Type.ITEM1_8));
+                handler(wrapper -> handleItemToServer(wrapper.user(), wrapper.get(Type.ITEM1_8, 0)));
             }
         });
 
@@ -219,13 +225,13 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_12_1, Ser
             @Override
             public void register() {
                 map(Type.STRING); // Channel
-                handler(wrapper -> {
+                handlerSoftFail(wrapper -> {
                     String channel = wrapper.get(Type.STRING, 0);
                     String old = channel;
                     channel = getOldPluginChannelId(channel);
                     if (channel == null) {
                         if (!Via.getConfig().isSuppressConversionWarnings() || Via.getManager().isDebug()) {
-                            Via.getPlatform().getLogger().warning("Ignoring incoming plugin message with channel: " + old);
+                            Via.getPlatform().getLogger().warning("Ignoring serverbound plugin message with channel: " + old);
                         }
                         wrapper.cancel();
                         return;
@@ -237,7 +243,7 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_12_1, Ser
                             if (rewritten != null) {
                                 rewrittenChannels.add(rewritten);
                             } else if (!Via.getConfig().isSuppressConversionWarnings() || Via.getManager().isDebug()) {
-                                Via.getPlatform().getLogger().warning("Ignoring plugin channel in incoming REGISTER: " + s);
+                                Via.getPlatform().getLogger().warning("Ignoring plugin channel in serverbound " + channel + ": " + s);
                             }
                         }
                         wrapper.write(Type.REMAINING_BYTES, Joiner.on('\0').join(rewrittenChannels).getBytes(StandardCharsets.UTF_8));
@@ -253,20 +259,20 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_12_1, Ser
                 map(Type.SHORT); // 0 - Slot
                 map(Type.ITEM1_13, Type.ITEM1_8); // 1 - Clicked Item
 
-                handler(itemToServerHandler(Type.ITEM1_8));
+                handler(wrapper -> handleItemToServer(wrapper.user(), wrapper.get(Type.ITEM1_8, 0)));
             }
         });
     }
 
     @Override
-    public Item handleItemToClient(Item item) {
+    public Item handleItemToClient(UserConnection connection, Item item) {
         if (item == null) return null;
         CompoundTag tag = item.tag();
 
         // Save original id
         int originalId = (item.identifier() << 16 | item.data() & 0xFFFF);
 
-        int rawId = (item.identifier() << 4 | item.data() & 0xF);
+        int rawId = IdAndData.toRawData(item.identifier(), item.data());
 
         // NBT Additions
         if (isDamageable(item.identifier())) {
@@ -314,7 +320,7 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_12_1, Ser
             if (display != null) {
                 StringTag name = display.getStringTag("Name");
                 if (name != null) {
-                    display.putString(NBT_TAG_NAME + "|Name", name.getValue());
+                    display.putString(nbtTagName("Name"), name.getValue());
                     name.setValue(ComponentUtil.legacyToJsonString(name.getValue(), true));
                 }
             }
@@ -377,7 +383,7 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_12_1, Ser
             ListTag<?> canPlaceOnTag = tag.getListTag("CanPlaceOn");
             if (canPlaceOnTag != null) {
                 ListTag<StringTag> newCanPlaceOn = new ListTag<>(StringTag.class);
-                tag.put(NBT_TAG_NAME + "|CanPlaceOn", canPlaceOnTag.copy());
+                tag.put(nbtTagName("CanPlaceOn"), canPlaceOnTag.copy());
                 for (Tag oldTag : canPlaceOnTag) {
                     Object value = oldTag.getValue();
                     String oldId = Key.stripMinecraftNamespace(value.toString());
@@ -400,7 +406,7 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_12_1, Ser
             ListTag<?> canDestroyTag = tag.getListTag("CanDestroy");
             if (canDestroyTag != null) {
                 ListTag<StringTag> newCanDestroy = new ListTag<>(StringTag.class);
-                tag.put(NBT_TAG_NAME + "|CanDestroy", canDestroyTag.copy());
+                tag.put(nbtTagName("CanDestroy"), canDestroyTag.copy());
                 for (Tag oldTag : canDestroyTag) {
                     Object value = oldTag.getValue();
                     String oldId = Key.stripMinecraftNamespace(value.toString());
@@ -451,12 +457,12 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_12_1, Ser
         if (Protocol1_13To1_12_2.MAPPINGS.getItemMappings().getNewId(rawId) == -1) {
             if (!isDamageable(item.identifier()) && item.identifier() != 358) { // Map
                 if (tag == null) item.setTag(tag = new CompoundTag());
-                tag.put(NBT_TAG_NAME, new IntTag(originalId)); // Data will be lost, saving original id
+                tag.put(nbtTagName(), new IntTag(originalId)); // Data will be lost, saving original id
             }
             if (item.identifier() == 31 && item.data() == 0) { // Shrub was removed
-                rawId = 32 << 4; // Dead Bush
-            } else if (Protocol1_13To1_12_2.MAPPINGS.getItemMappings().getNewId(rawId & ~0xF) != -1) {
-                rawId &= ~0xF; // Remove data
+                rawId = IdAndData.toRawData(32); // Dead Bush
+            } else if (Protocol1_13To1_12_2.MAPPINGS.getItemMappings().getNewId(IdAndData.removeData(rawId)) != -1) {
+                rawId = IdAndData.removeData(rawId);
             } else {
                 if (!Via.getConfig().isSuppressConversionWarnings() || Via.getManager().isDebug()) {
                     Via.getPlatform().getLogger().warning("Failed to get 1.13 item for " + item.identifier());
@@ -499,7 +505,7 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_12_1, Ser
     }
 
     @Override
-    public Item handleItemToServer(Item item) {
+    public Item handleItemToServer(UserConnection connection, Item item) {
         if (item == null) return null;
 
         Integer rawId = null;
@@ -510,11 +516,11 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_12_1, Ser
         // Use tag to get original ID and data
         if (tag != null) {
             // Check for valid tag
-            NumberTag viaTag = tag.getNumberTag(NBT_TAG_NAME);
+            NumberTag viaTag = tag.getNumberTag(nbtTagName());
             if (viaTag != null) {
                 rawId = viaTag.asInt();
                 // Remove the tag
-                tag.remove(NBT_TAG_NAME);
+                tag.remove(nbtTagName());
                 gotRawIdFromTag = true;
             }
         }
@@ -534,7 +540,7 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_12_1, Ser
                         tag.put("EntityTag", entityTag);
                     }
                 } else {
-                    rawId = (oldId >> 4) << 16 | oldId & 0xF;
+                    rawId = IdAndData.getId(oldId) << 16 | oldId & 0xF;
                 }
             }
         }
@@ -593,7 +599,7 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_12_1, Ser
             if (display != null) {
                 StringTag name = display.getStringTag("Name");
                 if (name != null) {
-                    Tag via = display.remove(NBT_TAG_NAME + "|Name");
+                    Tag via = display.remove(nbtTagName("Name"));
                     name.setValue(via instanceof StringTag ? (String) via.getValue() : ComponentUtil.jsonToLegacy(name.getValue()));
                 }
             }
@@ -657,8 +663,8 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_12_1, Ser
                 }
                 tag.put("StoredEnchantments", newStoredEnch);
             }
-            if (tag.getListTag(NBT_TAG_NAME + "|CanPlaceOn") != null) {
-                tag.put("CanPlaceOn", tag.remove(NBT_TAG_NAME + "|CanPlaceOn"));
+            if (tag.getListTag(nbtTagName("CanPlaceOn")) != null) {
+                tag.put("CanPlaceOn", tag.remove(nbtTagName("CanPlaceOn")));
             } else if (tag.getListTag("CanPlaceOn") != null) {
                 ListTag<?> old = tag.getListTag("CanPlaceOn");
                 ListTag<StringTag> newCanPlaceOn = new ListTag<>(StringTag.class);
@@ -677,8 +683,8 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_12_1, Ser
                 }
                 tag.put("CanPlaceOn", newCanPlaceOn);
             }
-            if (tag.getListTag(NBT_TAG_NAME + "|CanDestroy") != null) {
-                tag.put("CanDestroy", tag.remove(NBT_TAG_NAME + "|CanDestroy"));
+            if (tag.getListTag(nbtTagName("CanDestroy")) != null) {
+                tag.put("CanDestroy", tag.remove(nbtTagName("CanDestroy")));
             } else if (tag.getListTag("CanDestroy") != null) {
                 ListTag<?> old = tag.getListTag("CanDestroy");
                 ListTag<StringTag> newCanDestroy = new ListTag<>(StringTag.class);

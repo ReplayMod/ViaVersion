@@ -34,4 +34,17 @@ public interface PacketHandler {
      * @throws Exception if an error occurs during the packet handling
      */
     void handle(PacketWrapper wrapper) throws Exception;
+
+    /**
+     * Returns a new packet handler that runs the provided handler after this one.
+     *
+     * @param handler packet handler to run aftet this one
+     * @return a new packet handler that runs the provided handler after this one
+     */
+    default PacketHandler then(final PacketHandler handler) {
+        return wrapper -> {
+            this.handle(wrapper);
+            handler.handle(wrapper);
+        };
+    }
 }

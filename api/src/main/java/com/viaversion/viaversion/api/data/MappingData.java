@@ -79,6 +79,8 @@ public interface MappingData {
      */
     int getNewParticleId(int id);
 
+    int getNewAttributeId(int id);
+
     /**
      * Returns a list of tags to send if present.
      *
@@ -87,7 +89,20 @@ public interface MappingData {
      */
     @Nullable List<TagData> getTags(RegistryType type);
 
+    /**
+     * Returns item mappings.
+     *
+     * @return item mappings
+     */
     @Nullable BiMappings getItemMappings();
+
+    /**
+     * Returns item mappings if they also have identifier data present.
+     *
+     * @return item mappings if they also have identifier data present
+     * @see #getItemMappings()
+     */
+    @Nullable FullMappings getFullItemMappings();
 
     @Nullable ParticleMappings getParticleMappings();
 
@@ -105,9 +120,15 @@ public interface MappingData {
 
     @Nullable Mappings getEnchantmentMappings();
 
+    @Nullable Mappings getAttributeMappings();
+
+    @Nullable Mappings getPaintingMappings();
+
     @Nullable FullMappings getEntityMappings();
 
     @Nullable FullMappings getArgumentTypeMappings();
 
-    @Nullable Mappings getPaintingMappings();
+    @Nullable FullMappings getRecipeSerializerMappings();
+
+    @Nullable FullMappings getDataComponentSerializerMappings();
 }

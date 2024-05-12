@@ -17,25 +17,31 @@
  */
 package com.viaversion.viaversion.dump;
 
+import com.viaversion.viaversion.api.protocol.version.VersionType;
 import java.util.Set;
 
 public class VersionInfo {
     private final String javaVersion;
     private final String operatingSystem;
+    private final VersionType versionType;
     private final int serverProtocol;
-    private final Set<Integer> enabledProtocols;
+    private final String serverVersion;
+    private final Set<String> enabledVersions;
     private final String platformName;
     private final String platformVersion;
     private final String pluginVersion;
     private final String implementationVersion;
     private final Set<String> subPlatforms;
 
-    public VersionInfo(String javaVersion, String operatingSystem, int serverProtocol, Set<Integer> enabledProtocols,
-                       String platformName, String platformVersion, String pluginVersion, String implementationVersion, Set<String> subPlatforms) {
+    public VersionInfo(String javaVersion, String operatingSystem, VersionType versionType, int serverProtocol, String serverVersion,
+                       Set<String> enabledVersions, String platformName, String platformVersion, String pluginVersion, String implementationVersion,
+                       Set<String> subPlatforms) {
         this.javaVersion = javaVersion;
         this.operatingSystem = operatingSystem;
         this.serverProtocol = serverProtocol;
-        this.enabledProtocols = enabledProtocols;
+        this.versionType = versionType;
+        this.serverVersion = serverVersion;
+        this.enabledVersions = enabledVersions;
         this.platformName = platformName;
         this.platformVersion = platformVersion;
         this.pluginVersion = pluginVersion;
@@ -51,12 +57,20 @@ public class VersionInfo {
         return operatingSystem;
     }
 
+    public VersionType getVersionType() {
+        return versionType;
+    }
+
     public int getServerProtocol() {
         return serverProtocol;
     }
 
-    public Set<Integer> getEnabledProtocols() {
-        return enabledProtocols;
+    public String getServerVersion() {
+        return serverVersion;
+    }
+
+    public Set<String> getEnabledVersions() {
+        return enabledVersions;
     }
 
     public String getPlatformName() {

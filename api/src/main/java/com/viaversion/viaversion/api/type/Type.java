@@ -27,11 +27,15 @@ import com.github.steveice10.opennbt.tag.builtin.Tag;
 import com.google.gson.JsonElement;
 import com.viaversion.viaversion.api.minecraft.BlockChangeRecord;
 import com.viaversion.viaversion.api.minecraft.EulerAngle;
+import com.viaversion.viaversion.api.minecraft.GameProfile;
 import com.viaversion.viaversion.api.minecraft.GlobalPosition;
+import com.viaversion.viaversion.api.minecraft.HolderSet;
 import com.viaversion.viaversion.api.minecraft.PlayerMessageSignature;
 import com.viaversion.viaversion.api.minecraft.Position;
 import com.viaversion.viaversion.api.minecraft.ProfileKey;
 import com.viaversion.viaversion.api.minecraft.Quaternion;
+import com.viaversion.viaversion.api.minecraft.RegistryEntry;
+import com.viaversion.viaversion.api.minecraft.SoundEvent;
 import com.viaversion.viaversion.api.minecraft.Vector;
 import com.viaversion.viaversion.api.minecraft.Vector3f;
 import com.viaversion.viaversion.api.minecraft.VillagerData;
@@ -45,10 +49,14 @@ import com.viaversion.viaversion.api.type.types.ByteArrayType;
 import com.viaversion.viaversion.api.type.types.ByteType;
 import com.viaversion.viaversion.api.type.types.ComponentType;
 import com.viaversion.viaversion.api.type.types.DoubleType;
+import com.viaversion.viaversion.api.type.types.EmptyType;
 import com.viaversion.viaversion.api.type.types.FloatType;
+import com.viaversion.viaversion.api.type.types.IntArrayType;
 import com.viaversion.viaversion.api.type.types.IntType;
 import com.viaversion.viaversion.api.type.types.LongArrayType;
 import com.viaversion.viaversion.api.type.types.LongType;
+import com.viaversion.viaversion.api.type.types.OptionalVarIntType;
+import com.viaversion.viaversion.api.type.types.RegistryEntryType;
 import com.viaversion.viaversion.api.type.types.RemainingBytesType;
 import com.viaversion.viaversion.api.type.types.ShortByteArrayType;
 import com.viaversion.viaversion.api.type.types.ShortType;
@@ -62,29 +70,33 @@ import com.viaversion.viaversion.api.type.types.VarLongType;
 import com.viaversion.viaversion.api.type.types.block.BlockChangeRecordType;
 import com.viaversion.viaversion.api.type.types.block.BlockEntityType1_18;
 import com.viaversion.viaversion.api.type.types.block.BlockEntityType1_20_2;
-import com.viaversion.viaversion.api.type.types.math.ChunkPositionType;
-import com.viaversion.viaversion.api.type.types.misc.CompoundTagType;
-import com.viaversion.viaversion.api.type.types.math.EulerAngleType;
+import com.viaversion.viaversion.api.type.types.block.VarLongBlockChangeRecordType;
 import com.viaversion.viaversion.api.type.types.item.ItemShortArrayType1_13;
-import com.viaversion.viaversion.api.type.types.item.ItemType1_13;
 import com.viaversion.viaversion.api.type.types.item.ItemShortArrayType1_13_2;
-import com.viaversion.viaversion.api.type.types.item.ItemType1_13_2;
-import com.viaversion.viaversion.api.type.types.math.GlobalPositionType;
-import com.viaversion.viaversion.api.type.types.item.ItemType1_20_2;
 import com.viaversion.viaversion.api.type.types.item.ItemShortArrayType1_8;
+import com.viaversion.viaversion.api.type.types.item.ItemType1_13;
+import com.viaversion.viaversion.api.type.types.item.ItemType1_13_2;
+import com.viaversion.viaversion.api.type.types.item.ItemType1_20_2;
 import com.viaversion.viaversion.api.type.types.item.ItemType1_8;
-import com.viaversion.viaversion.api.type.types.misc.NamedCompoundTagType;
-import com.viaversion.viaversion.api.type.types.OptionalVarIntType;
-import com.viaversion.viaversion.api.type.types.misc.PlayerMessageSignatureType;
+import com.viaversion.viaversion.api.type.types.math.ChunkPositionType;
+import com.viaversion.viaversion.api.type.types.math.EulerAngleType;
+import com.viaversion.viaversion.api.type.types.math.GlobalPositionType;
 import com.viaversion.viaversion.api.type.types.math.PositionType1_14;
 import com.viaversion.viaversion.api.type.types.math.PositionType1_8;
-import com.viaversion.viaversion.api.type.types.misc.ProfileKeyType;
 import com.viaversion.viaversion.api.type.types.math.QuaternionType;
-import com.viaversion.viaversion.api.type.types.misc.TagType;
-import com.viaversion.viaversion.api.type.types.block.VarLongBlockChangeRecordType;
 import com.viaversion.viaversion.api.type.types.math.Vector3fType;
 import com.viaversion.viaversion.api.type.types.math.VectorType;
+import com.viaversion.viaversion.api.type.types.misc.CompoundTagType;
+import com.viaversion.viaversion.api.type.types.misc.GameProfileType;
+import com.viaversion.viaversion.api.type.types.misc.HolderSetType;
+import com.viaversion.viaversion.api.type.types.misc.HolderType;
+import com.viaversion.viaversion.api.type.types.misc.NamedCompoundTagType;
+import com.viaversion.viaversion.api.type.types.misc.PlayerMessageSignatureType;
+import com.viaversion.viaversion.api.type.types.misc.ProfileKeyType;
+import com.viaversion.viaversion.api.type.types.misc.SoundEventType;
+import com.viaversion.viaversion.api.type.types.misc.TagType;
 import com.viaversion.viaversion.api.type.types.misc.VillagerDataType;
+import com.viaversion.viaversion.util.Unit;
 import java.util.UUID;
 
 /**
@@ -94,12 +106,15 @@ import java.util.UUID;
  */
 public abstract class Type<T> implements ByteBufReader<T>, ByteBufWriter<T> {
 
+    public static final Type<Unit> EMPTY = new EmptyType();
+
     public static final ByteType BYTE = new ByteType();
     public static final UnsignedByteType UNSIGNED_BYTE = new UnsignedByteType();
     public static final Type<byte[]> BYTE_ARRAY_PRIMITIVE = new ByteArrayType();
     public static final Type<byte[]> OPTIONAL_BYTE_ARRAY_PRIMITIVE = new ByteArrayType.OptionalByteArrayType();
     public static final Type<byte[]> SHORT_BYTE_ARRAY = new ShortByteArrayType();
     public static final Type<byte[]> REMAINING_BYTES = new RemainingBytesType();
+    public static final Type<int[]> INT_ARRAY_PRIMITIVE = new IntArrayType();
 
     public static final ShortType SHORT = new ShortType();
     public static final UnsignedShortType UNSIGNED_SHORT = new UnsignedShortType();
@@ -113,6 +128,7 @@ public abstract class Type<T> implements ByteBufReader<T>, ByteBufWriter<T> {
     public static final Type<long[]> LONG_ARRAY_PRIMITIVE = new LongArrayType();
 
     public static final BooleanType BOOLEAN = new BooleanType();
+    public static final BooleanType.OptionalBooleanType OPTIONAL_BOOLEAN = new BooleanType.OptionalBooleanType();
 
     /* Other Types */
     public static final Type<JsonElement> COMPONENT = new ComponentType();
@@ -142,10 +158,12 @@ public abstract class Type<T> implements ByteBufReader<T>, ByteBufWriter<T> {
     public static final Type<Quaternion> QUATERNION = new QuaternionType();
 
     public static final Type<CompoundTag> NAMED_COMPOUND_TAG = new NamedCompoundTagType();
+    public static final Type<CompoundTag> OPTIONAL_NAMED_COMPOUND_TAG = new NamedCompoundTagType.OptionalNamedCompoundTagType();
     public static final Type<CompoundTag[]> NAMED_COMPOUND_TAG_ARRAY = new ArrayType<>(Type.NAMED_COMPOUND_TAG);
     public static final Type<CompoundTag> COMPOUND_TAG = new CompoundTagType();
     public static final Type<CompoundTag> OPTIONAL_COMPOUND_TAG = new CompoundTagType.OptionalCompoundTagType();
     public static final Type<Tag> TAG = new TagType();
+    public static final Type<Tag[]> TAG_ARRAY = new ArrayType<>(TAG);
     public static final Type<Tag> OPTIONAL_TAG = new TagType.OptionalTagType();
     @Deprecated/*(forRemoval=true)*/
     public static final Type<CompoundTag> NBT = NAMED_COMPOUND_TAG;
@@ -166,6 +184,7 @@ public abstract class Type<T> implements ByteBufReader<T>, ByteBufWriter<T> {
 
     public static final Type<VillagerData> VILLAGER_DATA = new VillagerDataType();
 
+    public static final Type<GameProfile> GAME_PROFILE = new GameProfileType();
     public static final Type<ProfileKey> PROFILE_KEY = new ProfileKeyType();
     public static final Type<ProfileKey> OPTIONAL_PROFILE_KEY = new ProfileKeyType.OptionalProfileKeyType();
 
@@ -175,7 +194,16 @@ public abstract class Type<T> implements ByteBufReader<T>, ByteBufWriter<T> {
 
     public static final BitSetType PROFILE_ACTIONS_ENUM = new BitSetType(6);
     public static final ByteArrayType SIGNATURE_BYTES = new ByteArrayType(256);
+    public static final BitSetType ACKNOWLEDGED_BIT_SET = new BitSetType(20);
     public static final ByteArrayType.OptionalByteArrayType OPTIONAL_SIGNATURE_BYTES = new ByteArrayType.OptionalByteArrayType(256);
+
+    public static final Type<RegistryEntry> REGISTRY_ENTRY = new RegistryEntryType();
+    public static final Type<RegistryEntry[]> REGISTRY_ENTRY_ARRAY = new ArrayType<>(REGISTRY_ENTRY);
+
+    public static final Type<HolderSet> HOLDER_SET = new HolderSetType();
+    public static final Type<HolderSet> OPTIONAL_HOLDER_SET = new HolderSetType.OptionalHolderSetType();
+
+    public static final HolderType<SoundEvent> SOUND_EVENT = new SoundEventType();
 
     public static final Type<Item> ITEM1_8 = new ItemType1_8();
     public static final Type<Item> ITEM1_13 = new ItemType1_13();

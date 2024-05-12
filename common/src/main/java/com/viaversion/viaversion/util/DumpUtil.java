@@ -23,6 +23,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.connection.UserConnection;
+import com.viaversion.viaversion.api.platform.ViaPlatform;
 import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import com.viaversion.viaversion.dump.DumpTemplate;
 import com.viaversion.viaversion.dump.VersionInfo;
@@ -35,6 +36,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -42,45 +44,50 @@ import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.logging.Level;
+import java.util.stream.Collectors;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 public final class DumpUtil {
 
     /**
-     * Creates a platform dump and posts it to ViaVersion's dump server asychronously.
+     * Creates a platform dump and posts it to ViaVersion's dump server asynchronously.
      * May complete exceptionally with {@link DumpException}.
      *
      * @param playerToSample uuid of the player to include the pipeline of
      * @return completable future that completes with the url of the dump
      */
     public static CompletableFuture<String> postDump(@Nullable final UUID playerToSample) {
+        final ProtocolVersion protocolVersion = Via.getAPI().getServerVersion().lowestSupportedProtocolVersion();
+        final ViaPlatform<?> platform = Via.getPlatform();
         final VersionInfo version = new VersionInfo(
                 System.getProperty("java.version"),
                 System.getProperty("os.name"),
-                Via.getAPI().getServerVersion().lowestSupportedVersion(),
-                Via.getManager().getProtocolManager().getSupportedVersions(),
-                Via.getPlatform().getPlatformName(),
-                Via.getPlatform().getPlatformVersion(),
-                Via.getPlatform().getPluginVersion(),
+                protocolVersion.getVersionType(),
+                protocolVersion.getVersion(),
+                protocolVersion.getName(),
+                Via.getManager().getProtocolManager().getSupportedVersions().stream().map(ProtocolVersion::toString).collect(Collectors.toCollection(LinkedHashSet::new)),
+                platform.getPlatformName(),
+                platform.getPlatformVersion(),
+                platform.getPluginVersion(),
                 com.viaversion.viaversion.util.VersionInfo.getImplementationVersion(),
                 Via.getManager().getSubPlatforms()
         );
         final Map<String, Object> configuration = ((Config) Via.getConfig()).getValues();
-        final DumpTemplate template = new DumpTemplate(version, configuration, Via.getPlatform().getDump(), Via.getManager().getInjector().getDump(), getPlayerSample(playerToSample));
+        final DumpTemplate template = new DumpTemplate(version, configuration, platform.getDump(), Via.getManager().getInjector().getDump(), getPlayerSample(playerToSample));
         final CompletableFuture<String> result = new CompletableFuture<>();
-        Via.getPlatform().runAsync(() -> {
+        platform.runAsync(() -> {
             final HttpURLConnection con;
             try {
                 con = (HttpURLConnection) new URL("https://dump.viaversion.com/documents").openConnection();
             } catch (final IOException e) {
-                Via.getPlatform().getLogger().log(Level.SEVERE, "Error when opening connection to ViaVersion dump service", e);
+                platform.getLogger().log(Level.SEVERE, "Error when opening connection to ViaVersion dump service", e);
                 result.completeExceptionally(new DumpException(DumpErrorType.CONNECTION, e));
                 return;
             }
 
             try {
                 con.setRequestProperty("Content-Type", "application/json");
-                con.addRequestProperty("User-Agent", "ViaVersion-" + Via.getPlatform().getPlatformName() + "/" + version.getPluginVersion());
+                con.addRequestProperty("User-Agent", "ViaVersion-" + platform.getPlatformName() + "/" + version.getPluginVersion());
                 con.setRequestMethod("POST");
                 con.setDoOutput(true);
 
@@ -105,7 +112,7 @@ public final class DumpUtil {
 
                 result.complete(urlForId(output.get("key").getAsString()));
             } catch (final Exception e) {
-                Via.getPlatform().getLogger().log(Level.SEVERE, "Error when posting ViaVersion dump", e);
+                platform.getLogger().log(Level.SEVERE, "Error when posting ViaVersion dump", e);
                 result.completeExceptionally(new DumpException(DumpErrorType.POST, e));
                 printFailureInfo(con);
             }
@@ -135,9 +142,9 @@ public final class DumpUtil {
         // Player versions
         final JsonObject versions = new JsonObject();
         playerSample.add("versions", versions);
-        final Map<ProtocolVersion, Integer> playerVersions = new TreeMap<>((o1, o2) -> ProtocolVersion.getIndex(o2) - ProtocolVersion.getIndex(o1));
+        final Map<ProtocolVersion, Integer> playerVersions = new TreeMap<>(ProtocolVersion::compareTo);
         for (final UserConnection connection : Via.getManager().getConnectionManager().getConnections()) {
-            final ProtocolVersion protocolVersion = ProtocolVersion.getProtocol(connection.getProtocolInfo().getProtocolVersion());
+            final ProtocolVersion protocolVersion = connection.getProtocolInfo().protocolVersion();
             playerVersions.compute(protocolVersion, (v, num) -> num != null ? num + 1 : 1);
         }
         for (final Map.Entry<ProtocolVersion, Integer> entry : playerVersions.entrySet()) {

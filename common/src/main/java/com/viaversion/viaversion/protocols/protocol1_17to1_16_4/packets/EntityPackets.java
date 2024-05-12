@@ -20,10 +20,8 @@ package com.viaversion.viaversion.protocols.protocol1_17to1_16_4.packets;
 import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
 import com.github.steveice10.opennbt.tag.builtin.IntTag;
 import com.github.steveice10.opennbt.tag.builtin.ListTag;
-import com.github.steveice10.opennbt.tag.builtin.Tag;
 import com.viaversion.viaversion.api.data.entity.EntityTracker;
 import com.viaversion.viaversion.api.minecraft.entities.EntityType;
-import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_16_2;
 import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_17;
 import com.viaversion.viaversion.api.protocol.packet.ClientboundPacketType;
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
@@ -35,12 +33,12 @@ import com.viaversion.viaversion.protocols.protocol1_16_2to1_16_1.ClientboundPac
 import com.viaversion.viaversion.protocols.protocol1_17to1_16_4.ClientboundPackets1_17;
 import com.viaversion.viaversion.protocols.protocol1_17to1_16_4.Protocol1_17To1_16_4;
 import com.viaversion.viaversion.rewriter.EntityRewriter;
+import com.viaversion.viaversion.util.TagUtil;
 
 public final class EntityPackets extends EntityRewriter<ClientboundPackets1_16_2, Protocol1_17To1_16_4> {
 
     public EntityPackets(Protocol1_17To1_16_4 protocol) {
         super(protocol);
-        mapTypes(EntityTypes1_16_2.values(), EntityTypes1_17.class);
     }
 
     @Override
@@ -77,8 +75,8 @@ public final class EntityPackets extends EntityRewriter<ClientboundPackets1_16_2
                 map(Type.NAMED_COMPOUND_TAG); // Current dimension
                 handler(wrapper -> {
                     // Add new dimension fields
-                    CompoundTag dimensionRegistry = wrapper.get(Type.NAMED_COMPOUND_TAG, 0).getCompoundTag("minecraft:dimension_type");
-                    ListTag<CompoundTag> dimensions = dimensionRegistry.getListTag("value", CompoundTag.class);
+                    CompoundTag registry = wrapper.get(Type.NAMED_COMPOUND_TAG, 0);
+                    ListTag<CompoundTag> dimensions = TagUtil.getRegistryEntries(registry, "dimension_type");
                     for (CompoundTag dimension : dimensions) {
                         CompoundTag dimensionCompound = dimension.getCompoundTag("element");
                         addNewDimensionData(dimensionCompound);
@@ -159,7 +157,7 @@ public final class EntityPackets extends EntityRewriter<ClientboundPackets1_16_2
                 meta.setValue(pose + 1);
             }
         });
-        registerMetaTypeHandler(Types1_17.META_TYPES.itemType, Types1_17.META_TYPES.blockStateType, null, Types1_17.META_TYPES.particleType);
+        registerMetaTypeHandler(Types1_17.META_TYPES.itemType, Types1_17.META_TYPES.blockStateType, Types1_17.META_TYPES.particleType);
 
         // Ticks frozen added with id 7
         filter().type(EntityTypes1_17.ENTITY).addIndex(7);
@@ -172,6 +170,11 @@ public final class EntityPackets extends EntityRewriter<ClientboundPackets1_16_2
 
         // Attachment position removed
         filter().type(EntityTypes1_17.SHULKER).removeIndex(17);
+    }
+
+    @Override
+    public void onMappingDataLoaded() {
+        mapTypes();
     }
 
     @Override

@@ -57,7 +57,7 @@ public class BungeePlugin extends Plugin implements ViaServerProxyPlatform<Proxi
     @Override
     public void onLoad() {
         try {
-            ProtocolConstants.class.getField("MINECRAFT_1_19_4");
+            ProtocolConstants.class.getField("MINECRAFT_1_20_5");
         } catch (NoSuchFieldException e) {
             getLogger().warning("      / \\");
             getLogger().warning("     /   \\");
@@ -67,6 +67,9 @@ public class BungeePlugin extends Plugin implements ViaServerProxyPlatform<Proxi
             getLogger().warning(" /     o     \\");
             getLogger().warning("/_____________\\");
         }
+
+        getLogger().warning("ViaVersion does not work as intended across many different server versions, especially the more recent ones. " +
+            "Consider moving Via plugins to your backend server or switching to Velocity.");
 
         api = new BungeeViaAPI();
         config = new BungeeViaConfig(getDataFolder());
@@ -80,6 +83,8 @@ public class BungeePlugin extends Plugin implements ViaServerProxyPlatform<Proxi
                 .loader(new BungeeViaLoader(this))
                 .commandHandler(commandHandler)
                 .build());
+
+        config.reload();
     }
 
     @Override

@@ -32,35 +32,34 @@ import com.viaversion.viaversion.api.minecraft.metadata.Metadata;
 import com.viaversion.viaversion.api.minecraft.metadata.types.MetaType1_9;
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.type.Type;
-import com.viaversion.viaversion.api.type.types.version.Types1_9;
 import com.viaversion.viaversion.data.entity.EntityTrackerBase;
 import com.viaversion.viaversion.protocols.protocol1_9to1_8.ClientboundPackets1_9;
 import com.viaversion.viaversion.protocols.protocol1_9to1_8.Protocol1_9To1_8;
 import com.viaversion.viaversion.protocols.protocol1_9to1_8.chat.GameMode;
-import com.viaversion.viaversion.protocols.protocol1_9to1_8.metadata.MetadataRewriter1_9To1_8;
 import com.viaversion.viaversion.protocols.protocol1_9to1_8.providers.BossBarProvider;
 import com.viaversion.viaversion.protocols.protocol1_9to1_8.providers.EntityIdProvider;
+import it.unimi.dsi.fastutil.ints.Int2IntMap;
+import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
-import space.vectrix.flare.fastutil.Int2ObjectSyncMap;
 
 public class EntityTracker1_9 extends EntityTrackerBase {
     public static final String WITHER_TRANSLATABLE = "{\"translate\":\"entity.WitherBoss.name\"}";
     public static final String DRAGON_TRANSLATABLE = "{\"translate\":\"entity.EnderDragon.name\"}";
-    private final Int2ObjectMap<UUID> uuidMap = Int2ObjectSyncMap.hashmap();
-    private final Int2ObjectMap<List<Metadata>> metadataBuffer = Int2ObjectSyncMap.hashmap();
-    private final Int2ObjectMap<Integer> vehicleMap = Int2ObjectSyncMap.hashmap();
-    private final Int2ObjectMap<BossBar> bossBarMap = Int2ObjectSyncMap.hashmap();
-    private final IntSet validBlocking = Int2ObjectSyncMap.hashset();
-    private final Set<Integer> knownHolograms = Int2ObjectSyncMap.hashset();
+    private final Int2ObjectMap<UUID> uuidMap = new Int2ObjectOpenHashMap<>();
+    private final Int2IntMap vehicleMap = new Int2IntOpenHashMap();
+    private final Int2ObjectMap<BossBar> bossBarMap = new Int2ObjectOpenHashMap<>();
+    private final IntSet validBlocking = new IntOpenHashSet();
+    private final IntSet knownHolograms = new IntOpenHashSet();
     private final Set<Position> blockInteractions = Collections.newSetFromMap(CacheBuilder.newBuilder()
             .maximumSize(1000)
             .expireAfterAccess(250, TimeUnit.MILLISECONDS)
@@ -147,7 +146,6 @@ public class EntityTracker1_9 extends EntityTrackerBase {
         uuidMap.remove(entityId);
         validBlocking.remove(entityId);
         knownHolograms.remove(entityId);
-        metadataBuffer.remove(entityId);
 
         BossBar bar = bossBarMap.remove(entityId);
         if (bar != null) {
@@ -172,32 +170,19 @@ public class EntityTracker1_9 extends EntityTrackerBase {
         }
 
         for (Metadata metadata : new ArrayList<>(metadataList)) {
-            // Fix: wither (crash fix)
-            if (type == EntityType.WITHER) {
-                if (metadata.id() == 10) {
-                    metadataList.remove(metadata);
-                    //metadataList.add(new Metadata(10, NewType.Byte.getTypeID(), Type.BYTE, 0));
-                }
-            }
-            // Fix: enderdragon (crash fix)
-            if (type == EntityType.ENDER_DRAGON) {
-                if (metadata.id() == 11) {
-                    metadataList.remove(metadata);
-                    //   metadataList.add(new Metadata(11, NewType.Byte.getTypeID(), Type.VAR_INT, 0));
-                }
-            }
-
             if (type == EntityType.SKELETON) {
                 if ((getMetaByIndex(metadataList, 12)) == null) {
                     metadataList.add(new Metadata(12, MetaType1_9.Boolean, true));
                 }
             }
 
-            //ECHOPET Patch
-            if (type == EntityType.HORSE) {
-                // Wrong metadata value from EchoPet, patch since it's discontinued. (https://github.com/DSH105/EchoPet/blob/06947a8b08ce40be9a518c2982af494b3b99d140/modules/API/src/main/java/com/dsh105/echopet/compat/api/entity/HorseArmour.java#L22)
-                if (metadata.id() == 16 && (int) metadata.getValue() == Integer.MIN_VALUE)
+            // 1.8 can handle out of range values and will just not show any armor, 1.9+ clients will get
+            // exceptions and won't render the entity at all
+            if (type == EntityType.HORSE && metadata.id() == 16) {
+                final int value = metadata.value();
+                if (value < 0 || value > 3) { // no armor, iron armor, gold armor and diamond armor
                     metadata.setValue(0);
+                }
             }
 
             if (type == EntityType.PLAYER) {
@@ -333,35 +318,6 @@ public class EntityTracker1_9 extends EntityTrackerBase {
         }
     }
 
-    public void addMetadataToBuffer(int entityID, List<Metadata> metadataList) {
-        final List<Metadata> metadata = metadataBuffer.get(entityID);
-        if (metadata != null) {
-            metadata.addAll(metadataList);
-        } else {
-            metadataBuffer.put(entityID, metadataList);
-        }
-    }
-
-    public void sendMetadataBuffer(int entityId) {
-        List<Metadata> metadataList = metadataBuffer.get(entityId);
-        if (metadataList != null) {
-            PacketWrapper wrapper = PacketWrapper.create(ClientboundPackets1_9.ENTITY_METADATA, null, user());
-            wrapper.write(Type.VAR_INT, entityId);
-            wrapper.write(Types1_9.METADATA_LIST, metadataList);
-            Via.getManager().getProtocolManager().getProtocol(Protocol1_9To1_8.class).get(MetadataRewriter1_9To1_8.class)
-                    .handleMetadata(entityId, metadataList, user());
-            handleMetadata(entityId, metadataList);
-            if (!metadataList.isEmpty()) {
-                try {
-                    wrapper.scheduleSend(Protocol1_9To1_8.class);
-                } catch (Exception e) {
-                    Via.getPlatform().getLogger().log(Level.SEVERE, "Failed to send metadata", e);
-                }
-            }
-            metadataBuffer.remove(entityId);
-        }
-    }
-
     public int getProvidedEntityId() {
         try {
             return Via.getManager().getProviders().get(EntityIdProvider.class).getEntityId(user());
@@ -370,27 +326,23 @@ public class EntityTracker1_9 extends EntityTrackerBase {
         }
     }
 
-    public Map<Integer, UUID> getUuidMap() {
+    public Int2ObjectMap<UUID> getUuidMap() {
         return uuidMap;
     }
 
-    public Map<Integer, List<Metadata>> getMetadataBuffer() {
-        return metadataBuffer;
-    }
-
-    public Map<Integer, Integer> getVehicleMap() {
+    public Int2IntMap getVehicleMap() {
         return vehicleMap;
     }
 
-    public Map<Integer, BossBar> getBossBarMap() {
+    public Int2ObjectMap<BossBar> getBossBarMap() {
         return bossBarMap;
     }
 
-    public Set<Integer> getValidBlocking() {
+    public IntSet getValidBlocking() {
         return validBlocking;
     }
 
-    public Set<Integer> getKnownHolograms() {
+    public IntSet getKnownHolograms() {
         return knownHolograms;
     }
 

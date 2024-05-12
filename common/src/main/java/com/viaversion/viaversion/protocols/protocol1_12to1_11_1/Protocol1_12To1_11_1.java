@@ -121,11 +121,11 @@ public class Protocol1_12To1_11_1 extends AbstractProtocol<ClientboundPackets1_9
         registerClientbound(ClientboundPackets1_9_3.CHAT_MESSAGE, wrapper -> {
             if (!Via.getConfig().is1_12NBTArrayFix()) return;
             try {
-                JsonElement obj = Protocol1_9To1_8.FIX_JSON.transform(null, wrapper.passthrough(Type.COMPONENT).toString());
-                TranslateRewriter.toClient(obj);
-                ChatItemRewriter.toClient(obj);
+                final JsonElement element = wrapper.passthrough(Type.COMPONENT);
+                TranslateRewriter.toClient(wrapper.user(), element);
+                ChatItemRewriter.toClient(element);
 
-                wrapper.set(Type.COMPONENT, 0, obj);
+                wrapper.set(Type.COMPONENT, 0, element);
             } catch (Exception e) {
                 Via.getPlatform().getLogger().log(Level.WARNING, "Error converting 1.11.2 -> 1.12 chat item", e);
             }
@@ -177,7 +177,7 @@ public class Protocol1_12To1_11_1 extends AbstractProtocol<ClientboundPackets1_9
                     clientChunks.setEnvironment(dimensionId);
 
                     // Reset recipes
-                    if (user.getProtocolInfo().getProtocolVersion() >= ProtocolVersion.v1_13.getVersion()) {
+                    if (user.getProtocolInfo().protocolVersion().newerThanOrEqualTo(ProtocolVersion.v1_13)) {
                         wrapper.create(ClientboundPackets1_13.DECLARE_RECIPES, packetWrapper -> packetWrapper.write(Type.VAR_INT, 0))
                                 .scheduleSend(Protocol1_13To1_12_2.class);
                     }

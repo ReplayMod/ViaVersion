@@ -26,6 +26,7 @@ import com.google.common.collect.Sets;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.viaversion.viaversion.api.Via;
+import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.minecraft.item.DataItem;
 import com.viaversion.viaversion.api.minecraft.item.Item;
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
@@ -46,7 +47,6 @@ import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class InventoryPackets extends ItemRewriter<ClientboundPackets1_13, ServerboundPackets1_14, Protocol1_14To1_13_2> {
-    private static final String NBT_TAG_NAME = "ViaVersion|" + Protocol1_14To1_13_2.class.getSimpleName();
     private static final Set<String> REMOVED_RECIPE_TYPES = Sets.newHashSet("crafting_special_banneraddpattern", "crafting_special_repairitem");
     private static final ComponentRewriter<ClientboundPackets1_13> COMPONENT_REWRITER = new ComponentRewriter<ClientboundPackets1_13>(null, ComponentRewriter.ReadType.JSON) {
         @Override
@@ -72,7 +72,7 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_13, Serve
             Short windowId = wrapper.read(Type.UNSIGNED_BYTE);
             String type = wrapper.read(Type.STRING);
             JsonElement title = wrapper.read(Type.COMPONENT);
-            COMPONENT_REWRITER.processText(title);
+            COMPONENT_REWRITER.processText(wrapper.user(), title);
             Short slots = wrapper.read(Type.UNSIGNED_BYTE);
 
             if (type.equals("EntityHorse")) {
@@ -143,7 +143,7 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_13, Serve
             @Override
             public void register() {
                 map(Type.STRING); // Channel
-                handler(wrapper -> {
+                handlerSoftFail(wrapper -> {
                     String channel = Key.namespaced(wrapper.get(Type.STRING, 0));
                     if (channel.equals("minecraft:trader_list")) {
                         wrapper.setPacketType(ClientboundPackets1_14.TRADE_LIST);
@@ -158,14 +158,14 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_13, Serve
                         int size = wrapper.passthrough(Type.UNSIGNED_BYTE);
                         for (int i = 0; i < size; i++) {
                             // Input Item
-                            handleItemToClient(wrapper.passthrough(Type.ITEM1_13_2));
+                            handleItemToClient(wrapper.user(), wrapper.passthrough(Type.ITEM1_13_2));
                             // Output Item
-                            handleItemToClient(wrapper.passthrough(Type.ITEM1_13_2));
+                            handleItemToClient(wrapper.user(), wrapper.passthrough(Type.ITEM1_13_2));
 
                             boolean secondItem = wrapper.passthrough(Type.BOOLEAN); // Has second item
                             if (secondItem) {
                                 // Second Item
-                                handleItemToClient(wrapper.passthrough(Type.ITEM1_13_2));
+                                handleItemToClient(wrapper.user(), wrapper.passthrough(Type.ITEM1_13_2));
                             }
 
                             wrapper.passthrough(Type.BOOLEAN); // Trade disabled
@@ -235,7 +235,7 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_13, Serve
     }
 
     @Override
-    public Item handleItemToClient(Item item) {
+    public Item handleItemToClient(UserConnection connection, Item item) {
         if (item == null) return null;
         item.setIdentifier(Protocol1_14To1_13_2.MAPPINGS.getNewItemId(item.identifier()));
 
@@ -246,7 +246,7 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_13, Serve
         if (display != null) {
             ListTag<StringTag> lore = display.getListTag("Lore", StringTag.class);
             if (lore != null) {
-                display.put(NBT_TAG_NAME + "|Lore", new ListTag<>(lore.copy().getValue())); // Save old lore
+                display.put(nbtTagName("Lore"), lore.copy()); // Save old lore
                 for (StringTag loreEntry : lore) {
                     String jsonText = ComponentUtil.legacyToJsonString(loreEntry.getValue(), true);
                     loreEntry.setValue(jsonText);
@@ -257,7 +257,7 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_13, Serve
     }
 
     @Override
-    public Item handleItemToServer(Item item) {
+    public Item handleItemToServer(UserConnection connection, Item item) {
         if (item == null) return null;
         item.setIdentifier(Protocol1_14To1_13_2.MAPPINGS.getOldItemId(item.identifier()));
 
@@ -268,9 +268,9 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_13, Serve
         if (display != null) {
             ListTag<StringTag> lore = display.getListTag("Lore", StringTag.class);
             if (lore != null) {
-                Tag savedLore = display.remove(NBT_TAG_NAME + "|Lore");
+                Tag savedLore = display.remove(nbtTagName("Lore"));
                 if (savedLore instanceof ListTag) {
-                    display.put("Lore", new ListTag<>(((ListTag<?>) savedLore).getValue()));
+                    display.put("Lore", savedLore.copy());
                 } else {
                     for (StringTag loreEntry : lore) {
                         loreEntry.setValue(ComponentUtil.jsonToLegacy(loreEntry.getValue()));

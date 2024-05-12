@@ -44,7 +44,7 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_13, Serve
             @Override
             public void register() {
                 map(Type.STRING); // Channel
-                handler(wrapper -> {
+                handlerSoftFail(wrapper -> {
                     String channel = Key.namespaced(wrapper.get(Type.STRING, 0));
                     if (channel.equals("minecraft:trader_list")) {
                         wrapper.passthrough(Type.INT); // Passthrough Window ID
@@ -52,14 +52,14 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_13, Serve
                         int size = wrapper.passthrough(Type.UNSIGNED_BYTE);
                         for (int i = 0; i < size; i++) {
                             // Input Item
-                            handleItemToClient(wrapper.passthrough(Type.ITEM1_13));
+                            handleItemToClient(wrapper.user(), wrapper.passthrough(Type.ITEM1_13));
                             // Output Item
-                            handleItemToClient(wrapper.passthrough(Type.ITEM1_13));
+                            handleItemToClient(wrapper.user(), wrapper.passthrough(Type.ITEM1_13));
 
                             boolean secondItem = wrapper.passthrough(Type.BOOLEAN); // Has second item
                             if (secondItem) {
                                 // Second Item
-                                handleItemToClient(wrapper.passthrough(Type.ITEM1_13));
+                                handleItemToClient(wrapper.user(), wrapper.passthrough(Type.ITEM1_13));
                             }
 
                             wrapper.passthrough(Type.BOOLEAN); // Trade disabled

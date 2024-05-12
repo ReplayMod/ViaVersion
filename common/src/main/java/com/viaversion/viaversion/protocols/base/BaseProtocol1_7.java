@@ -23,29 +23,38 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.connection.ProtocolInfo;
+import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.protocol.AbstractProtocol;
 import com.viaversion.viaversion.api.protocol.ProtocolPathEntry;
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.protocol.packet.State;
+import com.viaversion.viaversion.api.protocol.packet.provider.PacketTypesProvider;
 import com.viaversion.viaversion.api.protocol.remapper.PacketHandlers;
 import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import com.viaversion.viaversion.api.protocol.version.VersionProvider;
 import com.viaversion.viaversion.api.type.Type;
 import com.viaversion.viaversion.protocol.ProtocolManagerImpl;
 import com.viaversion.viaversion.protocol.ServerProtocolVersionSingleton;
-import com.viaversion.viaversion.protocols.protocol1_9to1_8.Protocol1_9To1_8;
+import com.viaversion.viaversion.protocols.base.packet.BaseClientboundPacket;
+import com.viaversion.viaversion.protocols.base.packet.BasePacketTypesProvider;
+import com.viaversion.viaversion.protocols.base.packet.BaseServerboundPacket;
 import com.viaversion.viaversion.util.ChatColorUtil;
+import com.viaversion.viaversion.util.ComponentUtil;
 import com.viaversion.viaversion.util.GsonUtil;
 import io.netty.channel.ChannelFuture;
 import java.util.List;
 import java.util.UUID;
 import java.util.logging.Level;
 
-public class BaseProtocol1_7 extends AbstractProtocol {
+public class BaseProtocol1_7 extends AbstractProtocol<BaseClientboundPacket, BaseClientboundPacket, BaseServerboundPacket, BaseServerboundPacket> {
+
+    public BaseProtocol1_7() {
+        super(BaseClientboundPacket.class, BaseClientboundPacket.class, BaseServerboundPacket.class, BaseServerboundPacket.class);
+    }
 
     @Override
     protected void registerPackets() {
-        registerClientbound(ClientboundStatusPackets.STATUS_RESPONSE, new PacketHandlers() { // Status Response Packet
+        registerClientbound(ClientboundStatusPackets.STATUS_RESPONSE, new PacketHandlers() {
             @Override
             public void register() {
                 map(Type.STRING);
@@ -55,13 +64,13 @@ public class BaseProtocol1_7 extends AbstractProtocol {
                     try {
                         JsonElement json = GsonUtil.getGson().fromJson(originalStatus, JsonElement.class);
                         JsonObject version;
-                        int protocolVersion = 0; // Unknown!
+                        int protocol = 0; // Unknown!
 
                         if (json.isJsonObject()) {
                             if (json.getAsJsonObject().has("version")) {
                                 version = json.getAsJsonObject().get("version").getAsJsonObject();
                                 if (version.has("protocol")) {
-                                    protocolVersion = ((Long) version.get("protocol").getAsLong()).intValue();
+                                    protocol = ((Long) version.get("protocol").getAsLong()).intValue();
                                 }
                             } else {
                                 json.getAsJsonObject().add("version", version = new JsonObject());
@@ -72,13 +81,15 @@ public class BaseProtocol1_7 extends AbstractProtocol {
                             json.getAsJsonObject().add("version", version = new JsonObject());
                         }
 
+                        final ProtocolVersion protocolVersion = ProtocolVersion.getProtocol(protocol);
+
                         if (Via.getConfig().isSendSupportedVersions()) { // Send supported versions
                             version.add("supportedVersions", GsonUtil.getGson().toJsonTree(Via.getAPI().getSupportedVersions()));
                         }
 
                         if (!Via.getAPI().getServerVersion().isKnown()) { // Set the Server protocol if the detection on startup failed
                             ProtocolManagerImpl protocolManager = (ProtocolManagerImpl) Via.getManager().getProtocolManager();
-                            protocolManager.setServerProtocol(new ServerProtocolVersionSingleton(ProtocolVersion.getProtocol(protocolVersion).getVersion()));
+                            protocolManager.setServerProtocol(new ServerProtocolVersionSingleton(protocolVersion));
                         }
 
                         // Ensure the server has a version provider
@@ -88,23 +99,23 @@ public class BaseProtocol1_7 extends AbstractProtocol {
                             return;
                         }
 
-                        int closestServerProtocol = versionProvider.getClosestServerProtocol(wrapper.user());
+                        ProtocolVersion closestServerProtocol = versionProvider.getClosestServerProtocol(wrapper.user());
                         List<ProtocolPathEntry> protocols = null;
-                        if (info.getProtocolVersion() >= closestServerProtocol || Via.getPlatform().isOldClientsAllowed()) {
-                            protocols = Via.getManager().getProtocolManager().getProtocolPath(info.getProtocolVersion(), closestServerProtocol);
+                        if (info.protocolVersion().newerThanOrEqualTo(closestServerProtocol) || Via.getPlatform().isOldClientsAllowed()) {
+                            protocols = Via.getManager().getProtocolManager()
+                                .getProtocolPath(info.protocolVersion(), closestServerProtocol);
                         }
 
                         if (protocols != null) {
-                            if (protocolVersion == closestServerProtocol || protocolVersion == 0) { // Fix ServerListPlus
-                                ProtocolVersion prot = ProtocolVersion.getProtocol(info.getProtocolVersion());
-                                version.addProperty("protocol", prot.getOriginalVersion());
+                            if (protocolVersion.equalTo(closestServerProtocol) || protocolVersion.getVersion() == 0) { // Fix ServerListPlus
+                                version.addProperty("protocol", info.protocolVersion().getOriginalVersion());
                             }
                         } else {
                             // not compatible :(, *plays very sad violin*
                             wrapper.user().setActive(false);
                         }
 
-                        if (Via.getConfig().blockedProtocolVersions().contains(info.getProtocolVersion())) {
+                        if (Via.getConfig().blockedProtocolVersions().contains(info.protocolVersion())) {
                             version.addProperty("protocol", -1); // Show blocked versions as outdated
                         }
 
@@ -119,7 +130,7 @@ public class BaseProtocol1_7 extends AbstractProtocol {
         // Login Success Packet
         registerClientbound(ClientboundLoginPackets.GAME_PROFILE, wrapper -> {
             ProtocolInfo info = wrapper.user().getProtocolInfo();
-            if (info.getProtocolVersion() < ProtocolVersion.v1_20_2.getVersion()) { // On 1.20.2+, wait for the login ack
+            if (info.protocolVersion().olderThan(ProtocolVersion.v1_20_2)) { // On 1.20.2+, wait for the login ack
                 info.setState(State.PLAY);
             }
 
@@ -140,7 +151,7 @@ public class BaseProtocol1_7 extends AbstractProtocol {
                 Via.getPlatform().getLogger().log(Level.INFO, "{0} logged in with protocol {1}, Route: {2}",
                         new Object[]{
                                 username,
-                                info.getProtocolVersion(),
+                                info.protocolVersion().getName(),
                                 Joiner.on(", ").join(info.getPipeline().pipes(), ", ")
                         });
             }
@@ -148,18 +159,22 @@ public class BaseProtocol1_7 extends AbstractProtocol {
 
         // Login Start Packet
         registerServerbound(ServerboundLoginPackets.HELLO, wrapper -> {
-            int protocol = wrapper.user().getProtocolInfo().getProtocolVersion();
+            final UserConnection user = wrapper.user();
+            final ProtocolVersion protocol = user.getProtocolInfo().protocolVersion();
             if (Via.getConfig().blockedProtocolVersions().contains(protocol)) {
-                if (!wrapper.user().getChannel().isOpen()) return;
-                if (!wrapper.user().shouldApplyBlockProtocol()) return;
+                if (!user.getChannel().isOpen() || !user.shouldApplyBlockProtocol()) {
+                    return;
+                }
 
-                PacketWrapper disconnectPacket = PacketWrapper.create(ClientboundLoginPackets.LOGIN_DISCONNECT, wrapper.user()); // Disconnect Packet
-                Protocol1_9To1_8.FIX_JSON.write(disconnectPacket, ChatColorUtil.translateAlternateColorCodes(Via.getConfig().getBlockedDisconnectMsg()));
                 wrapper.cancel(); // cancel current
 
+                final String disconnectMessage = ChatColorUtil.translateAlternateColorCodes(Via.getConfig().getBlockedDisconnectMsg());
+                final PacketWrapper disconnectPacket = PacketWrapper.create(ClientboundLoginPackets.LOGIN_DISCONNECT, user);
+                disconnectPacket.write(Type.COMPONENT, ComponentUtil.plainToJson(disconnectMessage));
+
                 // Send and close
-                ChannelFuture future = disconnectPacket.sendFuture(BaseProtocol.class);
-                future.addListener(f -> wrapper.user().getChannel().close());
+                final ChannelFuture future = disconnectPacket.sendFuture(null);
+                future.addListener(f -> user.getChannel().close());
             }
         });
 
@@ -190,5 +205,10 @@ public class BaseProtocol1_7 extends AbstractProtocol {
             uuidString = addDashes(uuidString);
         }
         return UUID.fromString(uuidString);
+    }
+
+    @Override
+    protected PacketTypesProvider<BaseClientboundPacket, BaseClientboundPacket, BaseServerboundPacket, BaseServerboundPacket> createPacketTypesProvider() {
+        return BasePacketTypesProvider.INSTANCE;
     }
 }

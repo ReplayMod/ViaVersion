@@ -161,9 +161,7 @@ public final class EntityPacketRewriter1_20_2 extends EntityRewriter<Clientbound
             wrapper.passthrough(Type.BYTE); // Amplifier
             wrapper.passthrough(Type.VAR_INT); // Duration
             wrapper.passthrough(Type.BYTE); // Flags
-            if (wrapper.passthrough(Type.BOOLEAN)) {
-                wrapper.write(Type.COMPOUND_TAG, wrapper.read(Type.NAMED_COMPOUND_TAG)); // Factor data
-            }
+            wrapper.write(Type.OPTIONAL_COMPOUND_TAG, wrapper.read(Type.OPTIONAL_NAMED_COMPOUND_TAG)); // Factor data
         });
 
         protocol.registerClientbound(ClientboundPackets1_19_4.REMOVE_ENTITY_EFFECT, wrapper -> {
@@ -175,7 +173,7 @@ public final class EntityPacketRewriter1_20_2 extends EntityRewriter<Clientbound
     @Override
     protected void registerRewrites() {
         filter().mapMetaType(Types1_20_2.META_TYPES::byId);
-        registerMetaTypeHandler(Types1_20_2.META_TYPES.itemType, Types1_20_2.META_TYPES.blockStateType, Types1_20_2.META_TYPES.optionalBlockStateType, Types1_20_2.META_TYPES.particleType);
+        registerMetaTypeHandler(Types1_20_2.META_TYPES.itemType, Types1_20_2.META_TYPES.blockStateType, Types1_20_2.META_TYPES.optionalBlockStateType, Types1_20_2.META_TYPES.particleType, null);
 
         filter().type(EntityTypes1_19_4.DISPLAY).addIndex(10);
 

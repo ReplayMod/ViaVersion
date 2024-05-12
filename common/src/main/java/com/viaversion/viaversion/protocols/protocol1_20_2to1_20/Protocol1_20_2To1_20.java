@@ -30,6 +30,7 @@ import com.viaversion.viaversion.api.protocol.packet.Direction;
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.protocol.packet.State;
 import com.viaversion.viaversion.api.protocol.remapper.PacketHandler;
+import com.viaversion.viaversion.api.protocol.remapper.PacketHandlers;
 import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import com.viaversion.viaversion.api.rewriter.EntityRewriter;
 import com.viaversion.viaversion.api.rewriter.ItemRewriter;
@@ -52,8 +53,8 @@ import com.viaversion.viaversion.protocols.protocol1_20_2to1_20.storage.LastReso
 import com.viaversion.viaversion.protocols.protocol1_20_2to1_20.storage.LastTags;
 import com.viaversion.viaversion.rewriter.SoundRewriter;
 import com.viaversion.viaversion.rewriter.TagRewriter;
-import com.viaversion.viaversion.util.Key;
 import java.util.UUID;
+import com.viaversion.viaversion.util.Key;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 public final class Protocol1_20_2To1_20 extends AbstractProtocol<ClientboundPackets1_19_4, ClientboundPackets1_20_2, ServerboundPackets1_19_4, ServerboundPackets1_20_2> {
@@ -61,6 +62,7 @@ public final class Protocol1_20_2To1_20 extends AbstractProtocol<ClientboundPack
     public static final MappingData MAPPINGS = new MappingDataBase("1.20", "1.20.2");
     private final EntityPacketRewriter1_20_2 entityPacketRewriter = new EntityPacketRewriter1_20_2(this);
     private final BlockItemPacketRewriter1_20_2 itemPacketRewriter = new BlockItemPacketRewriter1_20_2(this);
+    private final TagRewriter<ClientboundPackets1_19_4> tagRewriter = new TagRewriter<>(this);
 
     public Protocol1_20_2To1_20() {
         super(ClientboundPackets1_19_4.class, ClientboundPackets1_20_2.class, ServerboundPackets1_19_4.class, ServerboundPackets1_20_2.class);
@@ -73,10 +75,23 @@ public final class Protocol1_20_2To1_20 extends AbstractProtocol<ClientboundPack
 
         final SoundRewriter<ClientboundPackets1_19_4> soundRewriter = new SoundRewriter<>(this);
         soundRewriter.register1_19_3Sound(ClientboundPackets1_19_4.SOUND);
-        soundRewriter.registerEntitySound(ClientboundPackets1_19_4.ENTITY_SOUND);
+        soundRewriter.register1_19_3Sound(ClientboundPackets1_19_4.ENTITY_SOUND);
 
-        registerClientbound(ClientboundPackets1_19_4.PLUGIN_MESSAGE, this::sanitizeCustomPayload);
-        registerServerbound(ServerboundPackets1_20_2.PLUGIN_MESSAGE, this::sanitizeCustomPayload);
+        final PacketHandlers sanitizeCustomPayload = new PacketHandlers() {
+            @Override
+            protected void register() {
+                map(Type.STRING); // Channel
+                handlerSoftFail(wrapper -> {
+                    final String channel = Key.namespaced(wrapper.get(Type.STRING, 0));
+                    if (channel.equals("minecraft:brand")) {
+                        wrapper.passthrough(Type.STRING);
+                        wrapper.clearInputBuffer();
+                    }
+                });
+            }
+        };
+        registerClientbound(ClientboundPackets1_19_4.PLUGIN_MESSAGE, sanitizeCustomPayload);
+        registerServerbound(ServerboundPackets1_20_2.PLUGIN_MESSAGE, sanitizeCustomPayload);
 
         registerClientbound(ClientboundPackets1_19_4.RESOURCE_PACK, wrapper -> {
             final String url = wrapper.passthrough(Type.STRING);
@@ -86,7 +101,6 @@ public final class Protocol1_20_2To1_20 extends AbstractProtocol<ClientboundPack
             wrapper.user().put(new LastResourcePack(url, hash, required, prompt));
         });
 
-        final TagRewriter<ClientboundPackets1_19_4> tagRewriter = new TagRewriter<>(this);
         registerClientbound(ClientboundPackets1_19_4.TAGS, wrapper -> {
             tagRewriter.getGenericHandler().handle(wrapper);
             wrapper.resetReader();
@@ -291,7 +305,7 @@ public final class Protocol1_20_2To1_20 extends AbstractProtocol<ClientboundPack
             lastTags.sendLastTags(connection);
         }
 
-        if (lastResourcePack != null && connection.getProtocolInfo().getProtocolVersion() == ProtocolVersion.v1_20_2.getVersion()) {
+        if (lastResourcePack != null && connection.getProtocolInfo().protocolVersion() == ProtocolVersion.v1_20_2) {
             // The client for some reason drops the resource pack when reentering the configuration state
             final PacketWrapper resourcePackPacket = PacketWrapper.create(ClientboundConfigurationPackets1_20_2.RESOURCE_PACK, connection);
             resourcePackPacket.write(Type.STRING, lastResourcePack.url());
@@ -313,14 +327,6 @@ public final class Protocol1_20_2To1_20 extends AbstractProtocol<ClientboundPack
             wrapper.user().get(ConfigurationState.class).addPacketToQueue(wrapper, false);
             wrapper.cancel();
         };
-    }
-
-    private void sanitizeCustomPayload(final PacketWrapper wrapper) throws Exception {
-        final String channel = Key.namespaced(wrapper.passthrough(Type.STRING));
-        if (channel.equals("minecraft:brand")) {
-            wrapper.passthrough(Type.STRING);
-            wrapper.clearInputBuffer();
-        }
     }
 
     @Override
@@ -347,5 +353,10 @@ public final class Protocol1_20_2To1_20 extends AbstractProtocol<ClientboundPack
     @Override
     public ItemRewriter<Protocol1_20_2To1_20> getItemRewriter() {
         return itemPacketRewriter;
+    }
+
+    @Override
+    public TagRewriter<ClientboundPackets1_19_4> getTagRewriter() {
+        return tagRewriter;
     }
 }

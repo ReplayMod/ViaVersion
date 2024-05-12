@@ -24,6 +24,7 @@ package com.viaversion.viaversion.api.minecraft.item;
 
 import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
 import com.google.gson.annotations.SerializedName;
+import com.viaversion.viaversion.api.minecraft.data.StructuredDataContainer;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
@@ -92,6 +93,11 @@ public class DataItem implements Item {
     }
 
     @Override
+    public StructuredDataContainer structuredData() {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Item copy() {
         return new DataItem(identifier, amount, data, tag);
     }
@@ -119,10 +125,10 @@ public class DataItem implements Item {
     @Override
     public String toString() {
         return "Item{" +
-                "identifier=" + identifier +
-                ", amount=" + amount +
-                ", data=" + data +
-                ", tag=" + tag +
-                '}';
+            "identifier=" + identifier +
+            ", amount=" + amount +
+            ", data=" + data +
+            ", tag=" + tag +
+            '}';
     }
 }

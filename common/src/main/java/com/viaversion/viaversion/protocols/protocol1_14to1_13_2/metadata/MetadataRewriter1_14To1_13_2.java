@@ -38,14 +38,12 @@ public class MetadataRewriter1_14To1_13_2 extends EntityRewriter<ClientboundPack
 
     public MetadataRewriter1_14To1_13_2(Protocol1_14To1_13_2 protocol) {
         super(protocol);
-        mapTypes(EntityTypes1_13.EntityType.values(), EntityTypes1_14.class);
-        mapEntityType(EntityTypes1_13.EntityType.OCELOT, EntityTypes1_14.CAT);
     }
 
     @Override
     protected void registerRewrites() {
         filter().mapMetaType(Types1_14.META_TYPES::byId);
-        registerMetaTypeHandler(Types1_14.META_TYPES.itemType, Types1_14.META_TYPES.blockStateType, null, Types1_14.META_TYPES.particleType);
+        registerMetaTypeHandler(Types1_14.META_TYPES.itemType, Types1_14.META_TYPES.blockStateType, Types1_14.META_TYPES.particleType);
 
         filter().type(EntityTypes1_14.ENTITY).addIndex(6);
         filter().type(EntityTypes1_14.LIVINGENTITY).addIndex(12);
@@ -61,7 +59,7 @@ public class MetadataRewriter1_14To1_13_2 extends EntityRewriter<ClientboundPack
             EntityTracker1_14 tracker = tracker(event.user());
             int entityId = event.entityId();
             tracker.setInsentientData(entityId, (byte) ((((Number) meta.getValue()).byteValue() & ~0x4)
-                    | (tracker.getInsentientData(entityId) & 0x4))); // New attacking metadata
+                | (tracker.getInsentientData(entityId) & 0x4))); // New attacking metadata
             meta.setValue(tracker.getInsentientData(entityId));
         });
 
@@ -87,7 +85,7 @@ public class MetadataRewriter1_14To1_13_2 extends EntityRewriter<ClientboundPack
                 EntityTracker1_14 tracker = tracker(event.user());
                 int entityId = event.entityId();
                 tracker.setInsentientData(entityId, (byte) ((tracker.getInsentientData(entityId) & ~0x4)
-                        | ((boolean) meta.getValue() ? 0x4 : 0))); // New attacking
+                    | ((boolean) meta.getValue() ? 0x4 : 0))); // New attacking
                 event.createExtraMeta(new Metadata(13, Types1_14.META_TYPES.byteType, tracker.getInsentientData(entityId)));
                 event.cancel(); // "Are hands held up"
             } else if (meta.id() > 16) {
@@ -145,28 +143,41 @@ public class MetadataRewriter1_14To1_13_2 extends EntityRewriter<ClientboundPack
             EntityTracker1_14 tracker = tracker(event.user());
             int entityId = event.entityId();
             tracker.setInsentientData(entityId, (byte) ((tracker.getInsentientData(entityId) & ~0x4)
-                    | ((boolean) meta.getValue() ? 0x4 : 0))); // New attacking
+                | ((boolean) meta.getValue() ? 0x4 : 0))); // New attacking
             event.createExtraMeta(new Metadata(13, Types1_14.META_TYPES.byteType, tracker.getInsentientData(entityId)));
             event.cancel();  // "Is swinging arms"
         });
 
-        filter().type(EntityTypes1_14.ABSTRACT_ILLAGER_BASE).index(14).handler((event, meta) -> {
-            EntityTracker1_14 tracker = tracker(event.user());
-            int entityId = event.entityId();
-            tracker.setInsentientData(entityId, (byte) ((tracker.getInsentientData(entityId) & ~0x4)
+        filter().type(EntityTypes1_14.ABSTRACT_ILLAGER_BASE).handler((event, meta) -> {
+            if (event.index() == 14) {
+                EntityTracker1_14 tracker = tracker(event.user());
+                int entityId = event.entityId();
+                tracker.setInsentientData(entityId, (byte) ((tracker.getInsentientData(entityId) & ~0x4)
                     | (((Number) meta.getValue()).byteValue() != 0 ? 0x4 : 0))); // New attacking
-            event.createExtraMeta(new Metadata(13, Types1_14.META_TYPES.byteType, tracker.getInsentientData(entityId)));
-            event.cancel(); // "Has target (aggressive state)"
-        });
-
-        filter().handler((event, meta) -> {
-            EntityType type = event.entityType();
-            if (type.is(EntityTypes1_14.WITCH) || type.is(EntityTypes1_14.RAVAGER) || type.isOrHasParent(EntityTypes1_14.ABSTRACT_ILLAGER_BASE)) {
-                if (meta.id() >= 14) {  // 19w13 added a new boolean (raid participant - is celebrating) with id 14
-                    meta.setId(meta.id() + 1);
-                }
+                event.createExtraMeta(new Metadata(13, Types1_14.META_TYPES.byteType, tracker.getInsentientData(entityId)));
+                event.cancel(); // "Has target (aggressive state)"
+            } else if (event.index() > 14) {
+                meta.setId(meta.id() - 1);
             }
         });
+
+        filter().type(EntityTypes1_14.OCELOT).removeIndex(17); // variant
+
+        // Ocelot is not tamable anymore
+        filter().type(EntityTypes1_14.OCELOT).removeIndex(16); // owner uuid
+        filter().type(EntityTypes1_14.OCELOT).removeIndex(15); // data
+
+        filter().type(EntityTypes1_14.ABSTRACT_RAIDER).addIndex(14); // celebrating
+    }
+
+    @Override
+    public void onMappingDataLoaded() {
+        mapTypes();
+        if (Via.getConfig().translateOcelotToCat()) {
+            // A better solution for this would be to despawn the ocelot and spawn a cat in its place, but that would
+            // require a lot of data tracking and is not worth the effort.
+            mapEntityType(EntityTypes1_13.EntityType.OCELOT, EntityTypes1_14.CAT);
+        }
     }
 
     @Override

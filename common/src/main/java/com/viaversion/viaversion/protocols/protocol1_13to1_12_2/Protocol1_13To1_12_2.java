@@ -39,6 +39,9 @@ import com.viaversion.viaversion.api.type.Type;
 import com.viaversion.viaversion.api.type.types.misc.ParticleType;
 import com.viaversion.viaversion.api.type.types.version.Types1_13;
 import com.viaversion.viaversion.data.entity.EntityTrackerBase;
+import com.viaversion.viaversion.protocols.base.ClientboundLoginPackets;
+import com.viaversion.viaversion.protocols.base.ClientboundStatusPackets;
+import com.viaversion.viaversion.protocols.base.ServerboundLoginPackets;
 import com.viaversion.viaversion.protocols.protocol1_12_1to1_12.ClientboundPackets1_12_1;
 import com.viaversion.viaversion.protocols.protocol1_12_1to1_12.ServerboundPackets1_12_1;
 import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.blockconnections.ConnectionData;
@@ -64,6 +67,7 @@ import com.viaversion.viaversion.rewriter.SoundRewriter;
 import com.viaversion.viaversion.util.ChatColorUtil;
 import com.viaversion.viaversion.util.ComponentUtil;
 import com.viaversion.viaversion.util.GsonUtil;
+import com.viaversion.viaversion.util.IdAndData;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -168,9 +172,11 @@ public class Protocol1_13To1_12_2 extends AbstractProtocol<ClientboundPackets1_1
         EntityPackets.register(this);
         WorldPackets.register(this);
 
-        registerClientbound(State.LOGIN, 0x00, 0x00, wrapper -> componentRewriter.processText(wrapper.passthrough(Type.COMPONENT)));
+        registerClientbound(State.LOGIN, ClientboundLoginPackets.LOGIN_DISCONNECT.getId(), ClientboundLoginPackets.LOGIN_DISCONNECT.getId(), wrapper -> {
+            componentRewriter.processText(wrapper.user(), wrapper.passthrough(Type.COMPONENT));
+        });
 
-        registerClientbound(State.STATUS, 0x00, 0x00, new PacketHandlers() {
+        registerClientbound(State.STATUS, ClientboundStatusPackets.STATUS_RESPONSE.getId(), ClientboundStatusPackets.STATUS_RESPONSE.getId(), new PacketHandlers() {
             @Override
             public void register() {
                 map(Type.STRING);
@@ -294,7 +300,7 @@ public class Protocol1_13To1_12_2 extends AbstractProtocol<ClientboundPackets1_1
             public void register() {
                 map(Type.UNSIGNED_BYTE); // Id
                 map(Type.STRING); // Window type
-                handler(wrapper -> componentRewriter.processText(wrapper.passthrough(Type.COMPONENT))); // Title
+                handler(wrapper -> componentRewriter.processText(wrapper.user(), wrapper.passthrough(Type.COMPONENT))); // Title
             }
         });
 
@@ -316,7 +322,7 @@ public class Protocol1_13To1_12_2 extends AbstractProtocol<ClientboundPackets1_1
                 }
             } else {
                 for (int i = 0; i < 16; i++) {
-                    int newItem = MAPPINGS.getItemMappings().getNewId(item << 4 | i);
+                    int newItem = MAPPINGS.getItemMappings().getNewId(IdAndData.toRawData(item, i));
                     if (newItem != -1) {
                         PacketWrapper packet = wrapper.create(ClientboundPackets1_13.COOLDOWN);
                         packet.write(Type.VAR_INT, newItem);
@@ -341,11 +347,11 @@ public class Protocol1_13To1_12_2 extends AbstractProtocol<ClientboundPackets1_1
                     int id = wrapper.get(Type.INT, 0);
                     int data = wrapper.get(Type.INT, 1);
                     if (id == 1010) { // Play record
-                        wrapper.set(Type.INT, 1, getMappingData().getItemMappings().getNewId(data << 4));
+                        wrapper.set(Type.INT, 1, getMappingData().getItemMappings().getNewId(IdAndData.toRawData(data)));
                     } else if (id == 2001) { // Block break + block break sound
                         int blockId = data & 0xFFF;
                         int blockData = data >> 12;
-                        wrapper.set(Type.INT, 1, WorldPackets.toNewId(blockId << 4 | blockData));
+                        wrapper.set(Type.INT, 1, WorldPackets.toNewId(IdAndData.toRawData(blockId, blockData)));
                     }
                 });
             }
@@ -509,8 +515,8 @@ public class Protocol1_13To1_12_2 extends AbstractProtocol<ClientboundPackets1_1
         new SoundRewriter<>(this).registerSound(ClientboundPackets1_12_1.SOUND);
 
         registerClientbound(ClientboundPackets1_12_1.TAB_LIST, wrapper -> {
-            componentRewriter.processText(wrapper.passthrough(Type.COMPONENT));
-            componentRewriter.processText(wrapper.passthrough(Type.COMPONENT));
+            componentRewriter.processText(wrapper.user(), wrapper.passthrough(Type.COMPONENT));
+            componentRewriter.processText(wrapper.user(), wrapper.passthrough(Type.COMPONENT));
         });
 
         registerClientbound(ClientboundPackets1_12_1.ADVANCEMENTS, wrapper -> {
@@ -519,17 +525,14 @@ public class Protocol1_13To1_12_2 extends AbstractProtocol<ClientboundPackets1_1
 
             for (int i = 0; i < size; i++) {
                 wrapper.passthrough(Type.STRING); // Identifier
-
-                // Parent
-                if (wrapper.passthrough(Type.BOOLEAN))
-                    wrapper.passthrough(Type.STRING);
+                wrapper.passthrough(Type.OPTIONAL_STRING); // Parent
 
                 // Display data
                 if (wrapper.passthrough(Type.BOOLEAN)) {
-                    componentRewriter.processText(wrapper.passthrough(Type.COMPONENT)); // Title
-                    componentRewriter.processText(wrapper.passthrough(Type.COMPONENT)); // Description
+                    componentRewriter.processText(wrapper.user(), wrapper.passthrough(Type.COMPONENT)); // Title
+                    componentRewriter.processText(wrapper.user(), wrapper.passthrough(Type.COMPONENT)); // Description
                     Item icon = wrapper.read(Type.ITEM1_8);
-                    itemRewriter.handleItemToClient(icon);
+                    itemRewriter.handleItemToClient(wrapper.user(), icon);
                     wrapper.write(Type.ITEM1_13, icon); // Translate item to flat item
                     wrapper.passthrough(Type.VAR_INT); // Frame type
                     int flags = wrapper.passthrough(Type.INT); // Flags
@@ -552,7 +555,7 @@ public class Protocol1_13To1_12_2 extends AbstractProtocol<ClientboundPackets1_1
 
         // Incoming packets
         // New packet 0x02 - Login Plugin Message
-        cancelServerbound(State.LOGIN, 0x02);
+        cancelServerbound(State.LOGIN, ServerboundLoginPackets.CUSTOM_QUERY_ANSWER.getId());
 
         // New 0x01 - Query Block NBT
         cancelServerbound(ServerboundPackets1_13.QUERY_BLOCK_NBT);
@@ -598,7 +601,7 @@ public class Protocol1_13To1_12_2 extends AbstractProtocol<ClientboundPackets1_1
             Item item = wrapper.read(Type.ITEM1_13);
             boolean isSigning = wrapper.read(Type.BOOLEAN);
 
-            itemRewriter.handleItemToServer(item);
+            itemRewriter.handleItemToServer(wrapper.user(), item);
 
             wrapper.write(Type.STRING, isSigning ? "MC|BSign" : "MC|BEdit"); // Channel
             wrapper.write(Type.ITEM1_8, item);
@@ -845,7 +848,7 @@ public class Protocol1_13To1_12_2 extends AbstractProtocol<ClientboundPackets1_1
         RecipeData.init();
         BlockIdData.init();
 
-        Types1_13.PARTICLE.filler(this)
+        Types1_13.PARTICLE.rawFiller()
                 .reader(3, ParticleType.Readers.BLOCK)
                 .reader(20, ParticleType.Readers.DUST)
                 .reader(11, ParticleType.Readers.DUST)
@@ -854,6 +857,8 @@ public class Protocol1_13To1_12_2 extends AbstractProtocol<ClientboundPackets1_1
         if (Via.getConfig().isServersideBlockConnections() && Via.getManager().getProviders().get(BlockConnectionProvider.class) instanceof PacketBlockConnectionProvider) {
             BlockConnectionStorage.init();
         }
+
+        super.onMappingDataLoaded();
     }
 
     @Override

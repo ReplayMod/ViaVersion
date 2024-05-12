@@ -17,19 +17,18 @@
  */
 package com.viaversion.viaversion.util;
 
+import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
 import com.github.steveice10.opennbt.tag.builtin.StringTag;
 import com.github.steveice10.opennbt.tag.builtin.Tag;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.viaversion.viaversion.api.Via;
 import java.util.logging.Level;
-import net.lenni0451.mcstructs.snbt.SNbtSerializer;
 import net.lenni0451.mcstructs.text.ATextComponent;
 import net.lenni0451.mcstructs.text.Style;
 import net.lenni0451.mcstructs.text.events.hover.AHoverEvent;
 import net.lenni0451.mcstructs.text.events.hover.impl.TextHoverEvent;
 import net.lenni0451.mcstructs.text.serializer.LegacyStringDeserializer;
-import net.lenni0451.mcstructs.text.serializer.TextComponentCodec;
 import net.lenni0451.mcstructs.text.serializer.TextComponentSerializer;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
@@ -54,7 +53,7 @@ public final class ComponentUtil {
 
     public static @Nullable JsonElement tagToJson(@Nullable final Tag tag) {
         try {
-            final ATextComponent component = TextComponentCodec.V1_20_3.deserializeNbtTree(tag);
+            final ATextComponent component = SerializerVersion.V1_20_3.toComponent(tag);
             return component != null ? SerializerVersion.V1_19_4.toJson(component) : null;
         } catch (final Exception e) {
             Via.getPlatform().getLogger().log(Level.SEVERE, "Error converting tag: " + tag, e);
@@ -63,13 +62,13 @@ public final class ComponentUtil {
     }
 
     public static @Nullable Tag jsonToTag(@Nullable final JsonElement element) {
-        if (element == null) {
+        if (element == null || element.isJsonNull()) {
             return null;
         }
 
         try {
-            final ATextComponent component = TextComponentSerializer.V1_19_4.deserialize(element);
-            return trimStrings(TextComponentCodec.V1_20_3.serializeNbt(component));
+            final ATextComponent component = SerializerVersion.V1_19_4.toComponent(element);
+            return trimStrings(SerializerVersion.V1_20_3.toTag(component));
         } catch (final Exception e) {
             Via.getPlatform().getLogger().log(Level.SEVERE, "Error converting component: " + element, e);
             return new StringTag("<error>");
@@ -93,12 +92,41 @@ public final class ComponentUtil {
         });
     }
 
+    public static @Nullable String tagToJsonString(@Nullable final Tag tag) {
+        try {
+            final ATextComponent component = SerializerVersion.V1_20_5.toComponent(tag);
+            return component != null ? SerializerVersion.V1_20_3.toString(component) : null;
+        } catch (final Exception e) {
+            Via.getPlatform().getLogger().log(Level.SEVERE, "Error converting tag: " + tag, e);
+            return plainToJson("<error>").toString();
+        }
+    }
+
+    public static @Nullable Tag jsonStringToTag(@Nullable final String json) {
+        return jsonStringToTag(json, SerializerVersion.V1_20_3, SerializerVersion.V1_20_5);
+    }
+
+    public static @Nullable Tag jsonStringToTag(@Nullable final String json, final SerializerVersion from, final SerializerVersion to) {
+        if (json == null) {
+            return null;
+        }
+        return to.toTag(from.jsonSerializer.deserialize(json));
+    }
+
     public static @Nullable JsonElement convertJson(@Nullable final JsonElement element, final SerializerVersion from, final SerializerVersion to) {
-        return element != null ? convert(from, to, from.jsonSerializer.deserialize(element)) : null;
+        return element != null ? convert(from, to, from.toComponent(element)) : null;
     }
 
     public static @Nullable JsonElement convertJson(@Nullable final String json, final SerializerVersion from, final SerializerVersion to) {
-        return json != null ? convert(from, to, from.jsonSerializer.deserializeReader(json)) : null;
+        return json != null ? convert(from, to, from.toComponent(json)) : null;
+    }
+
+    public static @Nullable JsonElement convertJsonOrEmpty(@Nullable final String json, final SerializerVersion from, final SerializerVersion to) {
+        final ATextComponent component = from.toComponent(json);
+        if (component == null) {
+            return emptyJsonComponent();
+        }
+        return to.toJson(component);
     }
 
     private static JsonElement convert(final SerializerVersion from, final SerializerVersion to, final ATextComponent component) {
@@ -126,7 +154,7 @@ public final class ComponentUtil {
         if (itemData) {
             component.setParentStyle(new Style().setItalic(false));
         }
-        return TextComponentSerializer.V1_12.serialize(component);
+        return SerializerVersion.V1_12.toString(component);
     }
 
     public static String jsonToLegacy(final String value) {
@@ -134,39 +162,14 @@ public final class ComponentUtil {
     }
 
     public static String jsonToLegacy(final JsonElement value) {
-        return TextComponentSerializer.V1_12.deserialize(value).asLegacyFormatString();
+        return SerializerVersion.V1_12.toComponent(value).asLegacyFormatString();
     }
 
-    public enum SerializerVersion {
-        V1_8(TextComponentSerializer.V1_8, SNbtSerializer.V1_8),
-        V1_9(TextComponentSerializer.V1_9, SNbtSerializer.V1_8),
-        V1_12(TextComponentSerializer.V1_12, SNbtSerializer.V1_12),
-        V1_14(TextComponentSerializer.V1_14, SNbtSerializer.V1_14),
-        V1_15(TextComponentSerializer.V1_15, SNbtSerializer.V1_14),
-        V1_16(TextComponentSerializer.V1_16, SNbtSerializer.V1_14),
-        V1_17(TextComponentSerializer.V1_17, SNbtSerializer.V1_14),
-        V1_18(TextComponentSerializer.V1_18, SNbtSerializer.V1_14),
-        V1_19_4(TextComponentSerializer.V1_19_4, SNbtSerializer.V1_14),
-        V1_20_3(TextComponentCodec.V1_20_3, SNbtSerializer.V1_14);
+    public static CompoundTag deserializeLegacyShowItem(final JsonElement element, final SerializerVersion version) {
+        return (CompoundTag) version.toTag(version.toComponent(element).asUnformattedString());
+    }
 
-        private final TextComponentSerializer jsonSerializer;
-        private final SNbtSerializer<?> snbtSerializer;
-        private final TextComponentCodec codec;
-
-        SerializerVersion(final TextComponentSerializer jsonSerializer, final SNbtSerializer<?> snbtSerializer) {
-            this.jsonSerializer = jsonSerializer;
-            this.snbtSerializer = snbtSerializer;
-            this.codec = null;
-        }
-
-        SerializerVersion(final TextComponentCodec codec, final SNbtSerializer<?> snbtSerializer) {
-            this.codec = codec;
-            this.jsonSerializer = codec.asSerializer();
-            this.snbtSerializer = snbtSerializer;
-        }
-
-        public JsonElement toJson(final ATextComponent component) {
-            return jsonSerializer.serializeJson(component);
-        }
+    public static CompoundTag deserializeShowItem(final Tag value, final SerializerVersion version) {
+        return (CompoundTag) version.toTag(version.toComponent(value).asUnformattedString());
     }
 }

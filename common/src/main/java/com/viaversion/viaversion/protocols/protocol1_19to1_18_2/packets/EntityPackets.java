@@ -17,11 +17,10 @@
  */
 package com.viaversion.viaversion.protocols.protocol1_19to1_18_2.packets;
 
-import com.github.steveice10.opennbt.stringified.SNBT;
 import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
 import com.github.steveice10.opennbt.tag.builtin.IntTag;
 import com.github.steveice10.opennbt.tag.builtin.ListTag;
-import com.github.steveice10.opennbt.tag.builtin.Tag;
+import com.github.steveice10.opennbt.tag.builtin.NumberTag;
 import com.google.common.collect.Maps;
 import com.google.gson.JsonElement;
 import com.viaversion.viaversion.api.Via;
@@ -45,6 +44,7 @@ import com.viaversion.viaversion.protocols.protocol1_19to1_18_2.storage.Dimensio
 import com.viaversion.viaversion.rewriter.EntityRewriter;
 import com.viaversion.viaversion.util.Key;
 import com.viaversion.viaversion.util.Pair;
+import com.viaversion.viaversion.util.TagUtil;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -52,36 +52,6 @@ import java.util.List;
 import java.util.Map;
 
 public final class EntityPackets extends EntityRewriter<ClientboundPackets1_18, Protocol1_19To1_18_2> {
-
-    private static final String CHAT_REGISTRY_SNBT = "{\n" +
-            "  \"minecraft:chat_type\": {\n" +
-            "    \"type\": \"minecraft:chat_type\",\n" +
-            "    \"value\": [\n" +
-            "      {\n" +
-            "        \"name\": \"minecraft:system\",\n" +
-            "        \"id\": 1,\n" +
-            "        \"element\": {\n" +
-            "          \"chat\": {},\n" +
-            "          \"narration\": {\n" +
-            "            \"priority\": \"system\"\n" +
-            "          }\n" +
-            "        }\n" +
-            "      },\n" +
-            "      {\n" +
-            "        \"name\": \"minecraft:game_info\",\n" +
-            "        \"id\": 2,\n" +
-            "        \"element\": {\n" +
-            "          \"overlay\": {}\n" +
-            "        }\n" +
-            "      }\n" +
-            "    ]\n" +
-            "  }\n" +
-            "}";
-    public static final CompoundTag CHAT_REGISTRY;
-
-    static {
-        CHAT_REGISTRY = SNBT.deserializeCompoundTag(CHAT_REGISTRY_SNBT).getCompoundTag("minecraft:chat_type");
-    }
 
     public EntityPackets(final Protocol1_19To1_18_2 protocol) {
         super(protocol);
@@ -189,7 +159,7 @@ public final class EntityPackets extends EntityRewriter<ClientboundPackets1_18, 
                 map(Type.BYTE); // Amplifier
                 map(Type.VAR_INT); // Duration
                 map(Type.BYTE); // Flags
-                create(Type.BOOLEAN, false); // No factor data
+                create(Type.OPTIONAL_NAMED_COMPOUND_TAG, null); // No factor data
             }
         });
 
@@ -206,17 +176,18 @@ public final class EntityPackets extends EntityRewriter<ClientboundPackets1_18, 
                     final CompoundTag tag = wrapper.get(Type.NAMED_COMPOUND_TAG, 0);
 
                     // Add necessary chat types
-                    tag.put("minecraft:chat_type", CHAT_REGISTRY.copy());
+                    tag.put("minecraft:chat_type", protocol.getMappingData().chatRegistry());
 
                     // Cache a whole lot of data
-                    final ListTag<CompoundTag> dimensions = tag.getCompoundTag("minecraft:dimension_type").getListTag("value", CompoundTag.class);
+                    final ListTag<CompoundTag> dimensions = TagUtil.getRegistryEntries(tag, "dimension_type");
                     final Map<String, DimensionData> dimensionDataMap = new HashMap<>(dimensions.size());
                     final Map<CompoundTag, String> dimensionsMap = new HashMap<>(dimensions.size());
                     for (final CompoundTag dimension : dimensions) {
+                        final NumberTag idTag = dimension.getNumberTag("id");
                         final CompoundTag element = dimension.getCompoundTag("element");
                         final String name = dimension.getStringTag("name").getValue();
                         addMonsterSpawnData(element);
-                        dimensionDataMap.put(name, new DimensionDataImpl(element));
+                        dimensionDataMap.put(Key.stripMinecraftNamespace(name), new DimensionDataImpl(idTag.asInt(), element));
                         dimensionsMap.put(element.copy(), name);
                     }
                     tracker(wrapper.user()).setDimensions(dimensionDataMap);
@@ -365,10 +336,10 @@ public final class EntityPackets extends EntityRewriter<ClientboundPackets1_18, 
                 }
             }
 
-            rewriteParticle(particle);
+            rewriteParticle(event.user(), particle);
         });
 
-        registerMetaTypeHandler(Types1_19.META_TYPES.itemType, Types1_19.META_TYPES.blockStateType, null, null);
+        registerMetaTypeHandler(Types1_19.META_TYPES.itemType, Types1_19.META_TYPES.blockStateType, null);
 
         filter().type(EntityTypes1_19.MINECART_ABSTRACT).index(11).handler((event, meta) -> {
             // Convert to new block id

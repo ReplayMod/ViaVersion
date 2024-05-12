@@ -56,8 +56,8 @@ import org.bukkit.plugin.java.JavaPlugin;
 public class ViaVersionPlugin extends JavaPlugin implements ViaPlatform<Player> {
     private static final boolean FOLIA = PaperViaInjector.hasClass("io.papermc.paper.threadedregions.RegionizedServer");
     private static ViaVersionPlugin instance;
-    private final BukkitCommandHandler commandHandler;
-    private final BukkitViaConfig conf;
+    private final BukkitCommandHandler commandHandler = new BukkitCommandHandler();
+    private final BukkitViaConfig conf = new BukkitViaConfig(getDataFolder());
     private final ViaAPI<Player> api = new BukkitViaAPI(this);
     private boolean protocolSupport;
     private boolean lateBind;
@@ -65,20 +65,14 @@ public class ViaVersionPlugin extends JavaPlugin implements ViaPlatform<Player> 
     public ViaVersionPlugin() {
         instance = this;
 
-        // Command handler
-        commandHandler = new BukkitCommandHandler();
-
-        // Init platform
-        BukkitViaInjector injector = new BukkitViaInjector();
         Via.init(ViaManagerImpl.builder()
                 .platform(this)
                 .commandHandler(commandHandler)
-                .injector(injector)
+                .injector(new BukkitViaInjector())
                 .loader(new BukkitViaLoader(this))
                 .build());
 
-        // Config magic
-        conf = new BukkitViaConfig();
+        conf.reload();
     }
 
     @Override
@@ -162,7 +156,7 @@ public class ViaVersionPlugin extends JavaPlugin implements ViaPlatform<Player> 
     @Override
     public PlatformTask runRepeatingAsync(final Runnable runnable, final long ticks) {
         if (FOLIA) {
-            return new BukkitViaTaskTask(Via.getManager().getScheduler().schedule(runnable, ticks * 50, TimeUnit.MILLISECONDS));
+            return new BukkitViaTaskTask(Via.getManager().getScheduler().scheduleRepeating(runnable, 0, ticks * 50, TimeUnit.MILLISECONDS));
         }
         return new BukkitViaTask(getServer().getScheduler().runTaskTimerAsynchronously(this, runnable, 0, ticks));
     }

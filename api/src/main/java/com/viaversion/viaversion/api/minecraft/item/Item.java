@@ -23,6 +23,7 @@
 package com.viaversion.viaversion.api.minecraft.item;
 
 import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
+import com.viaversion.viaversion.api.minecraft.data.StructuredDataContainer;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 public interface Item {
@@ -79,7 +80,8 @@ public interface Item {
      *
      * @return item tag
      */
-    @Nullable CompoundTag tag();
+    @Nullable
+    CompoundTag tag();
 
     /**
      * Sets the item compound tag.
@@ -88,10 +90,21 @@ public interface Item {
      */
     void setTag(@Nullable CompoundTag tag);
 
+    StructuredDataContainer structuredData();
+
     /**
      * Returns a copy of the item.
      *
      * @return copy of the item
      */
     Item copy();
+
+    /**
+     * Returns true if the item is empty.
+     *
+     * @return true if the item is empty
+     */
+    default boolean isEmpty() {
+        return identifier() == 0 || amount() <= 0;
+    }
 }

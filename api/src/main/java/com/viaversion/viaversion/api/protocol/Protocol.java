@@ -22,7 +22,6 @@
  */
 package com.viaversion.viaversion.api.protocol;
 
-import com.google.common.annotations.Beta;
 import com.google.common.base.Preconditions;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.data.MappingData;
@@ -37,6 +36,8 @@ import com.viaversion.viaversion.api.protocol.remapper.PacketHandler;
 import com.viaversion.viaversion.api.protocol.remapper.PacketRemapper;
 import com.viaversion.viaversion.api.rewriter.EntityRewriter;
 import com.viaversion.viaversion.api.rewriter.ItemRewriter;
+import com.viaversion.viaversion.api.rewriter.TagRewriter;
+import com.viaversion.viaversion.api.type.Type;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
@@ -51,22 +52,23 @@ import org.checkerframework.checker.nullness.qual.Nullable;
  */
 public interface Protocol<CU extends ClientboundPacketType, CM extends ClientboundPacketType, SM extends ServerboundPacketType, SU extends ServerboundPacketType> {
 
-    default void registerServerbound(State state, int unmappedPacketId, int mappedPacketId) {
-        registerServerbound(state, unmappedPacketId, mappedPacketId, (PacketHandler) null);
-    }
-
-    default void registerServerbound(State state, int unmappedPacketId, int mappedPacketId, PacketHandler handler) {
-        registerServerbound(state, unmappedPacketId, mappedPacketId, handler, false);
-    }
-
-    default void registerClientbound(State state, ClientboundPacketType packetType, PacketHandler handler) {
+    default void registerClientbound(State state, ClientboundPacketType packetType, @Nullable PacketHandler handler) {
         Preconditions.checkArgument(packetType.state() == state);
         registerClientbound(state, packetType.getId(), packetType.getId(), handler, false);
     }
 
-    default void registerServerbound(State state, ServerboundPacketType packetType, PacketHandler handler) {
+    default void registerServerbound(State state, ServerboundPacketType packetType, @Nullable PacketHandler handler) {
         Preconditions.checkArgument(packetType.state() == state);
         registerServerbound(state, packetType.getId(), packetType.getId(), handler, false);
+    }
+
+    @Deprecated/*(forRemoval = true)*/
+    default void registerServerbound(State state, int unmappedPacketId, int mappedPacketId) {
+        registerServerbound(state, unmappedPacketId, mappedPacketId, (PacketHandler) null);
+    }
+
+    default void registerServerbound(State state, int unmappedPacketId, int mappedPacketId, @Nullable PacketHandler handler) {
+        registerServerbound(state, unmappedPacketId, mappedPacketId, handler, false);
     }
 
     /**
@@ -79,15 +81,16 @@ public interface Protocol<CU extends ClientboundPacketType, CM extends Clientbou
      * @param override         whether an existing mapper should be overridden
      * @see #registerServerbound(ServerboundPacketType, ServerboundPacketType, PacketHandler, boolean)
      */
-    void registerServerbound(State state, int unmappedPacketId, int mappedPacketId, PacketHandler handler, boolean override);
+    void registerServerbound(State state, int unmappedPacketId, int mappedPacketId, @Nullable PacketHandler handler, boolean override);
 
     void cancelServerbound(State state, int mappedPacketId);
 
+    @Deprecated/*(forRemoval = true)*/
     default void registerClientbound(State state, int unmappedPacketId, int mappedPacketId) {
         registerClientbound(state, unmappedPacketId, mappedPacketId, (PacketHandler) null);
     }
 
-    default void registerClientbound(State state, int unmappedPacketId, int mappedPacketId, PacketHandler handler) {
+    default void registerClientbound(State state, int unmappedPacketId, int mappedPacketId, @Nullable PacketHandler handler) {
         registerClientbound(state, unmappedPacketId, mappedPacketId, handler, false);
     }
 
@@ -103,7 +106,7 @@ public interface Protocol<CU extends ClientboundPacketType, CM extends Clientbou
      * @param override         whether an existing mapper should be overridden
      * @see #registerClientbound(ClientboundPacketType, ClientboundPacketType, PacketHandler, boolean)
      */
-    void registerClientbound(State state, int unmappedPacketId, int mappedPacketId, PacketHandler handler, boolean override);
+    void registerClientbound(State state, int unmappedPacketId, int mappedPacketId, @Nullable PacketHandler handler, boolean override);
 
     // ---------------------------------------------------------------------------------------
 
@@ -240,6 +243,28 @@ public interface Protocol<CU extends ClientboundPacketType, CM extends Clientbou
     boolean hasRegisteredServerbound(State state, int unmappedPacketId);
 
     /**
+     * Appends a clientbound packet type handler with another, as opposed to replacing it entirely.
+     * <p>
+     * Use {@link PacketWrapper#set(Type, int, Object)} to change individual parts, or call
+     * {@link PacketWrapper#resetReader()} to reset the reader index.
+     *
+     * @param type    clientbound packet type
+     * @param handler packet handler
+     */
+    void appendClientbound(CU type, PacketHandler handler);
+
+    /**
+     * Appends a serverbound packet type handler with another, as opposed to replacing it entirely.
+     * <p>
+     * Use {@link PacketWrapper#set(Type, int, Object)} to change individual parts, or call
+     * {@link PacketWrapper#resetReader()} to reset the reader index.
+     *
+     * @param type    serverbound packet type
+     * @param handler packet handler
+     */
+    void appendServerbound(SU type, PacketHandler handler);
+
+    /**
      * Transform a packet using this protocol
      *
      * @param direction     The direction the packet is going in
@@ -255,7 +280,6 @@ public interface Protocol<CU extends ClientboundPacketType, CM extends Clientbou
      *
      * @return the packet types provider
      */
-    @Beta
     PacketTypesProvider<CU, CM, SM, SU> getPacketTypesProvider();
 
     /**
@@ -265,13 +289,16 @@ public interface Protocol<CU extends ClientboundPacketType, CM extends Clientbou
      * @param <T>         type
      * @return object if present, else null
      */
-    @Nullable <T> T get(Class<T> objectClass);
+    @Deprecated
+    @Nullable
+    <T> T get(Class<T> objectClass);
 
     /**
      * Caches an object, retrievable by using {@link #get(Class)}.
      *
      * @param object object to cache
      */
+    @Deprecated
     void put(Object object);
 
     /**
@@ -345,6 +372,15 @@ public interface Protocol<CU extends ClientboundPacketType, CM extends Clientbou
      * @return item rewriter
      */
     default @Nullable ItemRewriter<?> getItemRewriter() {
+        return null;
+    }
+
+    /**
+     * Returns the protocol's tag rewriter if present.
+     *
+     * @return tag rewriter
+     */
+    default @Nullable TagRewriter getTagRewriter() {
         return null;
     }
 

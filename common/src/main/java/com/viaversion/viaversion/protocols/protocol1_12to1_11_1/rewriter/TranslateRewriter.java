@@ -21,9 +21,11 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.viaversion.viaversion.api.Via;
+import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.protocols.protocol1_12to1_11_1.data.AchievementTranslationMapping;
 import com.viaversion.viaversion.protocols.protocol1_9_3to1_9_1_2.ClientboundPackets1_9_3;
 import com.viaversion.viaversion.rewriter.ComponentRewriter;
+import com.viaversion.viaversion.util.SerializerVersion;
 import java.util.logging.Level;
 
 public class TranslateRewriter {
@@ -38,20 +40,14 @@ public class TranslateRewriter {
         }
 
         @Override
-        protected void handleHoverEvent(JsonObject hoverEvent) {
+        protected void handleHoverEvent(UserConnection connection, JsonObject hoverEvent) {
             String action = hoverEvent.getAsJsonPrimitive("action").getAsString();
             if (!action.equals("show_achievement")) {
-                super.handleHoverEvent(hoverEvent);
+                super.handleHoverEvent(connection, hoverEvent);
                 return;
             }
 
-            String textValue;
-            JsonElement value = hoverEvent.get("value");
-            if (value.isJsonObject()) {
-                textValue = value.getAsJsonObject().get("text").getAsString();
-            } else {
-                textValue = value.getAsJsonPrimitive().getAsString();
-            }
+            String textValue = SerializerVersion.V1_9.toComponent(hoverEvent.get("value")).asUnformattedString();
 
             if (AchievementTranslationMapping.get(textValue) == null) {
                 JsonObject invalidText = new JsonObject();
@@ -59,7 +55,7 @@ public class TranslateRewriter {
                 invalidText.addProperty("color", "red");
                 hoverEvent.addProperty("action", "show_text");
                 hoverEvent.add("value", invalidText);
-                super.handleHoverEvent(hoverEvent);
+                super.handleHoverEvent(connection, hoverEvent);
                 return;
             }
 
@@ -79,7 +75,7 @@ public class TranslateRewriter {
                     typePart.addProperty("translate", "stats.tooltip.type.achievement");
                     JsonObject description = new JsonObject();
                     typePart.addProperty("italic", true);
-                    description.addProperty("translate", value + ".desc");
+                    description.addProperty("translate", textValue + ".desc");
                     baseArray.add(newLine);
                     baseArray.add(description);
                 } else if (textValue.startsWith("stat")) {
@@ -91,24 +87,26 @@ public class TranslateRewriter {
                 hoverEvent.addProperty("action", "show_text");
                 hoverEvent.add("value", baseArray);
             } catch (Exception e) {
-                Via.getPlatform().getLogger().log(Level.WARNING, "Error rewriting show_achievement: " + hoverEvent, e);
+                if (!Via.getConfig().isSuppressConversionWarnings() || Via.getManager().isDebug()) {
+                    Via.getPlatform().getLogger().log(Level.WARNING, "Error rewriting show_achievement: " + hoverEvent, e);
+                }
                 JsonObject invalidText = new JsonObject();
                 invalidText.addProperty("text", "Invalid statistic/achievement!");
                 invalidText.addProperty("color", "red");
                 hoverEvent.addProperty("action", "show_text");
                 hoverEvent.add("value", invalidText);
             }
-            super.handleHoverEvent(hoverEvent);
+            super.handleHoverEvent(connection, hoverEvent);
         }
     };
 
-    public static void toClient(JsonElement element) {
+    public static void toClient(UserConnection connection, JsonElement element) {
         if (element instanceof JsonObject) {
             JsonObject obj = (JsonObject) element;
             JsonElement translate = obj.get("translate");
             if (translate != null) {
                 if (translate.getAsString().startsWith("chat.type.achievement")) {
-                    ACHIEVEMENT_TEXT_REWRITER.processText(obj);
+                    ACHIEVEMENT_TEXT_REWRITER.processText(connection, obj);
                 }
             }
         }

@@ -24,13 +24,12 @@ import com.viaversion.viaversion.api.protocol.version.BlockedProtocolVersions;
 import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import com.viaversion.viaversion.protocol.BlockedProtocolVersionsImpl;
 import com.viaversion.viaversion.util.Config;
-import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
-import it.unimi.dsi.fastutil.ints.IntSet;
 import java.io.File;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.IntPredicate;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ObjectSet;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 public abstract class AbstractViaConfig extends Config implements ViaVersionConfig {
@@ -62,7 +61,6 @@ public abstract class AbstractViaConfig extends Config implements ViaVersionConf
     private int pistonReplacementId;
     private boolean chunkBorderFix;
     private boolean autoTeam;
-    private boolean forceJsonTransform;
     private boolean nbtArrayFix;
     private BlockedProtocolVersions blockedProtocolVersions;
     private String blockedDisconnectMessage;
@@ -88,6 +86,8 @@ public abstract class AbstractViaConfig extends Config implements ViaVersionConf
     private JsonElement resourcePack1_17PromptMessage;
     private WorldIdentifiers map1_16WorldNames;
     private boolean cache1_17Light;
+    private boolean translateOcelotToCat;
+    private boolean enforceSecureChat;
 
     protected AbstractViaConfig(final File configFile) {
         super(configFile);
@@ -127,7 +127,6 @@ public abstract class AbstractViaConfig extends Config implements ViaVersionConf
         pistonReplacementId = getInt("replacement-piston-id", 0);
         chunkBorderFix = getBoolean("chunk-border-fix", false);
         autoTeam = getBoolean("auto-team", true);
-        forceJsonTransform = getBoolean("force-json-transform", false);
         nbtArrayFix = getBoolean("chat-nbt-fix", true);
         blockedProtocolVersions = loadBlockedProtocolVersions();
         blockedDisconnectMessage = getString("block-disconnect-msg", "You are using an unsupported Minecraft version!");
@@ -151,19 +150,21 @@ public abstract class AbstractViaConfig extends Config implements ViaVersionConf
         ignoreLongChannelNames = getBoolean("ignore-long-1_16-channel-names", true);
         forcedUse1_17ResourcePack = getBoolean("forced-use-1_17-resource-pack", false);
         resourcePack1_17PromptMessage = getSerializedComponent("resource-pack-1_17-prompt");
-        Map<String, String> worlds = get("map-1_16-world-names", Map.class, new HashMap<String, String>());
+        Map<String, String> worlds = get("map-1_16-world-names", new HashMap<>());
         map1_16WorldNames = new WorldIdentifiers(worlds.getOrDefault("overworld", WorldIdentifiers.OVERWORLD_DEFAULT),
                 worlds.getOrDefault("nether", WorldIdentifiers.NETHER_DEFAULT),
                 worlds.getOrDefault("end", WorldIdentifiers.END_DEFAULT));
         cache1_17Light = getBoolean("cache-1_17-light", true);
+        translateOcelotToCat = getBoolean("translate-ocelot-to-cat", true);
+        enforceSecureChat = getBoolean("enforce-secure-chat", false);
     }
 
     private BlockedProtocolVersions loadBlockedProtocolVersions() {
         List<Integer> blockProtocols = getListSafe("block-protocols", Integer.class, "Invalid blocked version protocol found in config: '%s'");
         List<String> blockVersions = getListSafe("block-versions", String.class, "Invalid blocked version found in config: '%s'");
-        IntSet blockedProtocols = new IntOpenHashSet(blockProtocols);
-        int lowerBound = -1;
-        int upperBound = -1;
+        ObjectSet<ProtocolVersion> blockedProtocols = blockProtocols.stream().map(ProtocolVersion::getProtocol).collect(ObjectOpenHashSet::of, ObjectSet::add, ObjectSet::addAll);
+        ProtocolVersion lowerBound = ProtocolVersion.unknown;
+        ProtocolVersion upperBound = ProtocolVersion.unknown;
         for (String s : blockVersions) {
             if (s.isEmpty()) {
                 continue;
@@ -178,15 +179,15 @@ public abstract class AbstractViaConfig extends Config implements ViaVersionConf
                 }
 
                 if (c == '<') {
-                    if (lowerBound != -1) {
+                    if (lowerBound.isKnown()) {
                         LOGGER.warning("Already set lower bound " + lowerBound + " overridden by " + protocolVersion.getName());
                     }
-                    lowerBound = protocolVersion.getVersion();
+                    lowerBound = protocolVersion;
                 } else {
-                    if (upperBound != -1) {
+                    if (upperBound.isKnown()) {
                         LOGGER.warning("Already set upper bound " + upperBound + " overridden by " + protocolVersion.getName());
                     }
-                    upperBound = protocolVersion.getVersion();
+                    upperBound = protocolVersion;
                 }
                 continue;
             }
@@ -197,19 +198,18 @@ public abstract class AbstractViaConfig extends Config implements ViaVersionConf
             }
 
             // Add single protocol version and check for duplication
-            if (!blockedProtocols.add(protocolVersion.getVersion())) {
-                LOGGER.warning("Duplicated blocked protocol version " + protocolVersion.getName() + "/" + protocolVersion.getVersion());
+            if (!blockedProtocols.add(protocolVersion)) {
+                LOGGER.warning("Duplicated blocked protocol version " + protocolVersion);
             }
         }
 
         // Check for duplicated entries
-        if (lowerBound != -1 || upperBound != -1) {
-            final int finalLowerBound = lowerBound;
-            final int finalUpperBound = upperBound;
-            blockedProtocols.removeIf((IntPredicate) version -> {
-                if (finalLowerBound != -1 && version < finalLowerBound || finalUpperBound != -1 && version > finalUpperBound) {
-                    ProtocolVersion protocolVersion = ProtocolVersion.getProtocol(version);
-                    LOGGER.warning("Blocked protocol version " + protocolVersion.getName() + "/" + protocolVersion.getVersion() + " already covered by upper or lower bound");
+        if (lowerBound.isKnown() || upperBound.isKnown()) {
+            final ProtocolVersion finalLowerBound = lowerBound;
+            final ProtocolVersion finalUpperBound = upperBound;
+            blockedProtocols.removeIf(version -> {
+                if (finalLowerBound.isKnown() && version.olderThan(finalLowerBound) || finalUpperBound.isKnown() && version.newerThan(finalUpperBound)) {
+                    LOGGER.warning("Blocked protocol version " + version + " already covered by upper or lower bound");
                     return true;
                 }
                 return false;
@@ -370,11 +370,6 @@ public abstract class AbstractViaConfig extends Config implements ViaVersionConf
     }
 
     @Override
-    public boolean isForceJsonTransform() {
-        return forceJsonTransform;
-    }
-
-    @Override
     public boolean is1_12NBTArrayFix() {
         return nbtArrayFix;
     }
@@ -527,5 +522,15 @@ public abstract class AbstractViaConfig extends Config implements ViaVersionConf
     @Override
     public boolean isArmorToggleFix() {
         return false;
+    }
+
+    @Override
+    public boolean translateOcelotToCat() {
+        return translateOcelotToCat;
+    }
+
+    @Override
+    public boolean enforceSecureChat() {
+        return enforceSecureChat;
     }
 }

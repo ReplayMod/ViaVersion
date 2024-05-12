@@ -25,6 +25,7 @@ package com.viaversion.viaversion.api.connection;
 import com.viaversion.viaversion.api.protocol.ProtocolPipeline;
 import com.viaversion.viaversion.api.protocol.packet.Direction;
 import com.viaversion.viaversion.api.protocol.packet.State;
+import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import java.util.UUID;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
@@ -93,24 +94,36 @@ public interface ProtocolInfo {
     void setServerState(State serverState);
 
     /**
-     * Returns the user's protocol version, or -1 if not set.
+     * Returns the user's protocol version, or null if not set.
      * This is set during the {@link State#HANDSHAKE} state.
      *
-     * @return protocol version, or -1 if not set
+     * @return protocol version, may be unknown
+     * @see ProtocolVersion#isKnown()
      */
-    int getProtocolVersion();
+    ProtocolVersion protocolVersion();
 
-    void setProtocolVersion(int protocolVersion);
+    void setProtocolVersion(ProtocolVersion protocolVersion);
 
     /**
-     * Returns the server protocol version the user is connected to, or -1 if not set.
+     * Returns the server protocol version the user is connected to.
      * This is set during the {@link State#HANDSHAKE} state.
      *
-     * @return server protocol version, or -1 if not set
+     * @return the server protocol version the user is connected to, may be unknown
+     * @see ProtocolVersion#isKnown()
      */
-    int getServerProtocolVersion();
+    ProtocolVersion serverProtocolVersion();
 
-    void setServerProtocolVersion(int serverProtocolVersion);
+    void setServerProtocolVersion(ProtocolVersion protocolVersion);
+
+    @Deprecated
+    default int getProtocolVersion() {
+        return protocolVersion() != null ? protocolVersion().getVersion() : -1;
+    }
+
+    @Deprecated
+    default int getServerProtocolVersion() {
+        return serverProtocolVersion() != null ? serverProtocolVersion().getVersion() : -1;
+    }
 
     /**
      * Returns the username associated with this connection.

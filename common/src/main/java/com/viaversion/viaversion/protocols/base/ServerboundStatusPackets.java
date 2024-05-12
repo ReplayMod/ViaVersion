@@ -17,10 +17,10 @@
  */
 package com.viaversion.viaversion.protocols.base;
 
-import com.viaversion.viaversion.api.protocol.packet.ServerboundPacketType;
 import com.viaversion.viaversion.api.protocol.packet.State;
+import com.viaversion.viaversion.protocols.base.packet.BaseServerboundPacket;
 
-public enum ServerboundStatusPackets implements ServerboundPacketType {
+public enum ServerboundStatusPackets implements BaseServerboundPacket {
     STATUS_REQUEST, // 0x00
     PING_REQUEST; // 0x01
 

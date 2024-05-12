@@ -22,8 +22,10 @@
  */
 package com.viaversion.viaversion.api.rewriter;
 
+import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.minecraft.item.Item;
 import com.viaversion.viaversion.api.protocol.Protocol;
+import com.viaversion.viaversion.api.type.Type;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 public interface ItemRewriter<T extends Protocol> extends Rewriter<T> {
@@ -31,16 +33,79 @@ public interface ItemRewriter<T extends Protocol> extends Rewriter<T> {
     /**
      * Returns the rewritten item, which may or may not be the same given Item instance.
      *
-     * @param item item
+     * @param connection user connection
+     * @param item       item
      * @return rewritten item
      */
-    @Nullable Item handleItemToClient(@Nullable Item item);
+    @Nullable
+    Item handleItemToClient(UserConnection connection, @Nullable Item item);
 
     /**
      * Returns the rewritten item, which may or may not be the same given Item instance.
      *
-     * @param item item
+     * @param connection user connection
+     * @param item       item
      * @return rewritten item
      */
-    @Nullable Item handleItemToServer(@Nullable Item item);
+    @Nullable
+    Item handleItemToServer(UserConnection connection, @Nullable Item item);
+
+    /**
+     * Returns the item type of the current protocol.
+     *
+     * @return item type
+     */
+    @Nullable
+    default Type<Item> itemType() {
+        return null;
+    }
+
+    /**
+     * Returns the item array type of the current protocol.
+     *
+     * @return item array type
+     */
+    @Nullable
+    default Type<Item[]> itemArrayType() {
+        return null;
+    }
+
+    /**
+     * Returns the mapped item type of the target protocol.
+     *
+     * @return mapped item type
+     */
+    @Nullable
+    default Type<Item> mappedItemType() {
+        return itemType();
+    }
+
+    /**
+     * Returns the mapped item array type of the target protocol.
+     *
+     * @return mapped item array type
+     */
+    @Nullable
+    default Type<Item[]> mappedItemArrayType() {
+        return itemArrayType();
+    }
+
+    /**
+     * Returns the NBT tag name used for storing original item data.
+     *
+     * @return NBT tag name
+     */
+    default String nbtTagName() {
+        return "VV|" + protocol().getClass().getSimpleName();
+    }
+
+    /**
+     * Prefixes the NBT tag name with the current protocol's {@link #nbtTagName()}.
+     *
+     * @param nbt NBT tag name
+     * @return prefixed NBT tag name
+     */
+    default String nbtTagName(final String nbt) {
+        return nbtTagName() + "|" + nbt;
+    }
 }

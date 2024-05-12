@@ -17,10 +17,9 @@
  */
 package com.viaversion.viaversion.protocols.protocol1_20_2to1_20.packet;
 
-import com.viaversion.viaversion.api.protocol.packet.ClientboundPacketType;
 import com.viaversion.viaversion.api.protocol.packet.State;
 
-public enum ClientboundConfigurationPackets1_20_2 implements ClientboundPacketType {
+public enum ClientboundConfigurationPackets1_20_2 implements ClientboundPacket1_20_2 {
 
     CUSTOM_PAYLOAD, // 0x00
     DISCONNECT, // 0x01

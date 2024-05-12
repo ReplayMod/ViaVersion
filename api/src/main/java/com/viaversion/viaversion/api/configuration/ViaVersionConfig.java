@@ -27,8 +27,6 @@ import com.viaversion.viaversion.api.connection.StorableObject;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.minecraft.WorldIdentifiers;
 import com.viaversion.viaversion.api.protocol.version.BlockedProtocolVersions;
-import it.unimi.dsi.fastutil.ints.IntSet;
-import org.checkerframework.checker.nullness.qual.Nullable;
 
 public interface ViaVersionConfig extends Config {
 
@@ -236,13 +234,6 @@ public interface ViaVersionConfig extends Config {
     boolean isChunkBorderFix();
 
     /**
-     * Force json transform
-     *
-     * @return true if enabled
-     */
-    boolean isForceJsonTransform();
-
-    /**
      * Should we fix nbt array's in json chat messages for 1.12 clients
      *
      * @return true if enabled
@@ -271,17 +262,6 @@ public interface ViaVersionConfig extends Config {
      * @return blocked protocol versions
      */
     BlockedProtocolVersions blockedProtocolVersions();
-
-    /**
-     * Get the blocked protocols
-     *
-     * @return An Integer list
-     * @deprecated use {@link #blockedProtocolVersions()}
-     */
-    @Deprecated/*(forRemoval = true)*/
-    default IntSet getBlockedProtocols() {
-        return blockedProtocolVersions().singleBlockedVersions();
-    }
 
     /**
      * Get the custom disconnect message
@@ -463,4 +443,18 @@ public interface ViaVersionConfig extends Config {
      * @return true if enabled
      */
     boolean isArmorToggleFix();
+
+    /**
+     * If disabled, tamed cats will be displayed as ocelots to 1.14+ clients on 1.13 servers. Otherwise, ocelots (tamed and untamed) will be displayed as cats.
+     *
+     * @return true if enabled
+     */
+    boolean translateOcelotToCat();
+
+    /**
+     * Returns the value of the "enforce secure chat" setting sent to 1.19+ clients on join.
+     *
+     * @return the value sent to 1.19+ clients on join
+     */
+    boolean enforceSecureChat();
 }

@@ -148,7 +148,9 @@ public abstract class Config {
     }
 
     public void save() {
-        this.configFile.getParentFile().mkdirs();
+        if (this.configFile.getParentFile() != null) {
+            this.configFile.getParentFile().mkdirs();
+        }
         save(this.configFile, this.config);
     }
 
@@ -157,7 +159,9 @@ public abstract class Config {
     }
 
     public void reload() {
-        this.configFile.getParentFile().mkdirs();
+        if (this.configFile.getParentFile() != null) {
+            this.configFile.getParentFile().mkdirs();
+        }
         this.config = new ConcurrentSkipListMap<>(loadConfig(this.configFile));
     }
 
@@ -165,7 +169,7 @@ public abstract class Config {
         return this.config;
     }
 
-    public @Nullable <T> T get(String key, Class<T> clazz, T def) {
+    public @Nullable <T> T get(String key, T def) {
         Object o = this.config.get(key);
         if (o != null) {
             return (T) o;
@@ -176,7 +180,7 @@ public abstract class Config {
 
     public boolean getBoolean(String key, boolean def) {
         Object o = this.config.get(key);
-        if (o != null) {
+        if (o instanceof Boolean) {
             return (boolean) o;
         } else {
             return def;
@@ -185,7 +189,7 @@ public abstract class Config {
 
     public @Nullable String getString(String key, @Nullable String def) {
         final Object o = this.config.get(key);
-        if (o != null) {
+        if (o instanceof String) {
             return (String) o;
         } else {
             return def;
@@ -194,12 +198,8 @@ public abstract class Config {
 
     public int getInt(String key, int def) {
         Object o = this.config.get(key);
-        if (o != null) {
-            if (o instanceof Number) {
-                return ((Number) o).intValue();
-            } else {
-                return def;
-            }
+        if (o instanceof Number) {
+            return ((Number) o).intValue();
         } else {
             return def;
         }
@@ -207,12 +207,8 @@ public abstract class Config {
 
     public double getDouble(String key, double def) {
         Object o = this.config.get(key);
-        if (o != null) {
-            if (o instanceof Number) {
-                return ((Number) o).doubleValue();
-            } else {
-                return def;
-            }
+        if (o instanceof Number) {
+            return ((Number) o).doubleValue();
         } else {
             return def;
         }

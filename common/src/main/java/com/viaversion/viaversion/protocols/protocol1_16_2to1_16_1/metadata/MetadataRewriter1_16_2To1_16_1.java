@@ -18,7 +18,6 @@
 package com.viaversion.viaversion.protocols.protocol1_16_2to1_16_1.metadata;
 
 import com.viaversion.viaversion.api.minecraft.entities.EntityType;
-import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_16;
 import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_16_2;
 import com.viaversion.viaversion.api.type.types.version.Types1_16;
 import com.viaversion.viaversion.protocols.protocol1_16_2to1_16_1.Protocol1_16_2To1_16_1;
@@ -29,12 +28,11 @@ public class MetadataRewriter1_16_2To1_16_1 extends EntityRewriter<ClientboundPa
 
     public MetadataRewriter1_16_2To1_16_1(Protocol1_16_2To1_16_1 protocol) {
         super(protocol);
-        mapTypes(EntityTypes1_16.values(), EntityTypes1_16_2.class);
     }
 
     @Override
     protected void registerRewrites() {
-        registerMetaTypeHandler(Types1_16.META_TYPES.itemType, Types1_16.META_TYPES.blockStateType, null, Types1_16.META_TYPES.particleType);
+        registerMetaTypeHandler(Types1_16.META_TYPES.itemType, Types1_16.META_TYPES.blockStateType, Types1_16.META_TYPES.particleType);
         filter().type(EntityTypes1_16_2.MINECART_ABSTRACT).index(10).handler((metadatas, meta) -> {
             int data = meta.value();
             meta.setValue(protocol.getMappingData().getNewBlockStateId(data));
@@ -46,6 +44,11 @@ public class MetadataRewriter1_16_2To1_16_1 extends EntityRewriter<ClientboundPa
                 meta.setId(15);
             }
         });
+    }
+
+    @Override
+    public void onMappingDataLoaded() {
+        mapTypes();
     }
 
     @Override

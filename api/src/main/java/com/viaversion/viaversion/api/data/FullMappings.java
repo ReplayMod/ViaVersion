@@ -27,7 +27,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 /**
  * Mappings containing the full string identifier mappings.
  */
-public interface FullMappings extends Mappings {
+public interface FullMappings extends BiMappings {
 
     /**
      * Returns the unmapped integer id for the given identifier, or -1 if not found.
@@ -49,17 +49,17 @@ public interface FullMappings extends Mappings {
      * Returns the unmapped string identifier for the given mapped id.
      *
      * @param id unmapped id
-     * @return unmapped string identifier
+     * @return unmapped string identifier, or null if out of bounds
      */
-    String identifier(int id);
+    @Nullable String identifier(int id);
 
     /**
      * Returns the mapped string identifier for the given mapped id.
      *
      * @param mappedId mapped id
-     * @return mapped string identifier
+     * @return mapped string identifier, or null if out of bounds
      */
-    String mappedIdentifier(int mappedId);
+    @Nullable String mappedIdentifier(int mappedId);
 
     /**
      * Returns the mapped string identifier for the given unmapped identifier.

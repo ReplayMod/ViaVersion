@@ -20,7 +20,6 @@ package com.viaversion.viaversion.protocols.protocol1_19to1_18_2.data;
 import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
 import com.github.steveice10.opennbt.tag.builtin.ListTag;
 import com.github.steveice10.opennbt.tag.builtin.NumberTag;
-import com.github.steveice10.opennbt.tag.builtin.Tag;
 import com.viaversion.viaversion.api.data.MappingDataBase;
 import com.viaversion.viaversion.api.data.MappingDataLoader;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -30,6 +29,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 public final class MappingData extends MappingDataBase {
 
     private final Int2ObjectMap<CompoundTag> defaultChatTypes = new Int2ObjectOpenHashMap<>();
+    private CompoundTag chatRegistry;
 
     public MappingData() {
         super("1.18", "1.19");
@@ -37,14 +37,20 @@ public final class MappingData extends MappingDataBase {
 
     @Override
     protected void loadExtras(final CompoundTag daata) {
-        final ListTag<CompoundTag> chatTypes = MappingDataLoader.loadNBTFromFile("chat-types-1.19.nbt").getListTag("values", CompoundTag.class);
+        final ListTag<CompoundTag> chatTypes = MappingDataLoader.INSTANCE.loadNBTFromFile("chat-types-1.19.nbt").getListTag("values", CompoundTag.class);
         for (final CompoundTag chatType : chatTypes) {
             final NumberTag idTag = chatType.getNumberTag("id");
             defaultChatTypes.put(idTag.asInt(), chatType);
         }
+
+        chatRegistry = MappingDataLoader.INSTANCE.loadNBTFromFile("chat-registry-1.19.nbt");
     }
 
     public @Nullable CompoundTag chatType(final int id) {
         return defaultChatTypes.get(id);
+    }
+
+    public CompoundTag chatRegistry() {
+        return chatRegistry.copy();
     }
 }

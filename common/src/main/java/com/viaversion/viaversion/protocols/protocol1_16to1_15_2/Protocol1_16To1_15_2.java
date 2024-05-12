@@ -23,6 +23,8 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.connection.UserConnection;
+import com.viaversion.viaversion.api.data.MappingData;
+import com.viaversion.viaversion.api.data.MappingDataBase;
 import com.viaversion.viaversion.api.minecraft.RegistryType;
 import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_16;
 import com.viaversion.viaversion.api.platform.providers.ViaProviders;
@@ -33,9 +35,10 @@ import com.viaversion.viaversion.api.type.Type;
 import com.viaversion.viaversion.api.type.types.misc.ParticleType;
 import com.viaversion.viaversion.api.type.types.version.Types1_16;
 import com.viaversion.viaversion.data.entity.EntityTrackerBase;
+import com.viaversion.viaversion.protocols.base.ClientboundLoginPackets;
+import com.viaversion.viaversion.protocols.base.ClientboundStatusPackets;
 import com.viaversion.viaversion.protocols.protocol1_14to1_13_2.ServerboundPackets1_14;
 import com.viaversion.viaversion.protocols.protocol1_15to1_14_4.ClientboundPackets1_15;
-import com.viaversion.viaversion.protocols.protocol1_16to1_15_2.data.MappingData;
 import com.viaversion.viaversion.protocols.protocol1_16to1_15_2.data.TranslationMappings;
 import com.viaversion.viaversion.protocols.protocol1_16to1_15_2.metadata.MetadataRewriter1_16To1_15_2;
 import com.viaversion.viaversion.protocols.protocol1_16to1_15_2.packets.EntityPackets;
@@ -56,11 +59,11 @@ import java.util.UUID;
 public class Protocol1_16To1_15_2 extends AbstractProtocol<ClientboundPackets1_15, ClientboundPackets1_16, ServerboundPackets1_14, ServerboundPackets1_16> {
 
     private static final UUID ZERO_UUID = new UUID(0, 0);
-    public static final MappingData MAPPINGS = new MappingData();
+    public static final MappingData MAPPINGS = new MappingDataBase("1.15", "1.16");
     private final MetadataRewriter1_16To1_15_2 metadataRewriter = new MetadataRewriter1_16To1_15_2(this);
     private final InventoryPackets itemRewriter = new InventoryPackets(this);
     private final TranslationMappings componentRewriter = new TranslationMappings(this);
-    private TagRewriter<ClientboundPackets1_15> tagRewriter;
+    private final TagRewriter<ClientboundPackets1_15> tagRewriter = new TagRewriter<>(this);
 
     public Protocol1_16To1_15_2() {
         super(ClientboundPackets1_15.class, ClientboundPackets1_16.class, ServerboundPackets1_14.class, ServerboundPackets1_16.class);
@@ -73,20 +76,19 @@ public class Protocol1_16To1_15_2 extends AbstractProtocol<ClientboundPackets1_1
         EntityPackets.register(this);
         WorldPackets.register(this);
 
-        tagRewriter = new TagRewriter<>(this);
         tagRewriter.register(ClientboundPackets1_15.TAGS, RegistryType.ENTITY);
 
         new StatisticsRewriter<>(this).register(ClientboundPackets1_15.STATISTICS);
 
         // Login Success
-        registerClientbound(State.LOGIN, 0x02, 0x02, wrapper -> {
+        registerClientbound(State.LOGIN, ClientboundLoginPackets.GAME_PROFILE.getId(), ClientboundLoginPackets.GAME_PROFILE.getId(), wrapper -> {
             // Transform string to a uuid
             UUID uuid = UUID.fromString(wrapper.read(Type.STRING));
             wrapper.write(Type.UUID, uuid);
         });
 
         // Motd Status - line breaks are no longer allowed for player samples
-        registerClientbound(State.STATUS, 0x00, 0x00, wrapper -> {
+        registerClientbound(State.STATUS, ClientboundStatusPackets.STATUS_RESPONSE.getId(), ClientboundStatusPackets.STATUS_RESPONSE.getId(), wrapper -> {
             String original = wrapper.passthrough(Type.STRING);
             JsonObject object = GsonUtil.getGson().fromJson(original, JsonObject.class);
             JsonObject players = object.getAsJsonObject("players");
@@ -127,7 +129,7 @@ public class Protocol1_16To1_15_2 extends AbstractProtocol<ClientboundPackets1_1
                 map(Type.COMPONENT);
                 map(Type.BYTE);
                 handler(wrapper -> {
-                    componentRewriter.processText(wrapper.get(Type.COMPONENT, 0));
+                    componentRewriter.processText(wrapper.user(), wrapper.get(Type.COMPONENT, 0));
                     wrapper.write(Type.UUID, ZERO_UUID); // Sender uuid - always send as 'system'
                 });
             }
@@ -162,12 +164,13 @@ public class Protocol1_16To1_15_2 extends AbstractProtocol<ClientboundPackets1_1
             registerServerbound(ServerboundPackets1_16.PLUGIN_MESSAGE, new PacketHandlers() {
                 @Override
                 public void register() {
-                    handler(wrapper -> {
-                        String channel = wrapper.passthrough(Type.STRING);
+                    map(Type.STRING); // Channel
+                    handlerSoftFail(wrapper -> {
+                        final String channel = wrapper.get(Type.STRING, 0);
                         final String namespacedChannel = Key.namespaced(channel);
                         if (channel.length() > 32) {
                             if (!Via.getConfig().isSuppressConversionWarnings()) {
-                                Via.getPlatform().getLogger().warning("Ignoring incoming plugin channel, as it is longer than 32 characters: " + channel);
+                                Via.getPlatform().getLogger().warning("Ignoring serverbound plugin channel, as it is longer than 32 characters: " + channel);
                             }
                             wrapper.cancel();
                         } else if (namespacedChannel.equals("minecraft:register") || namespacedChannel.equals("minecraft:unregister")) {
@@ -176,7 +179,7 @@ public class Protocol1_16To1_15_2 extends AbstractProtocol<ClientboundPackets1_1
                             for (String registeredChannel : channels) {
                                 if (registeredChannel.length() > 32) {
                                     if (!Via.getConfig().isSuppressConversionWarnings()) {
-                                        Via.getPlatform().getLogger().warning("Ignoring incoming plugin channel register of '"
+                                        Via.getPlatform().getLogger().warning("Ignoring serverbound plugin channel register of '"
                                                 + registeredChannel + "', as it is longer than 32 characters");
                                     }
                                     continue;
@@ -254,11 +257,14 @@ public class Protocol1_16To1_15_2 extends AbstractProtocol<ClientboundPackets1_1
         tagRewriter.addEmptyTags(RegistryType.ITEM, "minecraft:beds", "minecraft:coals", "minecraft:fences", "minecraft:flowers",
                 "minecraft:lectern_books", "minecraft:music_discs", "minecraft:small_flowers", "minecraft:tall_flowers", "minecraft:trapdoors", "minecraft:walls", "minecraft:wooden_fences");
 
+        EntityTypes1_16.initialize(this);
         Types1_16.PARTICLE.filler(this)
                 .reader("block", ParticleType.Readers.BLOCK)
                 .reader("dust", ParticleType.Readers.DUST)
                 .reader("falling_dust", ParticleType.Readers.BLOCK)
                 .reader("item", ParticleType.Readers.ITEM1_13_2);
+
+        super.onMappingDataLoaded();
     }
 
     @Override
@@ -289,5 +295,10 @@ public class Protocol1_16To1_15_2 extends AbstractProtocol<ClientboundPackets1_1
 
     public TranslationMappings getComponentRewriter() {
         return componentRewriter;
+    }
+
+    @Override
+    public TagRewriter<ClientboundPackets1_15> getTagRewriter() {
+        return tagRewriter;
     }
 }

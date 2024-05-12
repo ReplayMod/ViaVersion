@@ -45,6 +45,8 @@ import com.viaversion.viaversion.protocols.protocol1_9to1_8.sounds.Effect;
 import com.viaversion.viaversion.protocols.protocol1_9to1_8.sounds.SoundEffect;
 import com.viaversion.viaversion.protocols.protocol1_9to1_8.storage.ClientChunks;
 import com.viaversion.viaversion.protocols.protocol1_9to1_8.storage.EntityTracker1_9;
+import com.viaversion.viaversion.util.ComponentUtil;
+import com.viaversion.viaversion.util.Key;
 import java.util.ArrayList;
 import java.util.Optional;
 
@@ -54,10 +56,12 @@ public class WorldPackets {
             @Override
             public void register() {
                 map(Type.POSITION1_8); // 0 - Sign Position
-                map(Type.STRING, Protocol1_9To1_8.FIX_JSON); // 1 - Sign Line (json)
-                map(Type.STRING, Protocol1_9To1_8.FIX_JSON); // 2 - Sign Line (json)
-                map(Type.STRING, Protocol1_9To1_8.FIX_JSON); // 3 - Sign Line (json)
-                map(Type.STRING, Protocol1_9To1_8.FIX_JSON); // 4 - Sign Line (json)
+                handler(wrapper -> {
+                    for (int i = 0; i < 4; i++) {
+                        final String line = wrapper.read(Type.STRING); // Should be Type.COMPONENT but would break in some cases
+                        Protocol1_9To1_8.STRING_TO_JSON.write(wrapper, line);
+                    }
+                });
             }
         });
 
@@ -95,7 +99,7 @@ public class WorldPackets {
                 // Everything else gets written through
 
                 handler(wrapper -> {
-                    String name = wrapper.get(Type.STRING, 0);
+                    String name = Key.stripMinecraftNamespace(wrapper.get(Type.STRING, 0));
 
                     SoundEffect effect = SoundEffect.getByName(name);
                     int catid = 0;
@@ -106,7 +110,7 @@ public class WorldPackets {
                     }
                     wrapper.set(Type.STRING, 0, newname);
                     wrapper.write(Type.VAR_INT, catid); // Write Category ID
-                    if (effect != null && effect.isBreaksound()) {
+                    if (effect != null && effect.isBreakSound()) {
                         EntityTracker1_9 tracker = wrapper.user().getEntityTracker(Protocol1_9To1_8.class);
                         int x = wrapper.passthrough(Type.INT); //Position X
                         int y = wrapper.passthrough(Type.INT); //Position Y
@@ -245,10 +249,12 @@ public class WorldPackets {
             @Override
             public void register() {
                 map(Type.POSITION1_8); // 0 - Sign Position
-                map(Type.STRING, Protocol1_9To1_8.FIX_JSON); // 1 - Sign Line (json)
-                map(Type.STRING, Protocol1_9To1_8.FIX_JSON); // 2 - Sign Line (json)
-                map(Type.STRING, Protocol1_9To1_8.FIX_JSON); // 3 - Sign Line (json)
-                map(Type.STRING, Protocol1_9To1_8.FIX_JSON); // 4 - Sign Line (json)
+                handler(wrapper -> {
+                    for (int i = 0; i < 4; i++) {
+                        final String line = wrapper.read(Type.STRING);
+                        wrapper.write(Type.COMPONENT, ComponentUtil.plainToJson(line));
+                    }
+                });
             }
         });
 

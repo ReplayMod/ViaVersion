@@ -45,6 +45,7 @@ public final class Protocol1_19_4To1_19_3 extends AbstractProtocol<ClientboundPa
     public static final MappingData MAPPINGS = new MappingData();
     private final EntityPackets entityRewriter = new EntityPackets(this);
     private final InventoryPackets itemRewriter = new InventoryPackets(this);
+    private final TagRewriter<ClientboundPackets1_19_3> tagRewriter = new TagRewriter<>(this);
 
     public Protocol1_19_4To1_19_3() {
         super(ClientboundPackets1_19_3.class, ClientboundPackets1_19_4.class, ServerboundPackets1_19_3.class, ServerboundPackets1_19_4.class);
@@ -54,11 +55,11 @@ public final class Protocol1_19_4To1_19_3 extends AbstractProtocol<ClientboundPa
     protected void registerPackets() {
         super.registerPackets();
 
-        new TagRewriter<>(this).registerGeneric(ClientboundPackets1_19_3.TAGS);
+        tagRewriter.registerGeneric(ClientboundPackets1_19_3.TAGS);
         new StatisticsRewriter<>(this).register(ClientboundPackets1_19_3.STATISTICS);
 
         final SoundRewriter<ClientboundPackets1_19_3> soundRewriter = new SoundRewriter<>(this);
-        soundRewriter.registerSound(ClientboundPackets1_19_3.ENTITY_SOUND);
+        soundRewriter.register1_19_3Sound(ClientboundPackets1_19_3.ENTITY_SOUND);
         soundRewriter.register1_19_3Sound(ClientboundPackets1_19_3.SOUND);
 
         new CommandRewriter<ClientboundPackets1_19_3>(this) {
@@ -92,7 +93,6 @@ public final class Protocol1_19_4To1_19_3 extends AbstractProtocol<ClientboundPa
 
     @Override
     protected void onMappingDataLoaded() {
-        super.onMappingDataLoaded();
         EntityTypes1_19_4.initialize(this);
         Types1_19_4.PARTICLE.filler(this)
                 .reader("block", ParticleType.Readers.BLOCK)
@@ -104,6 +104,8 @@ public final class Protocol1_19_4To1_19_3 extends AbstractProtocol<ClientboundPa
                 .reader("vibration", ParticleType.Readers.VIBRATION1_19)
                 .reader("sculk_charge", ParticleType.Readers.SCULK_CHARGE)
                 .reader("shriek", ParticleType.Readers.SHRIEK);
+
+        super.onMappingDataLoaded();
     }
 
     @Override
@@ -126,5 +128,10 @@ public final class Protocol1_19_4To1_19_3 extends AbstractProtocol<ClientboundPa
     @Override
     public InventoryPackets getItemRewriter() {
         return itemRewriter;
+    }
+
+    @Override
+    public TagRewriter<ClientboundPackets1_19_3> getTagRewriter() {
+        return tagRewriter;
     }
 }

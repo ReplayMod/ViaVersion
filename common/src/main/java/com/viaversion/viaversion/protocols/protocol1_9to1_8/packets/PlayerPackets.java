@@ -22,11 +22,11 @@ import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.minecraft.ClientWorld;
 import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_10;
 import com.viaversion.viaversion.api.minecraft.item.Item;
+import com.viaversion.viaversion.api.protocol.remapper.PacketHandler;
 import com.viaversion.viaversion.api.protocol.remapper.PacketHandlers;
 import com.viaversion.viaversion.api.type.Type;
 import com.viaversion.viaversion.protocols.protocol1_8.ClientboundPackets1_8;
 import com.viaversion.viaversion.protocols.protocol1_9to1_8.ItemRewriter;
-import com.viaversion.viaversion.protocols.protocol1_9to1_8.PlayerMovementMapper;
 import com.viaversion.viaversion.protocols.protocol1_9to1_8.Protocol1_9To1_8;
 import com.viaversion.viaversion.protocols.protocol1_9to1_8.ServerboundPackets1_9;
 import com.viaversion.viaversion.protocols.protocol1_9to1_8.chat.ChatRewriter;
@@ -36,6 +36,8 @@ import com.viaversion.viaversion.protocols.protocol1_9to1_8.providers.Compressio
 import com.viaversion.viaversion.protocols.protocol1_9to1_8.providers.MainHandProvider;
 import com.viaversion.viaversion.protocols.protocol1_9to1_8.storage.ClientChunks;
 import com.viaversion.viaversion.protocols.protocol1_9to1_8.storage.EntityTracker1_9;
+import com.viaversion.viaversion.protocols.protocol1_9to1_8.storage.MovementTracker;
+import com.viaversion.viaversion.util.ComponentUtil;
 import java.util.logging.Level;
 
 public class PlayerPackets {
@@ -43,7 +45,7 @@ public class PlayerPackets {
         protocol.registerClientbound(ClientboundPackets1_8.CHAT_MESSAGE, new PacketHandlers() {
             @Override
             public void register() {
-                map(Type.STRING, Protocol1_9To1_8.FIX_JSON); // 0 - Chat Message (json)
+                map(Type.STRING, Protocol1_9To1_8.STRING_TO_JSON); // 0 - Chat Message (json)
                 map(Type.BYTE); // 1 - Chat Position
 
                 handler(wrapper -> {
@@ -60,15 +62,15 @@ public class PlayerPackets {
         protocol.registerClientbound(ClientboundPackets1_8.TAB_LIST, new PacketHandlers() {
             @Override
             public void register() {
-                map(Type.STRING, Protocol1_9To1_8.FIX_JSON); // 0 - Header
-                map(Type.STRING, Protocol1_9To1_8.FIX_JSON); // 1 - Footer
+                map(Type.STRING, Protocol1_9To1_8.STRING_TO_JSON); // 0 - Header
+                map(Type.STRING, Protocol1_9To1_8.STRING_TO_JSON); // 1 - Footer
             }
         });
 
         protocol.registerClientbound(ClientboundPackets1_8.DISCONNECT, new PacketHandlers() {
             @Override
             public void register() {
-                map(Type.STRING, Protocol1_9To1_8.FIX_JSON); // 0 - Reason
+                map(Type.STRING, Protocol1_9To1_8.STRING_TO_JSON); // 0 - Reason
             }
         });
 
@@ -80,7 +82,7 @@ public class PlayerPackets {
                 handler(wrapper -> {
                     int action = wrapper.get(Type.VAR_INT, 0);
                     if (action == 0 || action == 1) {
-                        Protocol1_9To1_8.FIX_JSON.write(wrapper, wrapper.read(Type.STRING));
+                        Protocol1_9To1_8.STRING_TO_JSON.write(wrapper, wrapper.read(Type.STRING));
                     }
                 });
                 // Everything else is handled.
@@ -247,13 +249,13 @@ public class PlayerPackets {
                             wrapper.passthrough(Type.VAR_INT); // ping
                             String displayName = wrapper.read(Type.OPTIONAL_STRING);
                             wrapper.write(Type.OPTIONAL_COMPONENT, displayName != null ?
-                                    Protocol1_9To1_8.FIX_JSON.transform(wrapper, displayName) : null);
+                                    Protocol1_9To1_8.STRING_TO_JSON.transform(wrapper, displayName) : null);
                         } else if ((action == 1) || (action == 2)) { // update gamemode || update latency
                             wrapper.passthrough(Type.VAR_INT);
                         } else if (action == 3) { // update display name
                             String displayName = wrapper.read(Type.OPTIONAL_STRING);
                             wrapper.write(Type.OPTIONAL_COMPONENT, displayName != null ?
-                                    Protocol1_9To1_8.FIX_JSON.transform(wrapper, displayName) : null);
+                                    Protocol1_9To1_8.STRING_TO_JSON.transform(wrapper, displayName) : null);
                         }
                     }
                 });
@@ -264,11 +266,11 @@ public class PlayerPackets {
             @Override
             public void register() {
                 map(Type.STRING); // 0 - Channel Name
-                handler(wrapper -> {
+                handlerSoftFail(wrapper -> {
                     String name = wrapper.get(Type.STRING, 0);
-                    if (name.equalsIgnoreCase("MC|BOpen")) {
+                    if (name.equals("MC|BOpen")) {
                         wrapper.write(Type.VAR_INT, 0);
-                    } else if (name.equalsIgnoreCase("MC|TrList")) {
+                    } else if (name.equals("MC|TrList")) {
                         wrapper.passthrough(Type.INT); // ID
 
                         Short size = wrapper.passthrough(Type.UNSIGNED_BYTE);
@@ -405,16 +407,16 @@ public class PlayerPackets {
             @Override
             public void register() {
                 map(Type.STRING); // 0 - Channel Name
-                handler(wrapper -> {
+                handlerSoftFail(wrapper -> {
                     String name = wrapper.get(Type.STRING, 0);
-                    if (name.equalsIgnoreCase("MC|BSign")) {
+                    if (name.equals("MC|BSign")) {
                         Item item = wrapper.passthrough(Type.ITEM1_8);
                         if (item != null) {
                             item.setIdentifier(387); // Written Book
                             ItemRewriter.rewriteBookToServer(item);
                         }
                     }
-                    if (name.equalsIgnoreCase("MC|AutoCmd")) {
+                    if (name.equals("MC|AutoCmd")) {
                         wrapper.set(Type.STRING, 0, "MC|AdvCdm");
                         wrapper.write(Type.BYTE, (byte) 0);
                         wrapper.passthrough(Type.INT); // X
@@ -424,7 +426,7 @@ public class PlayerPackets {
                         wrapper.passthrough(Type.BOOLEAN); // Flag
                         wrapper.clearInputBuffer();
                     }
-                    if (name.equalsIgnoreCase("MC|AdvCmd")) {
+                    if (name.equals("MC|AdvCmd")) {
                         wrapper.set(Type.STRING, 0, "MC|AdvCdm");
                     }
                 });
@@ -451,6 +453,11 @@ public class PlayerPackets {
             }
         });
 
+        final PacketHandler onGroundHandler = wrapper -> {
+            final MovementTracker tracker = wrapper.user().get(MovementTracker.class);
+            tracker.incrementIdlePacket();
+            tracker.setGround(wrapper.get(Type.BOOLEAN, 0));
+        };
         protocol.registerServerbound(ServerboundPackets1_9.PLAYER_POSITION, new PacketHandlers() {
             @Override
             public void register() {
@@ -458,7 +465,7 @@ public class PlayerPackets {
                 map(Type.DOUBLE); // 1 - Y
                 map(Type.DOUBLE); // 2 - Z
                 map(Type.BOOLEAN); // 3 - Ground
-                handler(new PlayerMovementMapper());
+                handler(onGroundHandler);
             }
         });
         protocol.registerServerbound(ServerboundPackets1_9.PLAYER_POSITION_AND_ROTATION, new PacketHandlers() {
@@ -470,7 +477,7 @@ public class PlayerPackets {
                 map(Type.FLOAT); // 3 - Yaw
                 map(Type.FLOAT); // 4 - Pitch
                 map(Type.BOOLEAN); // 5 - Ground
-                handler(new PlayerMovementMapper());
+                handler(onGroundHandler);
             }
         });
         protocol.registerServerbound(ServerboundPackets1_9.PLAYER_ROTATION, new PacketHandlers() {
@@ -479,14 +486,14 @@ public class PlayerPackets {
                 map(Type.FLOAT); // 0 - Yaw
                 map(Type.FLOAT); // 1 - Pitch
                 map(Type.BOOLEAN); // 2 - Ground
-                handler(new PlayerMovementMapper());
+                handler(onGroundHandler);
             }
         });
         protocol.registerServerbound(ServerboundPackets1_9.PLAYER_MOVEMENT, new PacketHandlers() {
             @Override
             public void register() {
                 map(Type.BOOLEAN); // 0 - Ground
-                handler(new PlayerMovementMapper());
+                handler(onGroundHandler);
             }
         });
     }

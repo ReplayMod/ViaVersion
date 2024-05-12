@@ -22,7 +22,7 @@ import com.github.steveice10.opennbt.tag.builtin.IntArrayTag;
 import com.github.steveice10.opennbt.tag.builtin.ListTag;
 import com.github.steveice10.opennbt.tag.builtin.NumberTag;
 import com.github.steveice10.opennbt.tag.builtin.StringTag;
-import com.github.steveice10.opennbt.tag.builtin.Tag;
+import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.minecraft.item.Item;
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.protocol.remapper.PacketHandler;
@@ -32,6 +32,7 @@ import com.viaversion.viaversion.protocols.protocol1_15to1_14_4.ClientboundPacke
 import com.viaversion.viaversion.protocols.protocol1_16to1_15_2.ClientboundPackets1_16;
 import com.viaversion.viaversion.protocols.protocol1_16to1_15_2.Protocol1_16To1_15_2;
 import com.viaversion.viaversion.protocols.protocol1_16to1_15_2.ServerboundPackets1_16;
+import com.viaversion.viaversion.protocols.protocol1_16to1_15_2.data.AttributeMappings;
 import com.viaversion.viaversion.protocols.protocol1_16to1_15_2.storage.InventoryTracker1_16;
 import com.viaversion.viaversion.rewriter.ItemRewriter;
 import com.viaversion.viaversion.rewriter.RecipeRewriter;
@@ -119,7 +120,7 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_15, Serve
                 handler(wrapper -> {
                     int slot = wrapper.read(Type.VAR_INT);
                     wrapper.write(Type.BYTE, (byte) slot);
-                    handleItemToClient(wrapper.passthrough(Type.ITEM1_13_2));
+                    handleItemToClient(wrapper.user(), wrapper.passthrough(Type.ITEM1_13_2));
                 });
             }
         });
@@ -134,13 +135,13 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_15, Serve
             inventoryTracker.setInventoryOpen(false);
         });
 
-        protocol.registerServerbound(ServerboundPackets1_16.EDIT_BOOK, wrapper -> handleItemToServer(wrapper.passthrough(Type.ITEM1_13_2)));
+        protocol.registerServerbound(ServerboundPackets1_16.EDIT_BOOK, wrapper -> handleItemToServer(wrapper.user(), wrapper.passthrough(Type.ITEM1_13_2)));
 
         registerSpawnParticle(ClientboundPackets1_15.SPAWN_PARTICLE, Type.DOUBLE);
     }
 
     @Override
-    public Item handleItemToClient(Item item) {
+    public Item handleItemToClient(UserConnection connection, Item item) {
         if (item == null) return null;
 
         CompoundTag tag = item.tag();
@@ -158,7 +159,7 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_15, Serve
             ListTag<StringTag> pages = tag.getListTag("pages", StringTag.class);
             if (pages != null) {
                 for (StringTag pageTag : pages) {
-                    pageTag.setValue(protocol.getComponentRewriter().processText(pageTag.getValue()).toString());
+                    pageTag.setValue(protocol.getComponentRewriter().processText(connection, pageTag.getValue()).toString());
                 }
             }
         }
@@ -169,7 +170,7 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_15, Serve
     }
 
     @Override
-    public Item handleItemToServer(Item item) {
+    public Item handleItemToServer(UserConnection connection, Item item) {
         if (item == null) return null;
 
         item.setIdentifier(Protocol1_16To1_15_2.MAPPINGS.getOldItemId(item.identifier()));
@@ -202,8 +203,10 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_15, Serve
             NumberTag leastTag = attribute.getNumberTag("UUIDLeast");
             NumberTag mostTag = attribute.getNumberTag("UUIDMost");
             if (leastTag != null && mostTag != null) {
-                int[] uuidIntArray = UUIDUtil.toIntArray(leastTag.asLong(), mostTag.asLong());
+                int[] uuidIntArray = UUIDUtil.toIntArray(mostTag.asLong(), leastTag.asLong());
                 attribute.put("UUID", new IntArrayTag(uuidIntArray));
+                attribute.remove("UUIDLeast");
+                attribute.remove("UUIDMost");
             }
         }
     }
@@ -222,6 +225,7 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_15, Serve
                 UUID uuid = UUIDUtil.fromIntArray(uuidTag.getValue());
                 attribute.putLong("UUIDLeast", uuid.getLeastSignificantBits());
                 attribute.putLong("UUIDMost", uuid.getMostSignificantBits());
+                attribute.remove("UUID");
             }
         }
     }
@@ -235,8 +239,8 @@ public class InventoryPackets extends ItemRewriter<ClientboundPackets1_15, Serve
             attributeName = Key.namespaced(attributeName);
         }
 
-        String mappedAttribute = (inverse ? Protocol1_16To1_15_2.MAPPINGS.getAttributeMappings().inverse()
-                : Protocol1_16To1_15_2.MAPPINGS.getAttributeMappings()).get(attributeName);
+        String mappedAttribute = (inverse ? AttributeMappings.attributeIdentifierMappings().inverse()
+                : AttributeMappings.attributeIdentifierMappings()).get(attributeName);
         if (mappedAttribute == null) return;
 
         attributeNameTag.setValue(mappedAttribute);

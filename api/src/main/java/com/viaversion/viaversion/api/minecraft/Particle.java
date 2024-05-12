@@ -24,11 +24,12 @@ package com.viaversion.viaversion.api.minecraft;
 
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.type.Type;
+import com.viaversion.viaversion.util.IdHolder;
 import io.netty.buffer.ByteBuf;
 import java.util.ArrayList;
 import java.util.List;
 
-public final class Particle {
+public final class Particle implements IdHolder {
     private final List<ParticleData<?>> arguments = new ArrayList<>(4);
     private int id;
 
@@ -36,7 +37,13 @@ public final class Particle {
         this.id = id;
     }
 
+    @Deprecated
     public int getId() {
+        return id;
+    }
+
+    @Override
+    public int id() {
         return id;
     }
 
@@ -64,6 +71,18 @@ public final class Particle {
 
     public <T> void add(final int index, final Type<T> type, final T value) {
         arguments.add(index, new ParticleData<>(type, value));
+    }
+
+    public <T> void set(final int index, final Type<T> type, final T value) {
+        arguments.set(index, new ParticleData<>(type, value));
+    }
+
+    @Override
+    public String toString() {
+        return "Particle{" +
+            "arguments=" + arguments +
+            ", id=" + id +
+            '}';
     }
 
     public static final class ParticleData<T> {

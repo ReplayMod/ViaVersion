@@ -21,6 +21,7 @@ import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.ViaManager;
 import com.viaversion.viaversion.api.configuration.ConfigurationProvider;
 import com.viaversion.viaversion.api.connection.ConnectionManager;
+import com.viaversion.viaversion.api.data.MappingDataLoader;
 import com.viaversion.viaversion.api.debug.DebugHandler;
 import com.viaversion.viaversion.api.platform.PlatformTask;
 import com.viaversion.viaversion.api.platform.UnsupportedSoftware;
@@ -39,16 +40,16 @@ import com.viaversion.viaversion.debug.DebugHandlerImpl;
 import com.viaversion.viaversion.protocol.ProtocolManagerImpl;
 import com.viaversion.viaversion.protocol.ServerProtocolVersionRange;
 import com.viaversion.viaversion.protocol.ServerProtocolVersionSingleton;
-import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.TabCompleteThread;
+import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.task.TabCompleteThread;
 import com.viaversion.viaversion.protocols.protocol1_9to1_8.ViaIdleThread;
 import com.viaversion.viaversion.scheduler.TaskScheduler;
 import com.viaversion.viaversion.update.UpdateUtil;
-import it.unimi.dsi.fastutil.ints.IntSortedSet;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.SortedSet;
 import java.util.logging.Level;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -93,6 +94,8 @@ public class ViaManagerImpl implements ViaManager {
             loadServerProtocol();
         }
 
+        MappingDataLoader.loadGlobalIdentifiers();
+
         // Register protocols
         protocolManager.registerProtocols();
 
@@ -130,13 +133,13 @@ public class ViaManagerImpl implements ViaManager {
         ServerProtocolVersion protocolVersion = protocolManager.getServerProtocolVersion();
         if (protocolVersion.isKnown()) {
             if (platform.isProxy()) {
-                platform.getLogger().info("ViaVersion detected lowest supported version by the proxy: " + ProtocolVersion.getProtocol(protocolVersion.lowestSupportedVersion()));
-                platform.getLogger().info("Highest supported version by the proxy: " + ProtocolVersion.getProtocol(protocolVersion.highestSupportedVersion()));
+                platform.getLogger().info("ViaVersion detected lowest supported version by the proxy: " + protocolVersion.lowestSupportedProtocolVersion());
+                platform.getLogger().info("Highest supported version by the proxy: " + protocolVersion.highestSupportedProtocolVersion());
                 if (debugHandler.enabled()) {
-                    platform.getLogger().info("Supported version range: " + Arrays.toString(protocolVersion.supportedVersions().toArray(new int[0])));
+                    platform.getLogger().info("Supported version range: " + Arrays.toString(protocolVersion.supportedProtocolVersions().toArray(new ProtocolVersion[0])));
                 }
             } else {
-                platform.getLogger().info("ViaVersion detected server version: " + ProtocolVersion.getProtocol(protocolVersion.highestSupportedVersion()));
+                platform.getLogger().info("ViaVersion detected server version: " + protocolVersion.highestSupportedProtocolVersion());
             }
 
             if (!protocolManager.isWorkingPipe()) {
@@ -145,7 +148,7 @@ public class ViaManagerImpl implements ViaManager {
                 platform.getLogger().warning("If you need support for older versions you may need to use one or more ViaVersion addons too.");
                 platform.getLogger().warning("In that case please read the ViaVersion resource page carefully or use https://viaversion.com/setup");
                 platform.getLogger().warning("and if you're still unsure, feel free to join our Discord-Server for further assistance.");
-            } else if (protocolVersion.highestSupportedVersion() <= ProtocolVersion.v1_12_2.getVersion()) {
+            } else if (protocolVersion.highestSupportedProtocolVersion().olderThan(ProtocolVersion.v1_13)) {
                 platform.getLogger().warning("This version of Minecraft is extremely outdated and support for it has reached its end of life. "
                         + "You will still be able to run Via on this Minecraft version, but we are unlikely to provide any further fixes or help with problems specific to legacy Minecraft versions. "
                         + "Please consider updating to give your players a better experience and to avoid issues that have long been fixed.");
@@ -167,13 +170,13 @@ public class ViaManagerImpl implements ViaManager {
             }
         }, 10L);
 
-        int serverProtocolVersion = protocolManager.getServerProtocolVersion().lowestSupportedVersion();
-        if (serverProtocolVersion < ProtocolVersion.v1_9.getVersion()) {
+        final ProtocolVersion serverProtocolVersion = protocolManager.getServerProtocolVersion().lowestSupportedProtocolVersion();
+        if (serverProtocolVersion.olderThan(ProtocolVersion.v1_9)) {
             if (Via.getConfig().isSimulatePlayerTick()) {
                 Via.getPlatform().runRepeatingSync(new ViaIdleThread(), 1L);
             }
         }
-        if (serverProtocolVersion < ProtocolVersion.v1_13.getVersion()) {
+        if (serverProtocolVersion.olderThan(ProtocolVersion.v1_13)) {
             if (Via.getConfig().get1_13TabCompleteDelay() > 0) {
                 Via.getPlatform().runRepeatingSync(new TabCompleteThread(), 1L);
             }
@@ -185,13 +188,13 @@ public class ViaManagerImpl implements ViaManager {
 
     private void loadServerProtocol() {
         try {
-            ProtocolVersion serverProtocolVersion = ProtocolVersion.getProtocol(injector.getServerProtocolVersion());
+            ProtocolVersion serverProtocolVersion = injector.getServerProtocolVersion();
             ServerProtocolVersion versionInfo;
             if (platform.isProxy()) {
-                IntSortedSet supportedVersions = injector.getServerProtocolVersions();
-                versionInfo = new ServerProtocolVersionRange(supportedVersions.firstInt(), supportedVersions.lastInt(), supportedVersions);
+                SortedSet<ProtocolVersion> supportedVersions = injector.getServerProtocolVersions();
+                versionInfo = new ServerProtocolVersionRange(supportedVersions.first(), supportedVersions.last(), supportedVersions);
             } else {
-                versionInfo = new ServerProtocolVersionSingleton(serverProtocolVersion.getVersion());
+                versionInfo = new ServerProtocolVersionSingleton(serverProtocolVersion);
             }
 
             protocolManager.setServerProtocol(versionInfo);
@@ -231,8 +234,8 @@ public class ViaManagerImpl implements ViaManager {
         }
 
         if (version < 17) {
-            platform.getLogger().warning("You are running an outdated Java version, please consider updating it to at least Java 17 (your version is " + javaVersion + "). "
-                    + "At some point in the future, ViaVersion will no longer be compatible with this version of Java.");
+            platform.getLogger().warning("You are running an outdated Java version, please update it to at least Java 17 (your version is " + javaVersion + ").");
+            platform.getLogger().warning("Starting with Minecraft 1.21, ViaVersion will no longer officially be compatible with this version of Java, only offering unsupported compatibility builds.");
         }
     }
 

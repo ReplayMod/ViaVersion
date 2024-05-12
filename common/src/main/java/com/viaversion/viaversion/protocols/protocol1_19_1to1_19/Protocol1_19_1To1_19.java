@@ -17,13 +17,11 @@
  */
 package com.viaversion.viaversion.protocols.protocol1_19_1to1_19;
 
-import com.github.steveice10.opennbt.stringified.SNBT;
 import com.github.steveice10.opennbt.tag.builtin.ByteTag;
 import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
 import com.github.steveice10.opennbt.tag.builtin.ListTag;
 import com.github.steveice10.opennbt.tag.builtin.NumberTag;
 import com.github.steveice10.opennbt.tag.builtin.StringTag;
-import com.github.steveice10.opennbt.tag.builtin.Tag;
 import com.google.common.base.Preconditions;
 import com.google.gson.JsonElement;
 import com.viaversion.viaversion.api.Via;
@@ -39,57 +37,27 @@ import com.viaversion.viaversion.api.protocol.remapper.PacketHandlers;
 import com.viaversion.viaversion.api.type.Type;
 import com.viaversion.viaversion.protocols.base.ClientboundLoginPackets;
 import com.viaversion.viaversion.protocols.base.ServerboundLoginPackets;
+import com.viaversion.viaversion.protocols.protocol1_19_1to1_19.data.ChatDecorationResult;
+import com.viaversion.viaversion.protocols.protocol1_19_1to1_19.data.ChatRegistry;
 import com.viaversion.viaversion.protocols.protocol1_19_1to1_19.storage.ChatTypeStorage;
 import com.viaversion.viaversion.protocols.protocol1_19_1to1_19.storage.NonceStorage;
 import com.viaversion.viaversion.protocols.protocol1_19to1_18_2.ClientboundPackets1_19;
 import com.viaversion.viaversion.protocols.protocol1_19to1_18_2.ServerboundPackets1_19;
 import com.viaversion.viaversion.util.CipherUtil;
 import com.viaversion.viaversion.util.Pair;
+import com.viaversion.viaversion.util.TagUtil;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import com.viaversion.viaversion.util.SerializerVersion;
 import net.lenni0451.mcstructs.core.TextFormatting;
 import net.lenni0451.mcstructs.text.ATextComponent;
 import net.lenni0451.mcstructs.text.Style;
 import net.lenni0451.mcstructs.text.components.TranslationComponent;
-import net.lenni0451.mcstructs.text.serializer.TextComponentSerializer;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 public final class Protocol1_19_1To1_19 extends AbstractProtocol<ClientboundPackets1_19, ClientboundPackets1_19_1, ServerboundPackets1_19, ServerboundPackets1_19_1> {
-
-    private static final String CHAT_REGISTRY_SNBT = "{\n" +
-            "  \"minecraft:chat_type\": {\n" +
-            "    \"type\": \"minecraft:chat_type\",\n" +
-            "    \"value\": [\n" +
-            "         {\n" +
-            "            \"name\":\"minecraft:chat\",\n" +
-            "            \"id\":1,\n" +
-            "            \"element\":{\n" +
-            "               \"chat\":{\n" +
-            "                  \"translation_key\":\"chat.type.text\",\n" +
-            "                  \"parameters\":[\n" +
-            "                     \"sender\",\n" +
-            "                     \"content\"\n" +
-            "                  ]\n" +
-            "               },\n" +
-            "               \"narration\":{\n" +
-            "                  \"translation_key\":\"chat.type.text.narrate\",\n" +
-            "                  \"parameters\":[\n" +
-            "                     \"sender\",\n" +
-            "                     \"content\"\n" +
-            "                  ]\n" +
-            "               }\n" +
-            "            }\n" +
-            "         }" +
-            "    ]\n" +
-            "  }\n" +
-            "}";
-    private static final CompoundTag CHAT_REGISTRY;
-
-    static {
-        CHAT_REGISTRY = SNBT.deserializeCompoundTag(CHAT_REGISTRY_SNBT).getCompoundTag("minecraft:chat_type");
-    }
 
     public Protocol1_19_1To1_19() {
         super(ClientboundPackets1_19.class, ClientboundPackets1_19_1.class, ServerboundPackets1_19.class, ServerboundPackets1_19_1.class);
@@ -222,14 +190,14 @@ public final class Protocol1_19_1To1_19 extends AbstractProtocol<ClientboundPack
                     chatTypeStorage.clear();
 
                     final CompoundTag registry = wrapper.passthrough(Type.NAMED_COMPOUND_TAG);
-                    final ListTag<CompoundTag> chatTypes = registry.getCompoundTag("minecraft:chat_type").getListTag("value", CompoundTag.class);
+                    final ListTag<CompoundTag> chatTypes = TagUtil.removeRegistryEntries(registry, "chat_type");
                     for (final CompoundTag chatType : chatTypes) {
                         final NumberTag idTag = chatType.getNumberTag("id");
                         chatTypeStorage.addChatType(idTag.asInt(), chatType);
                     }
 
                     // Replace chat types - they won't actually be used
-                    registry.put("minecraft:chat_type", CHAT_REGISTRY.copy());
+                    registry.put("minecraft:chat_type", ChatRegistry.chatRegistry());
                 });
             }
         });
@@ -240,7 +208,7 @@ public final class Protocol1_19_1To1_19 extends AbstractProtocol<ClientboundPack
                 map(Type.OPTIONAL_COMPONENT); // Motd
                 map(Type.OPTIONAL_STRING); // Encoded icon
                 map(Type.BOOLEAN); // Previews chat
-                create(Type.BOOLEAN, false); // Enforces secure chat
+                create(Type.BOOLEAN, Via.getConfig().enforceSecureChat()); // Enforces secure chat
             }
         });
 
@@ -425,11 +393,11 @@ public final class Protocol1_19_1To1_19 extends AbstractProtocol<ClientboundPack
                         Via.getPlatform().getLogger().warning("Unknown parameter for chat decoration: " + element.getValue());
                 }
                 if (argument != null) {
-                    arguments.add(TextComponentSerializer.V1_18.deserialize(argument));
+                    arguments.add(SerializerVersion.V1_18.toComponent(argument));
                 }
             }
         }
 
-        return TextComponentSerializer.V1_18.serializeJson(new TranslationComponent(translationKey, arguments));
+        return SerializerVersion.V1_18.toJson(new TranslationComponent(translationKey, arguments));
     }
 }
