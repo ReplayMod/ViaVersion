@@ -32,7 +32,10 @@ import com.viaversion.viaversion.api.protocol.packet.provider.PacketTypesProvide
 import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import com.viaversion.viaversion.api.protocol.version.VersionProvider;
 import com.viaversion.viaversion.api.protocol.version.VersionType;
-import com.viaversion.viaversion.api.type.Type;
+import com.viaversion.viaversion.api.type.Types;
+import com.viaversion.viaversion.exception.CancelException;
+import com.viaversion.viaversion.exception.InformativeException;
+import com.viaversion.viaversion.protocol.version.BaseVersionProvider;
 import com.viaversion.viaversion.protocols.base.packet.BaseClientboundPacket;
 import com.viaversion.viaversion.protocols.base.packet.BasePacketTypesProvider;
 import com.viaversion.viaversion.protocols.base.packet.BaseServerboundPacket;
@@ -53,10 +56,10 @@ public class BaseProtocol extends AbstractProtocol<BaseClientboundPacket, BaseCl
     protected void registerPackets() {
         // Handshake Packet
         registerServerbound(ServerboundHandshakePackets.CLIENT_INTENTION, wrapper -> {
-            int protocolVersion = wrapper.passthrough(Type.VAR_INT);
-            wrapper.passthrough(Type.STRING); // Server Address
-            wrapper.passthrough(Type.UNSIGNED_SHORT); // Server Port
-            int state = wrapper.passthrough(Type.VAR_INT);
+            int protocolVersion = wrapper.passthrough(Types.VAR_INT);
+            wrapper.passthrough(Types.STRING); // Server Address
+            wrapper.passthrough(Types.UNSIGNED_SHORT); // Server Port
+            int state = wrapper.passthrough(Types.VAR_INT);
 
             ProtocolInfo info = wrapper.user().getProtocolInfo();
             info.setProtocolVersion(ProtocolVersion.getProtocol(protocolVersion));
@@ -68,15 +71,17 @@ public class BaseProtocol extends AbstractProtocol<BaseClientboundPacket, BaseCl
             }
 
             // Choose the pipe
-            ProtocolVersion serverProtocol = versionProvider.getClosestServerProtocol(wrapper.user());
-            info.setServerProtocolVersion(serverProtocol);
-            List<ProtocolPathEntry> protocolPath = null;
-
-            // Only allow newer clients (or 1.9.2 on 1.9.4 server if the server supports it)
-            ProtocolManager protocolManager = Via.getManager().getProtocolManager();
-            if (info.protocolVersion().newerThanOrEqualTo(serverProtocol) || Via.getPlatform().isOldClientsAllowed()) {
-                protocolPath = protocolManager.getProtocolPath(info.protocolVersion(), serverProtocol);
+            ProtocolVersion serverProtocol;
+            try {
+                serverProtocol = versionProvider.getClosestServerProtocol(wrapper.user());
+            } catch (final Exception e) {
+                throw new RuntimeException("Error getting server protocol", e);
             }
+
+            info.setServerProtocolVersion(serverProtocol);
+
+            ProtocolManager protocolManager = Via.getManager().getProtocolManager();
+            List<ProtocolPathEntry> protocolPath = protocolManager.getProtocolPath(info.protocolVersion(), serverProtocol);
 
             // Add Base Protocol
             ProtocolPipeline pipeline = info.getPipeline();
@@ -104,7 +109,7 @@ public class BaseProtocol extends AbstractProtocol<BaseClientboundPacket, BaseCl
                 pipeline.add(protocols);
 
                 // Set the original snapshot version if present
-                wrapper.set(Type.VAR_INT, 0, serverProtocol.getOriginalVersion());
+                wrapper.set(Types.VAR_INT, 0, serverProtocol.getOriginalVersion());
             }
 
             if (Via.getManager().isDebug()) {
@@ -120,7 +125,7 @@ public class BaseProtocol extends AbstractProtocol<BaseClientboundPacket, BaseCl
                 info.setState(State.LOGIN);
 
                 if (serverProtocol.olderThan(ProtocolVersion.v1_20_5)) {
-                    wrapper.set(Type.VAR_INT, 1, LOGIN_INTENT);
+                    wrapper.set(Types.VAR_INT, 1, LOGIN_INTENT);
                 }
             }
         });
@@ -137,7 +142,7 @@ public class BaseProtocol extends AbstractProtocol<BaseClientboundPacket, BaseCl
     }
 
     @Override
-    public void transform(Direction direction, State state, PacketWrapper packetWrapper) throws Exception {
+    public void transform(Direction direction, State state, PacketWrapper packetWrapper) throws InformativeException, CancelException {
         super.transform(direction, state, packetWrapper);
         if (direction == Direction.SERVERBOUND && state == State.HANDSHAKE) {
             // Disable if it isn't a handshake packet.

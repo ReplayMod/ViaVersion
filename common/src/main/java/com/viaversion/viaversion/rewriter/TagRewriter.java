@@ -25,7 +25,7 @@ import com.viaversion.viaversion.api.protocol.Protocol;
 import com.viaversion.viaversion.api.protocol.packet.ClientboundPacketType;
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.protocol.remapper.PacketHandler;
-import com.viaversion.viaversion.api.type.Type;
+import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.util.Key;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
@@ -40,10 +40,11 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 
 public class TagRewriter<C extends ClientboundPacketType> implements com.viaversion.viaversion.api.rewriter.TagRewriter {
     private static final int[] EMPTY_ARRAY = {};
-    private final Protocol<C, ?, ?, ?> protocol;
-    private final Map<RegistryType, List<TagData>> newTags = new EnumMap<>(RegistryType.class);
+    private final Map<RegistryType, List<TagData>> toAdd = new EnumMap<>(RegistryType.class);
     private final Map<RegistryType, Map<String, String>> toRename = new EnumMap<>(RegistryType.class);
-    private final Set<String> toRemove = new HashSet<>();
+    private final Map<RegistryType, Set<String>> toRemove = new EnumMap<>(RegistryType.class);
+    private final Set<String> toRemoveRegistries = new HashSet<>();
+    private final Protocol<C, ?, ?, ?> protocol;
 
     public TagRewriter(final Protocol<C, ?, ?, ?> protocol) {
         this.protocol = protocol;
@@ -55,6 +56,7 @@ public class TagRewriter<C extends ClientboundPacketType> implements com.viavers
             return;
         }
 
+        // TODO Tags for player synchronized registries
         for (RegistryType type : RegistryType.getValues()) {
             List<TagData> tags = protocol.getMappingData().getTags(type);
             if (tags != null) {
@@ -65,12 +67,17 @@ public class TagRewriter<C extends ClientboundPacketType> implements com.viavers
 
     @Override
     public void removeTags(final String registryKey) {
-        toRemove.add(registryKey);
+        toRemoveRegistries.add(Key.stripMinecraftNamespace(registryKey));
     }
 
     @Override
-    public void renameTag(final RegistryType type, final String registryKey, final String renameTo) {
-        toRename.computeIfAbsent(type, t -> new HashMap<>()).put(registryKey, renameTo);
+    public void removeTag(final RegistryType type, final String tagId) {
+        toRemove.computeIfAbsent(type, t -> new HashSet<>()).add(Key.stripMinecraftNamespace(tagId));
+    }
+
+    @Override
+    public void renameTag(final RegistryType type, final String tagId, final String renameTo) {
+        toRename.computeIfAbsent(type, t -> new HashMap<>()).put(Key.stripMinecraftNamespace(tagId), renameTo);
     }
 
     @Override
@@ -124,7 +131,7 @@ public class TagRewriter<C extends ClientboundPacketType> implements com.viavers
     public PacketHandler getHandler(@Nullable RegistryType readUntilType) {
         return wrapper -> {
             for (RegistryType type : RegistryType.getValues()) {
-                handle(wrapper, getRewriter(type), getNewTags(type), toRename.get(type));
+                handle(wrapper, getRewriter(type), getNewTags(type), toRename.get(type), toRemove.get(type));
 
                 // Stop iterating
                 if (type == readUntilType) {
@@ -136,52 +143,52 @@ public class TagRewriter<C extends ClientboundPacketType> implements com.viavers
 
     public PacketHandler getGenericHandler() {
         return wrapper -> {
-            final int length = wrapper.passthrough(Type.VAR_INT);
+            final int length = wrapper.passthrough(Types.VAR_INT);
             int editedLength = length;
             for (int i = 0; i < length; i++) {
-                String registryKey = wrapper.read(Type.STRING);
-                if (toRemove.contains(registryKey)) {
-                    wrapper.set(Type.VAR_INT, 0, --editedLength);
-                    int tagsSize = wrapper.read(Type.VAR_INT);
+                String registryKey = wrapper.read(Types.STRING);
+                if (toRemoveRegistries.contains(Key.stripMinecraftNamespace(registryKey))) {
+                    wrapper.set(Types.VAR_INT, 0, --editedLength);
+                    int tagsSize = wrapper.read(Types.VAR_INT);
                     for (int j = 0; j < tagsSize; j++) {
-                        wrapper.read(Type.STRING);
-                        wrapper.read(Type.VAR_INT_ARRAY_PRIMITIVE);
+                        wrapper.read(Types.STRING);
+                        wrapper.read(Types.VAR_INT_ARRAY_PRIMITIVE);
                     }
                     continue;
                 }
 
-                wrapper.write(Type.STRING, registryKey);
+                wrapper.write(Types.STRING, registryKey);
                 registryKey = Key.stripMinecraftNamespace(registryKey);
 
                 RegistryType type = RegistryType.getByKey(registryKey);
                 if (type != null) {
-                    handle(wrapper, getRewriter(type), getNewTags(type), toRename.get(type));
+                    handle(wrapper, getRewriter(type), getNewTags(type), toRename.get(type), toRemove.get(type));
                 } else {
-                    handle(wrapper, null, null, null);
+                    handle(wrapper, null, null, null, null);
                 }
             }
         };
     }
 
-    public void handle(PacketWrapper wrapper, @Nullable IdRewriteFunction rewriteFunction, @Nullable List<TagData> newTags) throws Exception {
-        handle(wrapper, rewriteFunction, newTags, null);
+    public void handle(PacketWrapper wrapper, @Nullable IdRewriteFunction rewriteFunction, @Nullable List<TagData> newTags) {
+        handle(wrapper, rewriteFunction, newTags, null, null);
     }
 
-    public void handle(PacketWrapper wrapper, @Nullable IdRewriteFunction rewriteFunction, @Nullable List<TagData> newTags, @Nullable Map<String, String> tagsToRename) throws Exception {
-        int tagsSize = wrapper.read(Type.VAR_INT);
-        wrapper.write(Type.VAR_INT, newTags != null ? tagsSize + newTags.size() : tagsSize); // add new tags count
+    public void handle(PacketWrapper wrapper, @Nullable IdRewriteFunction rewriteFunction, @Nullable List<TagData> newTags, @Nullable Map<String, String> tagsToRename, @Nullable Set<String> tagsToRemove) {
+        final int tagsSize = wrapper.read(Types.VAR_INT);
+        final List<TagData> tags = new ArrayList<>(newTags != null ? tagsSize + newTags.size() : tagsSize);
+        final Set<String> currentTags = new HashSet<>(tagsSize);
 
         for (int i = 0; i < tagsSize; i++) {
-            String key = wrapper.read(Type.STRING);
+            String key = wrapper.read(Types.STRING);
             if (tagsToRename != null) {
-                String renamedKey = tagsToRename.get(key);
+                String renamedKey = tagsToRename.get(Key.stripMinecraftNamespace(key));
                 if (renamedKey != null) {
                     key = renamedKey;
                 }
             }
-            wrapper.write(Type.STRING, key);
 
-            int[] ids = wrapper.read(Type.VAR_INT_ARRAY_PRIMITIVE);
+            int[] ids = wrapper.read(Types.VAR_INT_ARRAY_PRIMITIVE);
             if (rewriteFunction != null) {
                 // Map ids and filter out new blocks
                 IntList idList = new IntArrayList(ids.length);
@@ -192,45 +199,65 @@ public class TagRewriter<C extends ClientboundPacketType> implements com.viavers
                     }
                 }
 
-                wrapper.write(Type.VAR_INT_ARRAY_PRIMITIVE, idList.toArray(EMPTY_ARRAY));
-            } else {
-                // Write the original array
-                wrapper.write(Type.VAR_INT_ARRAY_PRIMITIVE, ids);
+                ids = idList.toArray(EMPTY_ARRAY);
+            }
+
+            tags.add(new TagData(key, ids));
+            currentTags.add(Key.stripMinecraftNamespace(key));
+        }
+
+        if (tagsToRemove != null) {
+            tags.removeIf(tag -> tagsToRemove.contains(Key.stripMinecraftNamespace(tag.identifier())));
+        }
+
+        // Add new tags if present
+        if (newTags != null) {
+            for (final TagData tag : newTags) {
+                if (!currentTags.contains(Key.stripMinecraftNamespace(tag.identifier()))) {
+                    tags.add(tag);
+                }
             }
         }
 
-        // Send new tags if present
+        // Write the tags
+        wrapper.write(Types.VAR_INT, tags.size());
+        for (TagData tag : tags) {
+            wrapper.write(Types.STRING, tag.identifier());
+            wrapper.write(Types.VAR_INT_ARRAY_PRIMITIVE, tag.entries());
+        }
+    }
+
+    public void appendNewTags(PacketWrapper wrapper, RegistryType type) {
+        List<TagData> newTags = getNewTags(type);
         if (newTags != null) {
+            wrapper.write(Types.VAR_INT, newTags.size());
             for (TagData tag : newTags) {
-                wrapper.write(Type.STRING, tag.identifier());
-                wrapper.write(Type.VAR_INT_ARRAY_PRIMITIVE, tag.entries());
+                wrapper.write(Types.STRING, tag.identifier());
+                wrapper.write(Types.VAR_INT_ARRAY_PRIMITIVE, tag.entries().clone());
             }
+        } else {
+            wrapper.write(Types.VAR_INT, 0);
         }
     }
 
     @Override
     public @Nullable List<TagData> getNewTags(RegistryType tagType) {
-        return newTags.get(tagType);
+        return toAdd.get(tagType);
     }
 
     @Override
     public List<TagData> getOrComputeNewTags(RegistryType tagType) {
-        return newTags.computeIfAbsent(tagType, type -> new ArrayList<>());
+        return toAdd.computeIfAbsent(tagType, type -> new ArrayList<>());
     }
 
     public @Nullable IdRewriteFunction getRewriter(RegistryType tagType) {
         MappingData mappingData = protocol.getMappingData();
-        switch (tagType) {
-            case BLOCK:
-                return mappingData != null && mappingData.getBlockMappings() != null ? mappingData::getNewBlockId : null;
-            case ITEM:
-                return mappingData != null && mappingData.getItemMappings() != null ? mappingData::getNewItemId : null;
-            case ENTITY:
-                return protocol.getEntityRewriter() != null ? id -> protocol.getEntityRewriter().newEntityId(id) : null;
-            case FLUID:
-            case GAME_EVENT:
-            default:
-                return null;
-        }
+        return switch (tagType) {
+            case BLOCK -> mappingData != null && mappingData.getBlockMappings() != null ? mappingData::getNewBlockId : null;
+            case ITEM -> mappingData != null && mappingData.getItemMappings() != null ? mappingData::getNewItemId : null;
+            case ENTITY -> protocol.getEntityRewriter() != null ? id -> protocol.getEntityRewriter().newEntityId(id) : null;
+            case ENCHANTMENT -> mappingData != null && mappingData.getEnchantmentMappings() != null ? id -> mappingData.getEnchantmentMappings().getNewId(id) : null;
+            case FLUID, GAME_EVENT -> null;
+        };
     }
 }

@@ -22,13 +22,14 @@
  */
 package com.viaversion.viaversion.api.type.types.chunk;
 
-import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
 import com.google.common.base.Preconditions;
+import com.viaversion.nbt.tag.CompoundTag;
 import com.viaversion.viaversion.api.minecraft.blockentity.BlockEntity;
 import com.viaversion.viaversion.api.minecraft.chunks.Chunk;
 import com.viaversion.viaversion.api.minecraft.chunks.Chunk1_18;
 import com.viaversion.viaversion.api.minecraft.chunks.ChunkSection;
 import com.viaversion.viaversion.api.type.Type;
+import com.viaversion.viaversion.api.type.Types;
 import io.netty.buffer.ByteBuf;
 import java.util.ArrayList;
 import java.util.List;
@@ -45,13 +46,13 @@ public final class ChunkType1_18 extends Type<Chunk> {
     }
 
     @Override
-    public Chunk read(final ByteBuf buffer) throws Exception {
+    public Chunk read(final ByteBuf buffer) {
         final int chunkX = buffer.readInt();
         final int chunkZ = buffer.readInt();
-        final CompoundTag heightMap = Type.NAMED_COMPOUND_TAG.read(buffer);
+        final CompoundTag heightMap = Types.NAMED_COMPOUND_TAG.read(buffer);
 
         // Read sections
-        final ByteBuf sectionsBuf = buffer.readBytes(Type.VAR_INT.readPrimitive(buffer));
+        final ByteBuf sectionsBuf = buffer.readBytes(Types.VAR_INT.readPrimitive(buffer));
         final ChunkSection[] sections = new ChunkSection[ySectionCount];
         try {
             for (int i = 0; i < ySectionCount; i++) {
@@ -61,21 +62,21 @@ public final class ChunkType1_18 extends Type<Chunk> {
             sectionsBuf.release();
         }
 
-        final int blockEntitiesLength = Type.VAR_INT.readPrimitive(buffer);
+        final int blockEntitiesLength = Types.VAR_INT.readPrimitive(buffer);
         final List<BlockEntity> blockEntities = new ArrayList<>(blockEntitiesLength);
         for (int i = 0; i < blockEntitiesLength; i++) {
-            blockEntities.add(Type.BLOCK_ENTITY1_18.read(buffer));
+            blockEntities.add(Types.BLOCK_ENTITY1_18.read(buffer));
         }
 
         return new Chunk1_18(chunkX, chunkZ, sections, heightMap, blockEntities);
     }
 
     @Override
-    public void write(final ByteBuf buffer, final Chunk chunk) throws Exception {
+    public void write(final ByteBuf buffer, final Chunk chunk) {
         buffer.writeInt(chunk.getX());
         buffer.writeInt(chunk.getZ());
 
-        Type.NAMED_COMPOUND_TAG.write(buffer, chunk.getHeightMap());
+        Types.NAMED_COMPOUND_TAG.write(buffer, chunk.getHeightMap());
 
         final ByteBuf sectionBuffer = buffer.alloc().buffer();
         try {
@@ -83,15 +84,15 @@ public final class ChunkType1_18 extends Type<Chunk> {
                 sectionType.write(sectionBuffer, section);
             }
             sectionBuffer.readerIndex(0);
-            Type.VAR_INT.writePrimitive(buffer, sectionBuffer.readableBytes());
+            Types.VAR_INT.writePrimitive(buffer, sectionBuffer.readableBytes());
             buffer.writeBytes(sectionBuffer);
         } finally {
             sectionBuffer.release(); // release buffer
         }
 
-        Type.VAR_INT.writePrimitive(buffer, chunk.blockEntities().size());
+        Types.VAR_INT.writePrimitive(buffer, chunk.blockEntities().size());
         for (final BlockEntity blockEntity : chunk.blockEntities()) {
-            Type.BLOCK_ENTITY1_18.write(buffer, blockEntity);
+            Types.BLOCK_ENTITY1_18.write(buffer, blockEntity);
         }
     }
 }

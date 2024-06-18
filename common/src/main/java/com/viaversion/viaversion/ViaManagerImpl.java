@@ -40,8 +40,8 @@ import com.viaversion.viaversion.debug.DebugHandlerImpl;
 import com.viaversion.viaversion.protocol.ProtocolManagerImpl;
 import com.viaversion.viaversion.protocol.ServerProtocolVersionRange;
 import com.viaversion.viaversion.protocol.ServerProtocolVersionSingleton;
-import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.task.TabCompleteThread;
-import com.viaversion.viaversion.protocols.protocol1_9to1_8.ViaIdleThread;
+import com.viaversion.viaversion.protocols.v1_12_2to1_13.task.TabCompleteTask;
+import com.viaversion.viaversion.protocols.v1_8to1_9.task.IdlePacketTask;
 import com.viaversion.viaversion.scheduler.TaskScheduler;
 import com.viaversion.viaversion.update.UpdateUtil;
 import java.util.ArrayList;
@@ -150,8 +150,8 @@ public class ViaManagerImpl implements ViaManager {
                 platform.getLogger().warning("and if you're still unsure, feel free to join our Discord-Server for further assistance.");
             } else if (protocolVersion.highestSupportedProtocolVersion().olderThan(ProtocolVersion.v1_13)) {
                 platform.getLogger().warning("This version of Minecraft is extremely outdated and support for it has reached its end of life. "
-                        + "You will still be able to run Via on this Minecraft version, but we are unlikely to provide any further fixes or help with problems specific to legacy Minecraft versions. "
-                        + "Please consider updating to give your players a better experience and to avoid issues that have long been fixed.");
+                    + "You will still be able to run Via on this Minecraft version, but we are unlikely to provide any further fixes or help with problems specific to legacy Minecraft versions. "
+                    + "Please consider updating to give your players a better experience and to avoid issues that have long been fixed.");
             }
         }
 
@@ -173,12 +173,12 @@ public class ViaManagerImpl implements ViaManager {
         final ProtocolVersion serverProtocolVersion = protocolManager.getServerProtocolVersion().lowestSupportedProtocolVersion();
         if (serverProtocolVersion.olderThan(ProtocolVersion.v1_9)) {
             if (Via.getConfig().isSimulatePlayerTick()) {
-                Via.getPlatform().runRepeatingSync(new ViaIdleThread(), 1L);
+                Via.getPlatform().runRepeatingSync(new IdlePacketTask(), 1L);
             }
         }
         if (serverProtocolVersion.olderThan(ProtocolVersion.v1_13)) {
             if (Via.getConfig().get1_13TabCompleteDelay() > 0) {
-                Via.getPlatform().runRepeatingSync(new TabCompleteThread(), 1L);
+                Via.getPlatform().runRepeatingSync(new TabCompleteTask(), 1L);
             }
         }
 

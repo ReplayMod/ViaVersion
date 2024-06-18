@@ -57,27 +57,26 @@ public class ViaVersionPlugin extends JavaPlugin implements ViaPlatform<Player> 
     private static final boolean FOLIA = PaperViaInjector.hasClass("io.papermc.paper.threadedregions.RegionizedServer");
     private static ViaVersionPlugin instance;
     private final BukkitCommandHandler commandHandler = new BukkitCommandHandler();
-    private final BukkitViaConfig conf = new BukkitViaConfig(getDataFolder());
+    private final BukkitViaConfig conf;
     private final ViaAPI<Player> api = new BukkitViaAPI(this);
-    private boolean protocolSupport;
     private boolean lateBind;
 
     public ViaVersionPlugin() {
         instance = this;
 
+        conf = new BukkitViaConfig(getDataFolder(), getLogger());
         Via.init(ViaManagerImpl.builder()
-                .platform(this)
-                .commandHandler(commandHandler)
-                .injector(new BukkitViaInjector())
-                .loader(new BukkitViaLoader(this))
-                .build());
+            .platform(this)
+            .commandHandler(commandHandler)
+            .injector(new BukkitViaInjector())
+            .loader(new BukkitViaLoader(this))
+            .build());
 
         conf.reload();
     }
 
     @Override
     public void onLoad() {
-        protocolSupport = Bukkit.getPluginManager().getPlugin("ProtocolSupport") != null;
         lateBind = !((BukkitViaInjector) Via.getManager().getInjector()).isBinded();
 
         if (!lateBind) {
@@ -241,11 +240,6 @@ public class ViaVersionPlugin extends JavaPlugin implements ViaPlatform<Player> 
     }
 
     @Override
-    public boolean isOldClientsAllowed() {
-        return !protocolSupport; // Use protocolsupport for older clients
-    }
-
-    @Override
     public BukkitViaConfig getConf() {
         return conf;
     }
@@ -259,13 +253,13 @@ public class ViaVersionPlugin extends JavaPlugin implements ViaPlatform<Player> 
     public final Collection<UnsupportedSoftware> getUnsupportedSoftwareClasses() {
         final List<UnsupportedSoftware> list = new ArrayList<>(ViaPlatform.super.getUnsupportedSoftwareClasses());
         list.add(new UnsupportedServerSoftware.Builder().name("Yatopia").reason(UnsupportedServerSoftware.Reason.DANGEROUS_SERVER_SOFTWARE)
-                .addClassName("org.yatopiamc.yatopia.server.YatopiaConfig")
-                .addClassName("net.yatopia.api.event.PlayerAttackEntityEvent")
-                .addClassName("yatopiamc.org.yatopia.server.YatopiaConfig") // Only the best kind of software relocates its own classes to hide itself :tinfoilhat:
-                .addMethod("org.bukkit.Server", "getLastTickTime").build());
+            .addClassName("org.yatopiamc.yatopia.server.YatopiaConfig")
+            .addClassName("net.yatopia.api.event.PlayerAttackEntityEvent")
+            .addClassName("yatopiamc.org.yatopia.server.YatopiaConfig") // Only the best kind of software relocates its own classes to hide itself :tinfoilhat:
+            .addMethod("org.bukkit.Server", "getLastTickTime").build());
         list.add(new UnsupportedPlugin.Builder().name("software to mess with message signing").reason(UnsupportedPlugin.Reason.SECURE_CHAT_BYPASS)
-                .addPlugin("NoEncryption").addPlugin("NoReport")
-                .addPlugin("NoChatReports").addPlugin("NoChatReport").build());
+            .addPlugin("NoEncryption").addPlugin("NoReport")
+            .addPlugin("NoChatReports").addPlugin("NoChatReport").build());
         return Collections.unmodifiableList(list);
     }
 
@@ -278,11 +272,10 @@ public class ViaVersionPlugin extends JavaPlugin implements ViaPlatform<Player> 
         return lateBind;
     }
 
-    public boolean isProtocolSupport() {
-        return protocolSupport;
-    }
-
-    @Deprecated/*(forRemoval = true)*/
+    /**
+     * @deprecated use {@link Via#getAPI()} instead
+     */
+    @Deprecated(forRemoval = true)
     public static ViaVersionPlugin getInstance() {
         return instance;
     }

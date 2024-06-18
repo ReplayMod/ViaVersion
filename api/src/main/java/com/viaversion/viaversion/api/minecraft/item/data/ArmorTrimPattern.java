@@ -22,57 +22,34 @@
  */
 package com.viaversion.viaversion.api.minecraft.item.data;
 
-import com.github.steveice10.opennbt.tag.builtin.Tag;
-import com.viaversion.viaversion.api.type.Type;
+import com.viaversion.nbt.tag.Tag;
+import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.api.type.types.misc.HolderType;
 import io.netty.buffer.ByteBuf;
+import it.unimi.dsi.fastutil.ints.Int2IntFunction;
 
-public final class ArmorTrimPattern {
+public record ArmorTrimPattern(String assetName, int itemId, Tag description, boolean decal) {
 
-    public static final HolderType<ArmorTrimPattern> TYPE = new HolderType<ArmorTrimPattern>() {
+    public static final HolderType<ArmorTrimPattern> TYPE = new HolderType<>() {
         @Override
-        public ArmorTrimPattern readDirect(final ByteBuf buffer) throws Exception {
-            final String assetName = Type.STRING.read(buffer);
-            final int itemId = Type.VAR_INT.readPrimitive(buffer);
-            final Tag description = Type.TAG.read(buffer);
+        public ArmorTrimPattern readDirect(final ByteBuf buffer) {
+            final String assetName = Types.STRING.read(buffer);
+            final int itemId = Types.VAR_INT.readPrimitive(buffer);
+            final Tag description = Types.TAG.read(buffer);
             final boolean decal = buffer.readBoolean();
             return new ArmorTrimPattern(assetName, itemId, description, decal);
         }
 
         @Override
-        public void writeDirect(final ByteBuf buffer, final ArmorTrimPattern value) throws Exception {
-            Type.STRING.write(buffer, value.assetName());
-            Type.VAR_INT.writePrimitive(buffer, value.itemId());
-            Type.TAG.write(buffer, value.description());
+        public void writeDirect(final ByteBuf buffer, final ArmorTrimPattern value) {
+            Types.STRING.write(buffer, value.assetName());
+            Types.VAR_INT.writePrimitive(buffer, value.itemId());
+            Types.TAG.write(buffer, value.description());
             buffer.writeBoolean(value.decal());
         }
     };
 
-    private final String assetName;
-    private final int itemId;
-    private final Tag description;
-    private final boolean decal;
-
-    public ArmorTrimPattern(final String assetName, final int itemId, final Tag description, final boolean decal) {
-        this.assetName = assetName;
-        this.itemId = itemId;
-        this.description = description;
-        this.decal = decal;
-    }
-
-    public String assetName() {
-        return assetName;
-    }
-
-    public int itemId() {
-        return itemId;
-    }
-
-    public Tag description() {
-        return description;
-    }
-
-    public boolean decal() {
-        return decal;
+    public ArmorTrimPattern rewrite(final Int2IntFunction idRewriteFunction) {
+        return new ArmorTrimPattern(assetName, idRewriteFunction.applyAsInt(itemId), description, decal);
     }
 }

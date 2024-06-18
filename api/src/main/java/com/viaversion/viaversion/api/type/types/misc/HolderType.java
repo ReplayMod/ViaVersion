@@ -24,6 +24,7 @@ package com.viaversion.viaversion.api.type.types.misc;
 
 import com.viaversion.viaversion.api.minecraft.Holder;
 import com.viaversion.viaversion.api.type.Type;
+import com.viaversion.viaversion.api.type.Types;
 import io.netty.buffer.ByteBuf;
 
 public abstract class HolderType<T> extends Type<Holder<T>> {
@@ -33,8 +34,8 @@ public abstract class HolderType<T> extends Type<Holder<T>> {
     }
 
     @Override
-    public Holder<T> read(final ByteBuf buffer) throws Exception {
-        final int id = Type.VAR_INT.readPrimitive(buffer) - 1; // Normalize id
+    public Holder<T> read(final ByteBuf buffer) {
+        final int id = Types.VAR_INT.readPrimitive(buffer) - 1; // Normalize id
         if (id == -1) {
             return Holder.of(readDirect(buffer));
         }
@@ -42,16 +43,16 @@ public abstract class HolderType<T> extends Type<Holder<T>> {
     }
 
     @Override
-    public void write(final ByteBuf buffer, final Holder<T> object) throws Exception {
+    public void write(final ByteBuf buffer, final Holder<T> object) {
         if (object.hasId()) {
-            Type.VAR_INT.writePrimitive(buffer, object.id() + 1); // Normalize id
+            Types.VAR_INT.writePrimitive(buffer, object.id() + 1); // Normalize id
         } else {
-            Type.VAR_INT.writePrimitive(buffer, 0);
+            Types.VAR_INT.writePrimitive(buffer, 0);
             writeDirect(buffer, object.value());
         }
     }
 
-    public abstract T readDirect(final ByteBuf buffer) throws Exception;
+    public abstract T readDirect(final ByteBuf buffer);
 
-    public abstract void writeDirect(final ByteBuf buffer, final T object) throws Exception;
+    public abstract void writeDirect(final ByteBuf buffer, final T object);
 }

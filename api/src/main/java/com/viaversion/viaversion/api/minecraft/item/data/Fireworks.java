@@ -23,38 +23,24 @@
 package com.viaversion.viaversion.api.minecraft.item.data;
 
 import com.viaversion.viaversion.api.type.Type;
+import com.viaversion.viaversion.api.type.Types;
 import io.netty.buffer.ByteBuf;
 
-public final class Fireworks {
+public record Fireworks(int flightDuration, FireworkExplosion[] explosions) {
 
-    public static final Type<Fireworks> TYPE = new Type<Fireworks>(Fireworks.class) {
+    public static final Type<Fireworks> TYPE = new Type<>(Fireworks.class) {
         @Override
-        public Fireworks read(final ByteBuf buffer) throws Exception {
-            final int flightDuration = Type.VAR_INT.readPrimitive(buffer);
+        public Fireworks read(final ByteBuf buffer) {
+            final int flightDuration = Types.VAR_INT.readPrimitive(buffer);
             final FireworkExplosion[] explosions = FireworkExplosion.ARRAY_TYPE.read(buffer);
             return new Fireworks(flightDuration, explosions);
         }
 
         @Override
-        public void write(final ByteBuf buffer, final Fireworks value) throws Exception {
-            Type.VAR_INT.writePrimitive(buffer, value.flightDuration);
+        public void write(final ByteBuf buffer, final Fireworks value) {
+            Types.VAR_INT.writePrimitive(buffer, value.flightDuration);
             FireworkExplosion.ARRAY_TYPE.write(buffer, value.explosions);
         }
     };
 
-    private final FireworkExplosion[] explosions;
-    private final int flightDuration;
-
-    public Fireworks(final int flightDuration, final FireworkExplosion[] explosions) {
-        this.flightDuration = flightDuration;
-        this.explosions = explosions;
-    }
-
-    public int flightDuration() {
-        return flightDuration;
-    }
-
-    public FireworkExplosion[] explosions() {
-        return explosions;
-    }
 }

@@ -28,10 +28,10 @@ import com.viaversion.viaversion.api.minecraft.chunks.BaseChunk;
 import com.viaversion.viaversion.api.minecraft.chunks.Chunk;
 import com.viaversion.viaversion.api.minecraft.chunks.ChunkSection;
 import com.viaversion.viaversion.api.type.Type;
+import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.api.type.types.version.Types1_9;
 import com.viaversion.viaversion.util.ChunkUtil;
 import io.netty.buffer.ByteBuf;
-
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.logging.Level;
@@ -52,13 +52,13 @@ public class ChunkType1_9_1 extends Type<Chunk> {
     }
 
     @Override
-    public Chunk read(ByteBuf input) throws Exception {
+    public Chunk read(ByteBuf input) {
         int chunkX = input.readInt();
         int chunkZ = input.readInt();
 
         boolean groundUp = input.readBoolean();
-        int primaryBitmask = Type.VAR_INT.readPrimitive(input);
-        ByteBuf data = input.readSlice(Type.VAR_INT.readPrimitive(input));
+        int primaryBitmask = Types.VAR_INT.readPrimitive(input);
+        ByteBuf data = input.readSlice(Types.VAR_INT.readPrimitive(input));
 
         ChunkSection[] sections = new ChunkSection[16];
         int[] biomeData = groundUp ? new int[256] : null;
@@ -96,12 +96,12 @@ public class ChunkType1_9_1 extends Type<Chunk> {
     }
 
     @Override
-    public void write(ByteBuf output, Chunk chunk) throws Exception {
+    public void write(ByteBuf output, Chunk chunk) {
         output.writeInt(chunk.getX());
         output.writeInt(chunk.getZ());
 
         output.writeBoolean(chunk.isFullChunk());
-        Type.VAR_INT.writePrimitive(output, chunk.getBitmask());
+        Types.VAR_INT.writePrimitive(output, chunk.getBitmask());
 
         ByteBuf buf = output.alloc().buffer();
         try {
@@ -116,7 +116,7 @@ public class ChunkType1_9_1 extends Type<Chunk> {
 
             }
             buf.readerIndex(0);
-            Type.VAR_INT.writePrimitive(output, buf.readableBytes() + (chunk.isBiomeData() ? 256 : 0));
+            Types.VAR_INT.writePrimitive(output, buf.readableBytes() + (chunk.isBiomeData() ? 256 : 0));
             output.writeBytes(buf);
         } finally {
             buf.release(); // release buffer

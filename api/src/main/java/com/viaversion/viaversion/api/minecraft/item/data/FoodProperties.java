@@ -22,63 +22,55 @@
  */
 package com.viaversion.viaversion.api.minecraft.item.data;
 
+import com.viaversion.viaversion.api.minecraft.item.Item;
 import com.viaversion.viaversion.api.type.Type;
+import com.viaversion.viaversion.api.type.Types;
+import com.viaversion.viaversion.api.type.types.version.Types1_21;
 import io.netty.buffer.ByteBuf;
 
-public final class FoodProperties {
+public record FoodProperties(int nutrition, float saturationModifier, boolean canAlwaysEat, float eatSeconds,
+                             Item usingConvertsTo, FoodEffect[] possibleEffects) {
 
-    public static final Type<FoodProperties> TYPE = new Type<FoodProperties>(FoodProperties.class) {
+    public static final Type<FoodProperties> TYPE1_20_5 = new Type<>(FoodProperties.class) {
         @Override
-        public FoodProperties read(final ByteBuf buffer) throws Exception {
-            final int nutrition = Type.VAR_INT.readPrimitive(buffer);
+        public FoodProperties read(final ByteBuf buffer) {
+            final int nutrition = Types.VAR_INT.readPrimitive(buffer);
             final float saturationModifier = buffer.readFloat();
             final boolean canAlwaysEat = buffer.readBoolean();
             final float eatSeconds = buffer.readFloat();
             final FoodEffect[] possibleEffects = FoodEffect.ARRAY_TYPE.read(buffer);
-            return new FoodProperties(nutrition, saturationModifier, canAlwaysEat, eatSeconds, possibleEffects);
+            return new FoodProperties(nutrition, saturationModifier, canAlwaysEat, eatSeconds, null, possibleEffects);
         }
 
         @Override
-        public void write(final ByteBuf buffer, final FoodProperties value) throws Exception {
-            Type.VAR_INT.writePrimitive(buffer, value.nutrition);
+        public void write(final ByteBuf buffer, final FoodProperties value) {
+            Types.VAR_INT.writePrimitive(buffer, value.nutrition);
             buffer.writeFloat(value.saturationModifier);
             buffer.writeBoolean(value.canAlwaysEat);
             buffer.writeFloat(value.eatSeconds);
             FoodEffect.ARRAY_TYPE.write(buffer, value.possibleEffects);
         }
     };
+    public static final Type<FoodProperties> TYPE1_21 = new Type<FoodProperties>(FoodProperties.class) {
+        @Override
+        public FoodProperties read(final ByteBuf buffer) {
+            final int nutrition = Types.VAR_INT.readPrimitive(buffer);
+            final float saturationModifier = buffer.readFloat();
+            final boolean canAlwaysEat = buffer.readBoolean();
+            final float eatSeconds = buffer.readFloat();
+            final Item usingConvertsTo = Types1_21.OPTIONAL_ITEM.read(buffer);
+            final FoodEffect[] possibleEffects = FoodEffect.ARRAY_TYPE.read(buffer);
+            return new FoodProperties(nutrition, saturationModifier, canAlwaysEat, eatSeconds, usingConvertsTo, possibleEffects);
+        }
 
-    private final int nutrition;
-    private final float saturationModifier;
-    private final boolean canAlwaysEat;
-    private final float eatSeconds;
-    private final FoodEffect[] possibleEffects;
-
-    public FoodProperties(final int nutrition, final float saturationModifier, final boolean canAlwaysEat, final float eatSeconds, final FoodEffect[] possibleEffects) {
-        this.nutrition = nutrition;
-        this.saturationModifier = saturationModifier;
-        this.canAlwaysEat = canAlwaysEat;
-        this.eatSeconds = eatSeconds;
-        this.possibleEffects = possibleEffects;
-    }
-
-    public int nutrition() {
-        return nutrition;
-    }
-
-    public float saturationModifier() {
-        return saturationModifier;
-    }
-
-    public boolean canAlwaysEat() {
-        return canAlwaysEat;
-    }
-
-    public float eatSeconds() {
-        return eatSeconds;
-    }
-
-    public FoodEffect[] possibleEffects() {
-        return possibleEffects;
-    }
+        @Override
+        public void write(final ByteBuf buffer, final FoodProperties value) {
+            Types.VAR_INT.writePrimitive(buffer, value.nutrition);
+            buffer.writeFloat(value.saturationModifier);
+            buffer.writeBoolean(value.canAlwaysEat);
+            buffer.writeFloat(value.eatSeconds);
+            Types1_21.OPTIONAL_ITEM.write(buffer, value.usingConvertsTo);
+            FoodEffect.ARRAY_TYPE.write(buffer, value.possibleEffects);
+        }
+    };
 }

@@ -22,13 +22,14 @@
  */
 package com.viaversion.viaversion.api.type.types.chunk;
 
-import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
+import com.viaversion.nbt.tag.CompoundTag;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.minecraft.Environment;
 import com.viaversion.viaversion.api.minecraft.chunks.BaseChunk;
 import com.viaversion.viaversion.api.minecraft.chunks.Chunk;
 import com.viaversion.viaversion.api.minecraft.chunks.ChunkSection;
 import com.viaversion.viaversion.api.type.Type;
+import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.api.type.types.version.Types1_13;
 import io.netty.buffer.ByteBuf;
 import java.util.ArrayList;
@@ -52,13 +53,13 @@ public class ChunkType1_13 extends Type<Chunk> {
     }
 
     @Override
-    public Chunk read(ByteBuf input) throws Exception {
+    public Chunk read(ByteBuf input) {
         int chunkX = input.readInt();
         int chunkZ = input.readInt();
 
         boolean fullChunk = input.readBoolean();
-        int primaryBitmask = Type.VAR_INT.readPrimitive(input);
-        ByteBuf data = input.readSlice(Type.VAR_INT.readPrimitive(input));
+        int primaryBitmask = Types.VAR_INT.readPrimitive(input);
+        ByteBuf data = input.readSlice(Types.VAR_INT.readPrimitive(input));
 
         // Read sections
         ChunkSection[] sections = new ChunkSection[16];
@@ -84,17 +85,17 @@ public class ChunkType1_13 extends Type<Chunk> {
             }
         }
 
-        List<CompoundTag> nbtData = new ArrayList<>(Arrays.asList(Type.NAMED_COMPOUND_TAG_ARRAY.read(input)));
+        List<CompoundTag> nbtData = new ArrayList<>(Arrays.asList(Types.NAMED_COMPOUND_TAG_ARRAY.read(input)));
         return new BaseChunk(chunkX, chunkZ, fullChunk, false, primaryBitmask, sections, biomeData, nbtData);
     }
 
     @Override
-    public void write(ByteBuf output, Chunk chunk) throws Exception {
+    public void write(ByteBuf output, Chunk chunk) {
         output.writeInt(chunk.getX());
         output.writeInt(chunk.getZ());
 
         output.writeBoolean(chunk.isFullChunk());
-        Type.VAR_INT.writePrimitive(output, chunk.getBitmask());
+        Types.VAR_INT.writePrimitive(output, chunk.getBitmask());
 
         ByteBuf buf = output.alloc().buffer();
         try {
@@ -109,7 +110,7 @@ public class ChunkType1_13 extends Type<Chunk> {
 
             }
             buf.readerIndex(0);
-            Type.VAR_INT.writePrimitive(output, buf.readableBytes() + (chunk.isBiomeData() ? 1024 : 0));
+            Types.VAR_INT.writePrimitive(output, buf.readableBytes() + (chunk.isBiomeData() ? 1024 : 0));
             output.writeBytes(buf);
         } finally {
             buf.release(); // release buffer
@@ -123,6 +124,6 @@ public class ChunkType1_13 extends Type<Chunk> {
         }
 
         // Write Block Entities
-        Type.NAMED_COMPOUND_TAG_ARRAY.write(output, chunk.getBlockEntities().toArray(new CompoundTag[0]));
+        Types.NAMED_COMPOUND_TAG_ARRAY.write(output, chunk.getBlockEntities().toArray(new CompoundTag[0]));
     }
 }

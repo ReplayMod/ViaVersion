@@ -22,9 +22,10 @@ import java.io.File;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Logger;
 
 public class BukkitViaConfig extends AbstractViaConfig {
-    private static final List<String> UNSUPPORTED = Arrays.asList("bungee-ping-interval", "bungee-ping-save", "bungee-servers", "velocity-ping-interval", "velocity-ping-save", "velocity-servers");
+    private static final List<String> UNSUPPORTED = Arrays.asList("velocity-ping-interval", "velocity-ping-save", "velocity-servers");
     private boolean quickMoveActionFix;
     private boolean hitboxFix1_9;
     private boolean hitboxFix1_14;
@@ -32,8 +33,8 @@ public class BukkitViaConfig extends AbstractViaConfig {
     private boolean armorToggleFix;
     private boolean registerUserConnectionOnJoin;
 
-    public BukkitViaConfig(final File folder) {
-        super(new File(folder, "config.yml"));
+    public BukkitViaConfig(final File folder, final Logger logger) {
+        super(new File(folder, "config.yml"), logger);
     }
 
     @Override

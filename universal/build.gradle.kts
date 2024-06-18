@@ -6,10 +6,8 @@ plugins {
 dependencies {
     api(projects.viaversionCommon)
     api(projects.viaversionBukkit)
-    api(projects.viaversionBungee)
-    api(projects.viaversionFabric)
-    api(projects.viaversionSponge)
     api(projects.viaversionVelocity)
+    api(projects.viaversionFabric)
 }
 
 tasks {
@@ -32,8 +30,6 @@ tasks {
     }
 }
 
-publishShadowJar()
-
 val branch = rootProject.branchName()
 val baseVersion = project.version as String
 val isRelease = !baseVersion.contains('-')
@@ -49,8 +45,8 @@ if (!isRelease || isMainBranch) { // Only publish releases from the main branch
 
     modrinth {
         val mcVersions: List<String> = (property("mcVersions") as String)
-                .split(",")
-                .map { it.trim() }
+            .split(",")
+            .map { it.trim() }
         token.set(System.getenv("MODRINTH_TOKEN"))
         projectId.set("viaversion")
         versionType.set(if (isRelease) "release" else if (isMainBranch) "beta" else "alpha")
@@ -63,8 +59,6 @@ if (!isRelease || isMainBranch) { // Only publish releases from the main branch
         loaders.add("paper")
         loaders.add("folia")
         loaders.add("velocity")
-        loaders.add("bungeecord")
-        loaders.add("sponge")
         autoAddDependsOn.set(false)
         detectLoaders.set(false)
         dependencies {
@@ -88,10 +82,6 @@ if (!isRelease || isMainBranch) { // Only publish releases from the main branch
                 velocity {
                     jar.set(tasks.shadowJar.flatMap { it.archiveFile })
                     platformVersions.set(listOf(property("velocityVersion") as String))
-                }
-                waterfall {
-                    jar.set(tasks.shadowJar.flatMap { it.archiveFile })
-                    platformVersions.set(listOf(property("waterfallVersion") as String))
                 }
             }
         }

@@ -20,15 +20,14 @@ package com.viaversion.viaversion.bukkit.providers;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.bukkit.util.NMSUtil;
-import com.viaversion.viaversion.protocols.protocol1_9to1_8.providers.MovementTransmitterProvider;
-import com.viaversion.viaversion.protocols.protocol1_9to1_8.storage.MovementTracker;
+import com.viaversion.viaversion.protocols.v1_8to1_9.provider.MovementTransmitterProvider;
+import com.viaversion.viaversion.protocols.v1_8to1_9.storage.MovementTracker;
+import com.viaversion.viaversion.util.PipelineUtil;
+import io.netty.channel.ChannelHandlerContext;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.logging.Level;
-
-import com.viaversion.viaversion.util.PipelineUtil;
-import io.netty.channel.ChannelHandlerContext;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 

@@ -4,8 +4,8 @@ metadata.format.version = "1.1"
 
 gson = "2.10.1"
 fastutil = "8.5.12"
-vianbt = "4.4.4"
-mcstructs = "2.5.0-SNAPSHOT"
+vianbt = "5.0.0"
+mcstructs = "5-2.5.0-SNAPSHOT"
 
 # Common provided
 netty = "4.0.20.Final"
@@ -13,14 +13,12 @@ guava = "17.0"
 snakeYaml = "1.18"
 snakeYaml2 = "2.0"
 
-junit = "5.9.3"
-checkerQual = "3.39.0"
+junit = "5.10.2"
+checkerQual = "3.43.0"
 
 # Platforms
-paper = "1.16.5-R0.1-SNAPSHOT"
+paper = "1.20.4-R0.1-SNAPSHOT"
 legacyBukkit = "1.8.8-R0.1-SNAPSHOT"
-bungee = "1.19-R0.1-SNAPSHOT"
-sponge = "8.0.0"
 velocity = "3.1.1"
 
 
@@ -41,10 +39,8 @@ jupiterApi = { group = "org.junit.jupiter", name = "junit-jupiter-api", version.
 jupiterEngine = { group = "org.junit.jupiter", name = "junit-jupiter-engine", version.ref = "junit" }
 checkerQual = { group = "org.checkerframework", name = "checker-qual", version.ref = "checkerQual" }
 
-paper = { group = "com.destroystokyo.paper", name = "paper-api", version.ref = "paper" }
+paper = { group = "io.papermc.paper", name = "paper-api", version.ref = "paper" }
 legacyBukkit = { group = "org.bukkit", name = "bukkit", version.ref = "legacyBukkit" }
-bungee = { group = "net.md-5", name = "bungeecord-api", version.ref = "bungee" }
-sponge = { group = "org.spongepowered", name = "spongeapi", version.ref = "sponge" }
 velocity = { group = "com.velocitypowered", name = "velocity-api", version.ref = "velocity" }
 
 

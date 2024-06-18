@@ -22,7 +22,7 @@
  */
 package com.viaversion.viaversion.api.minecraft.item;
 
-import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
+import com.viaversion.nbt.tag.CompoundTag;
 import com.viaversion.viaversion.api.minecraft.data.StructuredDataContainer;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
@@ -90,7 +90,12 @@ public interface Item {
      */
     void setTag(@Nullable CompoundTag tag);
 
-    StructuredDataContainer structuredData();
+    /**
+     * Returns the data container for item data components.
+     *
+     * @return the data container
+     */
+    StructuredDataContainer dataContainer();
 
     /**
      * Returns a copy of the item.

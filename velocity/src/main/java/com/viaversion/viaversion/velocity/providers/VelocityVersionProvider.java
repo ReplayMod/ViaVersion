@@ -22,7 +22,7 @@ import com.viaversion.viaversion.VelocityPlugin;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
-import com.viaversion.viaversion.protocols.base.BaseVersionProvider;
+import com.viaversion.viaversion.api.protocol.version.VersionProvider;
 import com.viaversion.viaversion.velocity.platform.VelocityViaInjector;
 import io.netty.channel.ChannelHandler;
 import java.lang.reflect.Method;
@@ -31,7 +31,7 @@ import java.util.logging.Level;
 import java.util.stream.IntStream;
 import org.jetbrains.annotations.Nullable;
 
-public class VelocityVersionProvider extends BaseVersionProvider {
+public class VelocityVersionProvider implements VersionProvider {
     private static final Method GET_ASSOCIATION = getAssociationMethod();
 
     private static @Nullable Method getAssociationMethod() {
@@ -59,12 +59,12 @@ public class VelocityVersionProvider extends BaseVersionProvider {
         ProtocolVersion playerVersion = user.getProtocolInfo().protocolVersion();
 
         IntStream versions = com.velocitypowered.api.network.ProtocolVersion.SUPPORTED_VERSIONS.stream()
-                .mapToInt(com.velocitypowered.api.network.ProtocolVersion::getProtocol);
+            .mapToInt(com.velocitypowered.api.network.ProtocolVersion::getProtocol);
 
         // Modern forwarding mode needs 1.13 Login plugin message
         if (VelocityViaInjector.GET_PLAYER_INFO_FORWARDING_MODE != null
-                && ((Enum<?>) VelocityViaInjector.GET_PLAYER_INFO_FORWARDING_MODE.invoke(VelocityPlugin.PROXY.getConfiguration()))
-                .name().equals("MODERN")) {
+            && ((Enum<?>) VelocityViaInjector.GET_PLAYER_INFO_FORWARDING_MODE.invoke(VelocityPlugin.PROXY.getConfiguration()))
+            .name().equals("MODERN")) {
             versions = versions.filter(ver -> ver >= ProtocolVersion.v1_13.getVersion());
         }
         int[] compatibleProtocols = versions.toArray();

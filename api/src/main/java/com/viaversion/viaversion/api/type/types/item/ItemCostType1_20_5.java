@@ -28,11 +28,13 @@ import com.viaversion.viaversion.api.minecraft.item.Item;
 import com.viaversion.viaversion.api.minecraft.item.StructuredItem;
 import com.viaversion.viaversion.api.type.OptionalType;
 import com.viaversion.viaversion.api.type.Type;
+import com.viaversion.viaversion.api.type.Types;
 import io.netty.buffer.ByteBuf;
 
 // Very similar to normal items (and just results in an item), except it allows non-positive amounts and has id/amount swapped because ???
 public final class ItemCostType1_20_5 extends Type<Item> {
 
+    private static final StructuredData<?>[] EMPTY_DATA_ARRAY = new StructuredData[0];
     private final Type<StructuredData<?>[]> dataArrayType;
 
     public ItemCostType1_20_5(final Type<StructuredData<?>[]> dataArrayType) {
@@ -41,18 +43,18 @@ public final class ItemCostType1_20_5 extends Type<Item> {
     }
 
     @Override
-    public Item read(final ByteBuf buffer) throws Exception {
-        final int id = Type.VAR_INT.readPrimitive(buffer);
-        final int amount = Type.VAR_INT.readPrimitive(buffer);
+    public Item read(final ByteBuf buffer) {
+        final int id = Types.VAR_INT.readPrimitive(buffer);
+        final int amount = Types.VAR_INT.readPrimitive(buffer);
         final StructuredData<?>[] dataArray = dataArrayType.read(buffer);
         return new StructuredItem(id, amount, new StructuredDataContainer(dataArray));
     }
 
     @Override
-    public void write(final ByteBuf buffer, final Item object) throws Exception {
-        Type.VAR_INT.writePrimitive(buffer, object.identifier());
-        Type.VAR_INT.writePrimitive(buffer, object.amount());
-        dataArrayType.write(buffer, object.structuredData().data().values().toArray(new StructuredData[0]));
+    public void write(final ByteBuf buffer, final Item object) {
+        Types.VAR_INT.writePrimitive(buffer, object.identifier());
+        Types.VAR_INT.writePrimitive(buffer, object.amount());
+        dataArrayType.write(buffer, object.dataContainer().data().values().toArray(EMPTY_DATA_ARRAY));
     }
 
     public static final class OptionalItemCostType extends OptionalType<Item> {

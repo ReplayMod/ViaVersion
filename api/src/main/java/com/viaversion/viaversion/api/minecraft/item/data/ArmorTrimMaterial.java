@@ -22,81 +22,53 @@
  */
 package com.viaversion.viaversion.api.minecraft.item.data;
 
-import com.github.steveice10.opennbt.tag.builtin.Tag;
-import com.viaversion.viaversion.api.type.Type;
+import com.viaversion.nbt.tag.Tag;
+import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.api.type.types.misc.HolderType;
 import io.netty.buffer.ByteBuf;
+import it.unimi.dsi.fastutil.ints.Int2IntFunction;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 
-public final class ArmorTrimMaterial {
+public record ArmorTrimMaterial(String assetName, int itemId, float itemModelIndex,
+                                Int2ObjectMap<String> overrideArmorMaterials, Tag description) {
 
-    public static final HolderType<ArmorTrimMaterial> TYPE = new HolderType<ArmorTrimMaterial>() {
+    public static final HolderType<ArmorTrimMaterial> TYPE = new HolderType<>() {
         @Override
-        public ArmorTrimMaterial readDirect(final ByteBuf buffer) throws Exception {
-            final String assetName = Type.STRING.read(buffer);
-            final int item = Type.VAR_INT.readPrimitive(buffer);
+        public ArmorTrimMaterial readDirect(final ByteBuf buffer) {
+            final String assetName = Types.STRING.read(buffer);
+            final int item = Types.VAR_INT.readPrimitive(buffer);
             final float itemModelIndex = buffer.readFloat();
 
-            final int overrideArmorMaterialsSize = Type.VAR_INT.readPrimitive(buffer);
+            final int overrideArmorMaterialsSize = Types.VAR_INT.readPrimitive(buffer);
             final Int2ObjectMap<String> overrideArmorMaterials = new Int2ObjectOpenHashMap<>(overrideArmorMaterialsSize);
             for (int i = 0; i < overrideArmorMaterialsSize; i++) {
-                final int key = Type.VAR_INT.readPrimitive(buffer);
-                final String value = Type.STRING.read(buffer);
+                final int key = Types.VAR_INT.readPrimitive(buffer);
+                final String value = Types.STRING.read(buffer);
                 overrideArmorMaterials.put(key, value);
             }
 
-            final Tag description = Type.TAG.read(buffer);
+            final Tag description = Types.TAG.read(buffer);
             return new ArmorTrimMaterial(assetName, item, itemModelIndex, overrideArmorMaterials, description);
         }
 
         @Override
-        public void writeDirect(final ByteBuf buffer, final ArmorTrimMaterial value) throws Exception {
-            Type.STRING.write(buffer, value.assetName());
-            Type.VAR_INT.writePrimitive(buffer, value.itemId());
+        public void writeDirect(final ByteBuf buffer, final ArmorTrimMaterial value) {
+            Types.STRING.write(buffer, value.assetName());
+            Types.VAR_INT.writePrimitive(buffer, value.itemId());
             buffer.writeFloat(value.itemModelIndex());
 
-            Type.VAR_INT.writePrimitive(buffer, value.overrideArmorMaterials().size());
+            Types.VAR_INT.writePrimitive(buffer, value.overrideArmorMaterials().size());
             for (final Int2ObjectMap.Entry<String> entry : value.overrideArmorMaterials().int2ObjectEntrySet()) {
-                Type.VAR_INT.writePrimitive(buffer, entry.getIntKey());
-                Type.STRING.write(buffer, entry.getValue());
+                Types.VAR_INT.writePrimitive(buffer, entry.getIntKey());
+                Types.STRING.write(buffer, entry.getValue());
             }
 
-            Type.TAG.write(buffer, value.description());
+            Types.TAG.write(buffer, value.description());
         }
     };
 
-    private final String assetName;
-    private final int itemId;
-    private final float itemModelIndex;
-    private final Int2ObjectMap<String> overrideArmorMaterials;
-    private final Tag description;
-
-    public ArmorTrimMaterial(final String assetName, final int itemId, final float itemModelIndex, final Int2ObjectMap<String> overrideArmorMaterials, final Tag description) {
-        this.assetName = assetName;
-        this.itemId = itemId;
-        this.itemModelIndex = itemModelIndex;
-        this.overrideArmorMaterials = overrideArmorMaterials;
-        this.description = description;
-    }
-
-    public String assetName() {
-        return assetName;
-    }
-
-    public int itemId() {
-        return itemId;
-    }
-
-    public float itemModelIndex() {
-        return itemModelIndex;
-    }
-
-    public Int2ObjectMap<String> overrideArmorMaterials() {
-        return overrideArmorMaterials;
-    }
-
-    public Tag description() {
-        return description;
+    public ArmorTrimMaterial rewrite(final Int2IntFunction idRewriteFunction) {
+        return new ArmorTrimMaterial(assetName, idRewriteFunction.applyAsInt(itemId), itemModelIndex, overrideArmorMaterials, description);
     }
 }

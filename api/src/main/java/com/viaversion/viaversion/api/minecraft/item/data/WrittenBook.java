@@ -23,62 +23,31 @@
 package com.viaversion.viaversion.api.minecraft.item.data;
 
 import com.viaversion.viaversion.api.type.Type;
+import com.viaversion.viaversion.api.type.Types;
 import io.netty.buffer.ByteBuf;
 
-public final class WrittenBook {
+public record WrittenBook(FilterableString title, String author, int generation, FilterableComponent[] pages,
+                          boolean resolved) {
 
-    public static final Type<WrittenBook> TYPE = new Type<WrittenBook>(WrittenBook.class) {
+    public static final Type<WrittenBook> TYPE = new Type<>(WrittenBook.class) {
         @Override
-        public WrittenBook read(final ByteBuf buffer) throws Exception {
+        public WrittenBook read(final ByteBuf buffer) {
             final FilterableString title = FilterableString.TYPE.read(buffer);
-            final String author = Type.STRING.read(buffer);
-            final int generation = Type.VAR_INT.readPrimitive(buffer);
+            final String author = Types.STRING.read(buffer);
+            final int generation = Types.VAR_INT.readPrimitive(buffer);
             final FilterableComponent[] pages = FilterableComponent.ARRAY_TYPE.read(buffer);
             final boolean resolved = buffer.readBoolean();
             return new WrittenBook(title, author, generation, pages, resolved);
         }
 
         @Override
-        public void write(final ByteBuf buffer, final WrittenBook value) throws Exception {
+        public void write(final ByteBuf buffer, final WrittenBook value) {
             FilterableString.TYPE.write(buffer, value.title);
-            Type.STRING.write(buffer, value.author);
-            Type.VAR_INT.writePrimitive(buffer, value.generation);
+            Types.STRING.write(buffer, value.author);
+            Types.VAR_INT.writePrimitive(buffer, value.generation);
             FilterableComponent.ARRAY_TYPE.write(buffer, value.pages);
             buffer.writeBoolean(value.resolved);
         }
     };
 
-    private final FilterableString title;
-    private final String author;
-    private final int generation;
-    private final FilterableComponent[] pages;
-    private final boolean resolved;
-
-    public WrittenBook(final FilterableString title, final String author, final int generation, final FilterableComponent[] pages, final boolean resolved) {
-        this.title = title;
-        this.author = author;
-        this.generation = generation;
-        this.pages = pages;
-        this.resolved = resolved;
-    }
-
-    public FilterableString title() {
-        return title;
-    }
-
-    public String author() {
-        return author;
-    }
-
-    public int generation() {
-        return generation;
-    }
-
-    public FilterableComponent[] pages() {
-        return pages;
-    }
-
-    public boolean resolved() {
-        return resolved;
-    }
 }

@@ -27,6 +27,7 @@ import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.data.FullMappings;
 import com.viaversion.viaversion.api.protocol.Protocol;
 import com.viaversion.viaversion.util.Unit;
+import it.unimi.dsi.fastutil.ints.Int2IntFunction;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
 import java.util.Map;
 import java.util.function.Function;
@@ -98,10 +99,45 @@ public final class StructuredDataContainer {
         return empty;
     }
 
+    /**
+     * Updates and returns the structured data by id if not empty.
+     *
+     * @param key             serializer id
+     * @param mappingFunction function to update existing data
+     * @param <T>             data type
+     * @return updated structured data if not empty
+     */
+    public <T> @Nullable StructuredData<T> updateIfPresent(final StructuredDataKey<T> key, final Function<T, T> mappingFunction) {
+        final StructuredData<T> data = this.getNonEmpty(key);
+        if (data == null) {
+            return null;
+        }
+
+        data.setValue(mappingFunction.apply(data.value()));
+        return data;
+    }
+
     public <T> void set(final StructuredDataKey<T> key, final T value) {
         final int id = serializerId(key);
         if (id != -1) {
             this.data.put(key, StructuredData.of(key, value, id));
+        }
+    }
+
+    public <T> void replaceKey(final StructuredDataKey<T> key, final StructuredDataKey<T> toKey) {
+        replace(key, toKey, Function.identity());
+    }
+
+    public <T, V> void replace(final StructuredDataKey<T> key, final StructuredDataKey<V> toKey, final Function<T, V> valueMapper) {
+        final StructuredData<T> data = remove(key);
+        if (data == null) {
+            return;
+        }
+
+        if (data.isPresent()) {
+            set(toKey, valueMapper.apply(data.value()));
+        } else {
+            addEmpty(toKey);
         }
     }
 
@@ -141,6 +177,17 @@ public final class StructuredDataContainer {
         this.lookup = protocol.getMappingData().getDataComponentSerializerMappings();
         Preconditions.checkNotNull(this.lookup, "Data component serializer mappings are null");
         this.mappedNames = mappedNames;
+    }
+
+    public void updateIds(final Protocol<?, ?, ?, ?> protocol, final Int2IntFunction rewriter) {
+        for (final StructuredData<?> data : data.values()) {
+            final int mappedId = rewriter.applyAsInt(data.id());
+            if (mappedId == -1) {
+                continue;
+            }
+
+            data.setId(mappedId);
+        }
     }
 
     public StructuredDataContainer copy() {

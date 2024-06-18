@@ -25,6 +25,7 @@ package com.viaversion.viaversion.api.type.types.item;
 import com.viaversion.viaversion.api.minecraft.item.DataItem;
 import com.viaversion.viaversion.api.minecraft.item.Item;
 import com.viaversion.viaversion.api.type.Type;
+import com.viaversion.viaversion.api.type.Types;
 import io.netty.buffer.ByteBuf;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
@@ -35,27 +36,27 @@ public class ItemType1_20_2 extends Type<Item> {
     }
 
     @Override
-    public @Nullable Item read(final ByteBuf buffer) throws Exception {
+    public @Nullable Item read(final ByteBuf buffer) {
         if (!buffer.readBoolean()) {
             return null;
         }
 
         final Item item = new DataItem();
-        item.setIdentifier(Type.VAR_INT.readPrimitive(buffer));
+        item.setIdentifier(Types.VAR_INT.readPrimitive(buffer));
         item.setAmount(buffer.readByte());
-        item.setTag(Type.COMPOUND_TAG.read(buffer));
+        item.setTag(Types.COMPOUND_TAG.read(buffer));
         return item;
     }
 
     @Override
-    public void write(final ByteBuf buffer, @Nullable final Item object) throws Exception {
+    public void write(final ByteBuf buffer, @Nullable final Item object) {
         if (object == null) {
             buffer.writeBoolean(false);
         } else {
             buffer.writeBoolean(true);
-            Type.VAR_INT.writePrimitive(buffer, object.identifier());
+            Types.VAR_INT.writePrimitive(buffer, object.identifier());
             buffer.writeByte(object.amount());
-            Type.COMPOUND_TAG.write(buffer, object.tag());
+            Types.COMPOUND_TAG.write(buffer, object.tag());
         }
     }
 }

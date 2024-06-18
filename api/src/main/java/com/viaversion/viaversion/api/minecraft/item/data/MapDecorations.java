@@ -23,20 +23,21 @@
 package com.viaversion.viaversion.api.minecraft.item.data;
 
 import com.viaversion.viaversion.api.type.Type;
+import com.viaversion.viaversion.api.type.Types;
 import io.netty.buffer.ByteBuf;
 import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import java.util.Map;
 
-public final class MapDecorations {
+public record MapDecorations(Map<String, MapDecoration> decorations) {
 
-    public static final Type<MapDecorations> TYPE = new Type<MapDecorations>(MapDecorations.class) {
+    public static final Type<MapDecorations> TYPE = new Type<>(MapDecorations.class) {
         @Override
-        public MapDecorations read(final ByteBuf buffer) throws Exception {
+        public MapDecorations read(final ByteBuf buffer) {
             final Object2ObjectMap<String, MapDecoration> decorations = new Object2ObjectOpenHashMap<>();
-            final int size = Type.VAR_INT.readPrimitive(buffer);
+            final int size = Types.VAR_INT.readPrimitive(buffer);
             for (int i = 0; i < size; i++) {
-                final String id = Type.STRING.read(buffer);
+                final String id = Types.STRING.read(buffer);
                 final MapDecoration decoration = MapDecoration.TYPE.read(buffer);
                 decorations.put(id, decoration);
             }
@@ -44,22 +45,12 @@ public final class MapDecorations {
         }
 
         @Override
-        public void write(final ByteBuf buffer, final MapDecorations value) throws Exception {
-            Type.VAR_INT.writePrimitive(buffer, value.decorations.size());
+        public void write(final ByteBuf buffer, final MapDecorations value) {
+            Types.VAR_INT.writePrimitive(buffer, value.decorations.size());
             for (final Map.Entry<String, MapDecoration> entry : value.decorations.entrySet()) {
-                Type.STRING.write(buffer, entry.getKey());
+                Types.STRING.write(buffer, entry.getKey());
                 MapDecoration.TYPE.write(buffer, entry.getValue());
             }
         }
     };
-
-    private final Map<String, MapDecoration> decorations;
-
-    public MapDecorations(final Map<String, MapDecoration> decorations) {
-        this.decorations = decorations;
-    }
-
-    public Map<String, MapDecoration> decorations() {
-        return decorations;
-    }
 }

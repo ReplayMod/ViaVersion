@@ -17,16 +17,16 @@
  */
 package com.viaversion.viaversion.rewriter;
 
-import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
-import com.github.steveice10.opennbt.tag.builtin.ListTag;
-import com.github.steveice10.opennbt.tag.builtin.StringTag;
-import com.github.steveice10.opennbt.tag.builtin.Tag;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
 import com.google.gson.JsonSyntaxException;
+import com.viaversion.nbt.tag.CompoundTag;
+import com.viaversion.nbt.tag.ListTag;
+import com.viaversion.nbt.tag.StringTag;
+import com.viaversion.nbt.tag.Tag;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.protocol.Protocol;
@@ -34,15 +34,17 @@ import com.viaversion.viaversion.api.protocol.packet.ClientboundPacketType;
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.protocol.packet.State;
 import com.viaversion.viaversion.api.protocol.remapper.PacketHandlers;
-import com.viaversion.viaversion.api.type.Type;
+import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.protocols.base.ClientboundLoginPackets;
+import com.viaversion.viaversion.util.ComponentUtil;
+import com.viaversion.viaversion.util.SerializerVersion;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
- * Handles json chat components, containing methods to override certain parts of the handling.
+ * Handles json and tag components, containing methods to override certain parts of the handling.
  * Also contains methods to register a few of the packets using components.
  */
-public class ComponentRewriter<C extends ClientboundPacketType> {
+public class ComponentRewriter<C extends ClientboundPacketType> implements com.viaversion.viaversion.api.rewriter.ComponentRewriter {
     protected final Protocol<C, ?, ?, ?> protocol;
     protected final ReadType type;
 
@@ -61,14 +63,14 @@ public class ComponentRewriter<C extends ClientboundPacketType> {
         protocol.registerClientbound(packetType, this::passthroughAndProcess);
     }
 
-    public void registerBossBar(final C packetType) {
+    public void registerBossEvent(final C packetType) {
         protocol.registerClientbound(packetType, new PacketHandlers() {
             @Override
             public void register() {
-                map(Type.UUID);
-                map(Type.VAR_INT);
+                map(Types.UUID);
+                map(Types.VAR_INT);
                 handler(wrapper -> {
-                    final int action = wrapper.get(Type.VAR_INT, 0);
+                    final int action = wrapper.get(Types.VAR_INT, 0);
                     if (action == 0 || action == 3) {
                         passthroughAndProcess(wrapper);
                     }
@@ -80,12 +82,12 @@ public class ComponentRewriter<C extends ClientboundPacketType> {
     /**
      * Handles sub 1.17 combat event components.
      */
-    public void registerCombatEvent(final C packetType) {
+    public void registerPlayerCombat(final C packetType) {
         protocol.registerClientbound(packetType, wrapper -> {
-            if (wrapper.passthrough(Type.VAR_INT) == 2) {
-                wrapper.passthrough(Type.VAR_INT);
-                wrapper.passthrough(Type.INT);
-                processText(wrapper.user(), wrapper.passthrough(Type.COMPONENT));
+            if (wrapper.passthrough(Types.VAR_INT) == 2) {
+                wrapper.passthrough(Types.VAR_INT);
+                wrapper.passthrough(Types.INT);
+                processText(wrapper.user(), wrapper.passthrough(Types.COMPONENT));
             }
         });
     }
@@ -95,35 +97,35 @@ public class ComponentRewriter<C extends ClientboundPacketType> {
      */
     public void registerTitle(final C packetType) {
         protocol.registerClientbound(packetType, wrapper -> {
-            final int action = wrapper.passthrough(Type.VAR_INT);
+            final int action = wrapper.passthrough(Types.VAR_INT);
             if (action >= 0 && action <= 2) {
-                processText(wrapper.user(), wrapper.passthrough(Type.COMPONENT));
+                processText(wrapper.user(), wrapper.passthrough(Types.COMPONENT));
             }
         });
     }
 
     public void registerPing() {
         // Always json
-        protocol.registerClientbound(State.LOGIN, ClientboundLoginPackets.LOGIN_DISCONNECT, wrapper -> processText(wrapper.user(), wrapper.passthrough(Type.COMPONENT)));
+        protocol.registerClientbound(State.LOGIN, ClientboundLoginPackets.LOGIN_DISCONNECT, wrapper -> processText(wrapper.user(), wrapper.passthrough(Types.COMPONENT)));
     }
 
     public void registerLegacyOpenWindow(final C packetType) {
         protocol.registerClientbound(packetType, new PacketHandlers() {
             @Override
             public void register() {
-                map(Type.UNSIGNED_BYTE); // Id
-                map(Type.STRING); // Window Type
-                handler(wrapper -> processText(wrapper.user(), wrapper.passthrough(Type.COMPONENT)));
+                map(Types.UNSIGNED_BYTE); // Id
+                map(Types.STRING); // Window Type
+                handler(wrapper -> processText(wrapper.user(), wrapper.passthrough(Types.COMPONENT)));
             }
         });
     }
 
-    public void registerOpenWindow(final C packetType) {
+    public void registerOpenScreen(final C packetType) {
         protocol.registerClientbound(packetType, new PacketHandlers() {
             @Override
             public void register() {
-                map(Type.VAR_INT); // Id
-                map(Type.VAR_INT); // Window Type
+                map(Types.VAR_INT); // Id
+                map(Types.VAR_INT); // Window Type
                 handler(wrapper -> passthroughAndProcess(wrapper));
             }
         });
@@ -136,34 +138,34 @@ public class ComponentRewriter<C extends ClientboundPacketType> {
         });
     }
 
-    public void registerCombatKill(final C packetType) {
+    public void registerPlayerCombatKill(final C packetType) {
         protocol.registerClientbound(packetType, new PacketHandlers() {
             @Override
             public void register() {
-                map(Type.VAR_INT);
-                map(Type.INT);
-                handler(wrapper -> processText(wrapper.user(), wrapper.passthrough(Type.COMPONENT)));
+                map(Types.VAR_INT);
+                map(Types.INT);
+                handler(wrapper -> processText(wrapper.user(), wrapper.passthrough(Types.COMPONENT)));
             }
         });
     }
 
-    public void registerCombatKill1_20(final C packetType) {
+    public void registerPlayerCombatKill1_20(final C packetType) {
         protocol.registerClientbound(packetType, new PacketHandlers() {
             @Override
             public void register() {
-                map(Type.VAR_INT); // Duration
+                map(Types.VAR_INT); // Duration
                 handler(wrapper -> passthroughAndProcess(wrapper));
             }
         });
     }
 
-    public void passthroughAndProcess(final PacketWrapper wrapper) throws Exception {
+    public void passthroughAndProcess(final PacketWrapper wrapper) {
         switch (type) {
             case JSON:
-                processText(wrapper.user(), wrapper.passthrough(Type.COMPONENT));
+                processText(wrapper.user(), wrapper.passthrough(Types.COMPONENT));
                 break;
             case NBT:
-                processTag(wrapper.user(), wrapper.passthrough(Type.TAG));
+                processTag(wrapper.user(), wrapper.passthrough(Types.TAG));
                 break;
         }
     }
@@ -175,7 +177,7 @@ public class ComponentRewriter<C extends ClientboundPacketType> {
             return root;
         } catch (final JsonSyntaxException e) {
             if (Via.getManager().isDebug()) {
-                Via.getPlatform().getLogger().severe("Error when trying to parse json: " + value);
+                protocol.getLogger().severe("Error when trying to parse json: " + value);
                 throw e;
             }
             // Yay to malformed json being accepted
@@ -249,6 +251,7 @@ public class ComponentRewriter<C extends ClientboundPacketType> {
     // -----------------------------------------------------------------------
     // Tag methods
 
+    @Override
     public void processTag(final UserConnection connection, @Nullable final Tag tag) {
         if (tag == null) {
             return;
@@ -309,6 +312,48 @@ public class ComponentRewriter<C extends ClientboundPacketType> {
             if (contents != null) {
                 processTag(connection, contents.get("name"));
             }
+        } else if (action.equals("show_item")) {
+            convertLegacyContents(hoverEventTag);
+
+            final CompoundTag contentsTag = hoverEventTag.getCompoundTag("contents");
+            if (contentsTag == null) {
+                return;
+            }
+
+            final CompoundTag componentsTag = contentsTag.getCompoundTag("components");
+            if (componentsTag != null) {
+                handleShowItem(connection, componentsTag);
+            }
+        }
+    }
+
+    protected void handleShowItem(final UserConnection connection, final CompoundTag componentsTag) {
+        // To override if needed
+    }
+
+    protected SerializerVersion inputSerializerVersion() {
+        return null;
+    }
+
+    protected SerializerVersion outputSerializerVersion() {
+        return null;
+    }
+
+    private void convertLegacyContents(final CompoundTag hoverEvent) {
+        if (inputSerializerVersion() == null || outputSerializerVersion() == null) {
+            return;
+        }
+
+        final Tag valueTag = hoverEvent.remove("value");
+        if (valueTag != null) {
+            final CompoundTag tag = ComponentUtil.deserializeShowItem(valueTag, inputSerializerVersion());
+            final CompoundTag contentsTag = new CompoundTag();
+            contentsTag.put("id", tag.getStringTag("id"));
+            contentsTag.put("count", tag.getIntTag("count"));
+            if (tag.get("tag") instanceof CompoundTag) {
+                contentsTag.putString("tag", outputSerializerVersion().toSNBT(tag.getCompoundTag("tag")));
+            }
+            hoverEvent.put("contents", contentsTag);
         }
     }
 

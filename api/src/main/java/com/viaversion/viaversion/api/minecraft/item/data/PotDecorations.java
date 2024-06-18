@@ -23,19 +23,21 @@
 package com.viaversion.viaversion.api.minecraft.item.data;
 
 import com.viaversion.viaversion.api.type.Type;
+import com.viaversion.viaversion.api.type.Types;
 import io.netty.buffer.ByteBuf;
+import it.unimi.dsi.fastutil.ints.Int2IntFunction;
 
 public final class PotDecorations {
 
-    public static final Type<PotDecorations> TYPE = new Type<PotDecorations>(PotDecorations.class) {
+    public static final Type<PotDecorations> TYPE = new Type<>(PotDecorations.class) {
         @Override
-        public PotDecorations read(final ByteBuf buffer) throws Exception {
-            return new PotDecorations(Type.VAR_INT_ARRAY_PRIMITIVE.read(buffer));
+        public PotDecorations read(final ByteBuf buffer) {
+            return new PotDecorations(Types.VAR_INT_ARRAY_PRIMITIVE.read(buffer));
         }
 
         @Override
-        public void write(final ByteBuf buffer, final PotDecorations value) throws Exception {
-            Type.VAR_INT_ARRAY_PRIMITIVE.write(buffer, value.itemIds());
+        public void write(final ByteBuf buffer, final PotDecorations value) {
+            Types.VAR_INT_ARRAY_PRIMITIVE.write(buffer, value.itemIds());
         }
     };
 
@@ -71,5 +73,13 @@ public final class PotDecorations {
 
     private int item(final int index) {
         return index < 0 || index >= itemIds.length ? -1 : itemIds[index];
+    }
+
+    public PotDecorations rewrite(final Int2IntFunction idRewriteFunction) {
+        final int[] newItems = new int[itemIds.length];
+        for (int i = 0; i < itemIds.length; i++) {
+            newItems[i] = idRewriteFunction.applyAsInt(itemIds[i]);
+        }
+        return new PotDecorations(newItems);
     }
 }

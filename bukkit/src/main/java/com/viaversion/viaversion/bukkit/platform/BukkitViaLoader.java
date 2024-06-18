@@ -23,27 +23,27 @@ import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.minecraft.item.Item;
 import com.viaversion.viaversion.api.platform.ViaPlatformLoader;
 import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
-import com.viaversion.viaversion.bukkit.compat.ProtocolSupportCompat;
 import com.viaversion.viaversion.bukkit.listeners.UpdateListener;
 import com.viaversion.viaversion.bukkit.listeners.multiversion.PlayerSneakListener;
-import com.viaversion.viaversion.bukkit.listeners.protocol1_15to1_14_4.EntityToggleGlideListener;
-import com.viaversion.viaversion.bukkit.listeners.protocol1_19_4To1_19_3.ArmorToggleListener;
-import com.viaversion.viaversion.bukkit.listeners.protocol1_19to1_18_2.BlockBreakListener;
+import com.viaversion.viaversion.bukkit.listeners.v1_14_4to1_15.EntityToggleGlideListener;
+import com.viaversion.viaversion.bukkit.listeners.v1_19_3to1_19_4.ArmorToggleListener;
+import com.viaversion.viaversion.bukkit.listeners.v1_18_2to1_19.BlockBreakListener;
 import com.viaversion.viaversion.bukkit.listeners.protocol1_9to1_8.ArmorListener;
 import com.viaversion.viaversion.bukkit.listeners.protocol1_9to1_8.BlockListener;
 import com.viaversion.viaversion.bukkit.listeners.protocol1_9to1_8.DeathListener;
 import com.viaversion.viaversion.bukkit.listeners.protocol1_9to1_8.HandItemCache;
 import com.viaversion.viaversion.bukkit.listeners.protocol1_9to1_8.PaperPatch;
+import com.viaversion.viaversion.bukkit.listeners.v1_20_5to1_21.PlayerChangeItemListener;
 import com.viaversion.viaversion.bukkit.providers.BukkitAckSequenceProvider;
 import com.viaversion.viaversion.bukkit.providers.BukkitBlockConnectionProvider;
 import com.viaversion.viaversion.bukkit.providers.BukkitInventoryQuickMoveProvider;
 import com.viaversion.viaversion.bukkit.providers.BukkitViaMovementTransmitter;
-import com.viaversion.viaversion.protocols.protocol1_12to1_11_1.providers.InventoryQuickMoveProvider;
-import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.blockconnections.ConnectionData;
-import com.viaversion.viaversion.protocols.protocol1_13to1_12_2.blockconnections.providers.BlockConnectionProvider;
-import com.viaversion.viaversion.protocols.protocol1_19to1_18_2.provider.AckSequenceProvider;
-import com.viaversion.viaversion.protocols.protocol1_9to1_8.providers.HandItemProvider;
-import com.viaversion.viaversion.protocols.protocol1_9to1_8.providers.MovementTransmitterProvider;
+import com.viaversion.viaversion.protocols.v1_11_1to1_12.provider.InventoryQuickMoveProvider;
+import com.viaversion.viaversion.protocols.v1_12_2to1_13.blockconnections.ConnectionData;
+import com.viaversion.viaversion.protocols.v1_12_2to1_13.blockconnections.providers.BlockConnectionProvider;
+import com.viaversion.viaversion.protocols.v1_18_2to1_19.provider.AckSequenceProvider;
+import com.viaversion.viaversion.protocols.v1_8to1_9.provider.HandItemProvider;
+import com.viaversion.viaversion.protocols.v1_8to1_9.provider.MovementTransmitterProvider;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -76,12 +76,6 @@ public class BukkitViaLoader implements ViaPlatformLoader {
 
         /* Base Protocol */
         final ViaVersionPlugin plugin = (ViaVersionPlugin) Bukkit.getPluginManager().getPlugin("ViaVersion");
-
-        // Add ProtocolSupport ConnectListener if necessary.
-        if (plugin.isProtocolSupport() && ProtocolSupportCompat.isMultiplatformPS()) {
-            ProtocolSupportCompat.registerPSConnectListener(plugin);
-        }
-
         if (!Via.getAPI().getServerVersion().isKnown()) {
             Via.getPlatform().getLogger().severe("Server version has not been loaded yet, cannot register additional listeners");
             return;
@@ -182,6 +176,9 @@ public class BukkitViaLoader implements ViaPlatformLoader {
         if (serverProtocolVersion.olderThan(ProtocolVersion.v1_19)) {
             Via.getManager().getProviders().use(AckSequenceProvider.class, new BukkitAckSequenceProvider(plugin));
             new BlockBreakListener(plugin).register();
+        }
+        if (serverProtocolVersion.olderThan(ProtocolVersion.v1_21) && PaperViaInjector.hasClass("io.papermc.paper.event.player.PlayerInventorySlotChangeEvent")) {
+            new PlayerChangeItemListener(plugin).register();
         }
     }
 

@@ -22,10 +22,11 @@
  */
 package com.viaversion.viaversion.api.type.types.block;
 
-import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
+import com.viaversion.nbt.tag.CompoundTag;
 import com.viaversion.viaversion.api.minecraft.blockentity.BlockEntity;
 import com.viaversion.viaversion.api.minecraft.blockentity.BlockEntityImpl;
 import com.viaversion.viaversion.api.type.Type;
+import com.viaversion.viaversion.api.type.Types;
 import io.netty.buffer.ByteBuf;
 
 public class BlockEntityType1_18 extends Type<BlockEntity> {
@@ -35,19 +36,19 @@ public class BlockEntityType1_18 extends Type<BlockEntity> {
     }
 
     @Override
-    public BlockEntity read(final ByteBuf buffer) throws Exception {
+    public BlockEntity read(final ByteBuf buffer) {
         final byte xz = buffer.readByte();
         final short y = buffer.readShort();
-        final int typeId = Type.VAR_INT.readPrimitive(buffer);
-        final CompoundTag tag = Type.NAMED_COMPOUND_TAG.read(buffer);
+        final int typeId = Types.VAR_INT.readPrimitive(buffer);
+        final CompoundTag tag = Types.NAMED_COMPOUND_TAG.read(buffer);
         return new BlockEntityImpl(xz, y, typeId, tag);
     }
 
     @Override
-    public void write(final ByteBuf buffer, final BlockEntity entity) throws Exception {
+    public void write(final ByteBuf buffer, final BlockEntity entity) {
         buffer.writeByte(entity.packedXZ());
         buffer.writeShort(entity.y());
-        Type.VAR_INT.writePrimitive(buffer, entity.typeId());
-        Type.NAMED_COMPOUND_TAG.write(buffer, entity.tag());
+        Types.VAR_INT.writePrimitive(buffer, entity.typeId());
+        Types.NAMED_COMPOUND_TAG.write(buffer, entity.tag());
     }
 }

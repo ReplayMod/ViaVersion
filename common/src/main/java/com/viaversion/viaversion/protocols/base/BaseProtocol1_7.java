@@ -32,7 +32,7 @@ import com.viaversion.viaversion.api.protocol.packet.provider.PacketTypesProvide
 import com.viaversion.viaversion.api.protocol.remapper.PacketHandlers;
 import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import com.viaversion.viaversion.api.protocol.version.VersionProvider;
-import com.viaversion.viaversion.api.type.Type;
+import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.protocol.ProtocolManagerImpl;
 import com.viaversion.viaversion.protocol.ServerProtocolVersionSingleton;
 import com.viaversion.viaversion.protocols.base.packet.BaseClientboundPacket;
@@ -57,10 +57,10 @@ public class BaseProtocol1_7 extends AbstractProtocol<BaseClientboundPacket, Bas
         registerClientbound(ClientboundStatusPackets.STATUS_RESPONSE, new PacketHandlers() {
             @Override
             public void register() {
-                map(Type.STRING);
+                map(Types.STRING);
                 handler(wrapper -> {
                     ProtocolInfo info = wrapper.user().getProtocolInfo();
-                    String originalStatus = wrapper.get(Type.STRING, 0);
+                    String originalStatus = wrapper.get(Types.STRING, 0);
                     try {
                         JsonElement json = GsonUtil.getGson().fromJson(originalStatus, JsonElement.class);
                         JsonObject version;
@@ -99,13 +99,14 @@ public class BaseProtocol1_7 extends AbstractProtocol<BaseClientboundPacket, Bas
                             return;
                         }
 
-                        ProtocolVersion closestServerProtocol = versionProvider.getClosestServerProtocol(wrapper.user());
-                        List<ProtocolPathEntry> protocols = null;
-                        if (info.protocolVersion().newerThanOrEqualTo(closestServerProtocol) || Via.getPlatform().isOldClientsAllowed()) {
-                            protocols = Via.getManager().getProtocolManager()
-                                .getProtocolPath(info.protocolVersion(), closestServerProtocol);
+                        ProtocolVersion closestServerProtocol;
+                        try {
+                            closestServerProtocol = versionProvider.getClosestServerProtocol(wrapper.user());
+                        } catch (Exception e) {
+                            throw new RuntimeException(e);
                         }
 
+                        List<ProtocolPathEntry> protocols = Via.getManager().getProtocolManager().getProtocolPath(info.protocolVersion(), closestServerProtocol);
                         if (protocols != null) {
                             if (protocolVersion.equalTo(closestServerProtocol) || protocolVersion.getVersion() == 0) { // Fix ServerListPlus
                                 version.addProperty("protocol", info.protocolVersion().getOriginalVersion());
@@ -119,7 +120,7 @@ public class BaseProtocol1_7 extends AbstractProtocol<BaseClientboundPacket, Bas
                             version.addProperty("protocol", -1); // Show blocked versions as outdated
                         }
 
-                        wrapper.set(Type.STRING, 0, GsonUtil.getGson().toJson(json)); // Update value
+                        wrapper.set(Types.STRING, 0, GsonUtil.getGson().toJson(json)); // Update value
                     } catch (JsonParseException e) {
                         Via.getPlatform().getLogger().log(Level.SEVERE, "Error handling StatusResponse", e);
                     }
@@ -137,7 +138,7 @@ public class BaseProtocol1_7 extends AbstractProtocol<BaseClientboundPacket, Bas
             UUID uuid = passthroughLoginUUID(wrapper);
             info.setUuid(uuid);
 
-            String username = wrapper.passthrough(Type.STRING);
+            String username = wrapper.passthrough(Types.STRING);
             info.setUsername(username);
             // Add to ported clients
             Via.getManager().getConnectionManager().onLoginSuccess(wrapper.user());
@@ -149,11 +150,11 @@ public class BaseProtocol1_7 extends AbstractProtocol<BaseClientboundPacket, Bas
             if (Via.getManager().isDebug()) {
                 // Print out the route to console
                 Via.getPlatform().getLogger().log(Level.INFO, "{0} logged in with protocol {1}, Route: {2}",
-                        new Object[]{
-                                username,
-                                info.protocolVersion().getName(),
-                                Joiner.on(", ").join(info.getPipeline().pipes(), ", ")
-                        });
+                    new Object[]{
+                        username,
+                        info.protocolVersion().getName(),
+                        Joiner.on(", ").join(info.getPipeline().pipes(), ", ")
+                    });
             }
         });
 
@@ -170,7 +171,7 @@ public class BaseProtocol1_7 extends AbstractProtocol<BaseClientboundPacket, Bas
 
                 final String disconnectMessage = ChatColorUtil.translateAlternateColorCodes(Via.getConfig().getBlockedDisconnectMsg());
                 final PacketWrapper disconnectPacket = PacketWrapper.create(ClientboundLoginPackets.LOGIN_DISCONNECT, user);
-                disconnectPacket.write(Type.COMPONENT, ComponentUtil.plainToJson(disconnectMessage));
+                disconnectPacket.write(Types.COMPONENT, ComponentUtil.plainToJson(disconnectMessage));
 
                 // Send and close
                 final ChannelFuture future = disconnectPacket.sendFuture(null);
@@ -198,8 +199,8 @@ public class BaseProtocol1_7 extends AbstractProtocol<BaseClientboundPacket, Bas
         return idBuff.toString();
     }
 
-    protected UUID passthroughLoginUUID(PacketWrapper wrapper) throws Exception {
-        String uuidString = wrapper.passthrough(Type.STRING);
+    protected UUID passthroughLoginUUID(PacketWrapper wrapper) {
+        String uuidString = wrapper.passthrough(Types.STRING);
         if (uuidString.length() == 32) { // Trimmed UUIDs are 32 characters
             // Trimmed
             uuidString = addDashes(uuidString);

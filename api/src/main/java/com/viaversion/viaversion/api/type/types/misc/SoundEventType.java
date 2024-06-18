@@ -23,21 +23,21 @@
 package com.viaversion.viaversion.api.type.types.misc;
 
 import com.viaversion.viaversion.api.minecraft.SoundEvent;
-import com.viaversion.viaversion.api.type.Type;
+import com.viaversion.viaversion.api.type.Types;
 import io.netty.buffer.ByteBuf;
 
 public final class SoundEventType extends HolderType<SoundEvent> {
 
     @Override
-    public SoundEvent readDirect(final ByteBuf buffer) throws Exception {
-        final String resourceLocation = Type.STRING.read(buffer);
-        final Float fixedRange = Type.OPTIONAL_FLOAT.read(buffer);
+    public SoundEvent readDirect(final ByteBuf buffer) {
+        final String resourceLocation = Types.STRING.read(buffer);
+        final Float fixedRange = Types.OPTIONAL_FLOAT.read(buffer);
         return new SoundEvent(resourceLocation, fixedRange);
     }
 
     @Override
-    public void writeDirect(final ByteBuf buffer, final SoundEvent value) throws Exception {
-        Type.STRING.write(buffer, value.identifier());
-        Type.OPTIONAL_FLOAT.write(buffer, value.fixedRange());
+    public void writeDirect(final ByteBuf buffer, final SoundEvent value) {
+        Types.STRING.write(buffer, value.identifier());
+        Types.OPTIONAL_FLOAT.write(buffer, value.fixedRange());
     }
 }

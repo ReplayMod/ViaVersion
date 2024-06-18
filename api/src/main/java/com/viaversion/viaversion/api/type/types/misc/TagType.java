@@ -22,11 +22,12 @@
  */
 package com.viaversion.viaversion.api.type.types.misc;
 
-import com.github.steveice10.opennbt.tag.TagRegistry;
-import com.github.steveice10.opennbt.tag.builtin.Tag;
-import com.github.steveice10.opennbt.tag.limiter.TagLimiter;
+import com.viaversion.nbt.io.TagRegistry;
+import com.viaversion.nbt.limiter.TagLimiter;
+import com.viaversion.nbt.tag.Tag;
 import com.viaversion.viaversion.api.type.OptionalType;
 import com.viaversion.viaversion.api.type.Type;
+import com.viaversion.viaversion.api.type.Types;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufInputStream;
 import java.io.IOException;
@@ -38,25 +39,33 @@ public class TagType extends Type<Tag> {
     }
 
     @Override
-    public Tag read(final ByteBuf buffer) throws IOException {
+    public Tag read(final ByteBuf buffer) {
         final byte id = buffer.readByte();
         if (id == 0) {
             return null;
         }
 
         final TagLimiter tagLimiter = TagLimiter.create(NamedCompoundTagType.MAX_NBT_BYTES, NamedCompoundTagType.MAX_NESTING_LEVEL);
-        return TagRegistry.read(id, new ByteBufInputStream(buffer), tagLimiter, 0);
+        try {
+            return TagRegistry.read(id, new ByteBufInputStream(buffer), tagLimiter, 0);
+        } catch (final IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
-    public void write(final ByteBuf buffer, final Tag tag) throws IOException {
-        NamedCompoundTagType.write(buffer, tag, null);
+    public void write(final ByteBuf buffer, final Tag tag) {
+        try {
+            NamedCompoundTagType.write(buffer, tag, null);
+        } catch (final IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public static final class OptionalTagType extends OptionalType<Tag> {
 
         public OptionalTagType() {
-            super(Type.TAG);
+            super(Types.TAG);
         }
     }
 }

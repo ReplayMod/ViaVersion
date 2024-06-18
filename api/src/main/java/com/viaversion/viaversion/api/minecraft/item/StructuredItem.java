@@ -22,7 +22,7 @@
  */
 package com.viaversion.viaversion.api.minecraft.item;
 
-import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
+import com.viaversion.nbt.tag.CompoundTag;
 import com.viaversion.viaversion.api.minecraft.data.StructuredDataContainer;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
@@ -39,6 +39,19 @@ public class StructuredItem implements Item {
         this.identifier = identifier;
         this.amount = amount;
         this.data = data;
+    }
+
+    public static StructuredItem empty() {
+        // Data is mutable, create a new item
+        return new StructuredItem(0, 0);
+    }
+
+    public static Item[] emptyArray(final int size) {
+        final Item[] items = new Item[size];
+        for (int i = 0; i < items.length; i++) {
+            items[i] = empty();
+        }
+        return items;
     }
 
     @Override
@@ -72,7 +85,7 @@ public class StructuredItem implements Item {
     }
 
     @Override
-    public StructuredDataContainer structuredData() {
+    public StructuredDataContainer dataContainer() {
         return data;
     }
 

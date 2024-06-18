@@ -22,8 +22,8 @@
  */
 package com.viaversion.viaversion.api.minecraft.item;
 
-import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
 import com.google.gson.annotations.SerializedName;
+import com.viaversion.nbt.tag.CompoundTag;
 import com.viaversion.viaversion.api.minecraft.data.StructuredDataContainer;
 import java.util.Objects;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -38,15 +38,15 @@ public class DataItem implements Item {
     public DataItem() {
     }
 
+    public DataItem(int identifier, byte amount, @Nullable CompoundTag tag) {
+        this(identifier, amount, (short) 0, tag);
+    }
+
     public DataItem(int identifier, byte amount, short data, @Nullable CompoundTag tag) {
         this.identifier = identifier;
         this.amount = amount;
         this.data = data;
         this.tag = tag;
-    }
-
-    public DataItem(Item toCopy) {
-        this(toCopy.identifier(), (byte) toCopy.amount(), toCopy.data(), toCopy.tag());
     }
 
     @Override
@@ -66,7 +66,7 @@ public class DataItem implements Item {
 
     @Override
     public void setAmount(int amount) {
-        if (amount > Byte.MAX_VALUE || amount < Byte.MIN_VALUE) {
+        if (amount != (byte) amount) {
             throw new IllegalArgumentException("Invalid item amount: " + amount);
         }
         this.amount = (byte) amount;
@@ -93,13 +93,13 @@ public class DataItem implements Item {
     }
 
     @Override
-    public StructuredDataContainer structuredData() {
+    public StructuredDataContainer dataContainer() {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public Item copy() {
-        return new DataItem(identifier, amount, data, tag);
+    public DataItem copy() {
+        return new DataItem(identifier, amount, data, tag != null ? tag.copy() : null);
     }
 
     @Override
@@ -116,8 +116,8 @@ public class DataItem implements Item {
     @Override
     public int hashCode() {
         int result = identifier;
-        result = 31 * result + (int) amount;
-        result = 31 * result + (int) data;
+        result = 31 * result + amount;
+        result = 31 * result + data;
         result = 31 * result + (tag != null ? tag.hashCode() : 0);
         return result;
     }

@@ -20,23 +20,23 @@ package com.viaversion.viaversion.bukkit.listeners.protocol1_9to1_8;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
-import com.viaversion.viaversion.api.type.Type;
+import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.bukkit.listeners.ViaBukkitListener;
-import com.viaversion.viaversion.protocols.protocol1_9to1_8.ClientboundPackets1_9;
-import com.viaversion.viaversion.protocols.protocol1_9to1_8.Protocol1_9To1_8;
+import com.viaversion.viaversion.protocols.v1_8to1_9.Protocol1_8To1_9;
+import com.viaversion.viaversion.protocols.v1_8to1_9.packet.ClientboundPackets1_9;
 import com.viaversion.viaversion.util.ComponentUtil;
+import java.util.logging.Level;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.plugin.Plugin;
-import java.util.logging.Level;
 
 public class DeathListener extends ViaBukkitListener {
 
     public DeathListener(Plugin plugin) {
-        super(plugin, Protocol1_9To1_8.class);
+        super(plugin, Protocol1_8To1_9.class);
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
@@ -59,14 +59,14 @@ public class DeathListener extends ViaBukkitListener {
             // If online
             UserConnection userConnection = getUserConnection(p);
             if (userConnection != null) {
-                PacketWrapper wrapper = PacketWrapper.create(ClientboundPackets1_9.COMBAT_EVENT, userConnection);
+                PacketWrapper wrapper = PacketWrapper.create(ClientboundPackets1_9.PLAYER_COMBAT, userConnection);
                 try {
-                    wrapper.write(Type.VAR_INT, 2); // Event - Entity dead
-                    wrapper.write(Type.VAR_INT, p.getEntityId()); // Player ID
-                    wrapper.write(Type.INT, p.getEntityId()); // Entity ID
-                    wrapper.write(Type.COMPONENT, ComponentUtil.plainToJson(msg)); // Message
+                    wrapper.write(Types.VAR_INT, 2); // Event - Entity dead
+                    wrapper.write(Types.VAR_INT, p.getEntityId()); // Player ID
+                    wrapper.write(Types.INT, p.getEntityId()); // Entity ID
+                    wrapper.write(Types.COMPONENT, ComponentUtil.plainToJson(msg)); // Message
 
-                    wrapper.scheduleSend(Protocol1_9To1_8.class);
+                    wrapper.scheduleSend(Protocol1_8To1_9.class);
                 } catch (Exception e) {
                     Via.getPlatform().getLogger().log(Level.WARNING, "Failed to send death message", e);
                 }

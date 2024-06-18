@@ -37,11 +37,6 @@ public final class Particle implements IdHolder {
         this.id = id;
     }
 
-    @Deprecated
-    public int getId() {
-        return id;
-    }
-
     @Override
     public int id() {
         return id;
@@ -106,7 +101,7 @@ public final class Particle implements IdHolder {
             this.value = value;
         }
 
-        public void write(final ByteBuf buf) throws Exception {
+        public void write(final ByteBuf buf) {
             type.write(buf, value);
         }
 
@@ -117,9 +112,9 @@ public final class Particle implements IdHolder {
         @Override
         public String toString() {
             return "ParticleData{" +
-                    "type=" + type +
-                    ", value=" + value +
-                    '}';
+                "type=" + type +
+                ", value=" + value +
+                '}';
         }
     }
 }

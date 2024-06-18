@@ -25,13 +25,14 @@ package com.viaversion.viaversion.api.type.types;
 import com.google.common.base.Preconditions;
 import com.viaversion.viaversion.api.type.OptionalType;
 import com.viaversion.viaversion.api.type.Type;
+import com.viaversion.viaversion.api.type.Types;
 import io.netty.buffer.ByteBuf;
 import java.nio.charset.StandardCharsets;
 
 public class StringType extends Type<String> {
     // String#length() (used to limit the string in Minecraft source code) uses char[]#length
     private static final int MAX_CHAR_UTF_8_LENGTH = Character.toString(Character.MAX_VALUE)
-            .getBytes(StandardCharsets.UTF_8).length;
+        .getBytes(StandardCharsets.UTF_8).length;
     private final int maxLength;
 
     public StringType() {
@@ -44,36 +45,36 @@ public class StringType extends Type<String> {
     }
 
     @Override
-    public String read(ByteBuf buffer) throws Exception {
-        int len = Type.VAR_INT.readPrimitive(buffer);
+    public String read(ByteBuf buffer) {
+        int len = Types.VAR_INT.readPrimitive(buffer);
 
         Preconditions.checkArgument(len <= maxLength * MAX_CHAR_UTF_8_LENGTH,
-                "Cannot receive string longer than Short.MAX_VALUE * " + MAX_CHAR_UTF_8_LENGTH + " bytes (got %s bytes)", len);
+            "Cannot receive string longer than Short.MAX_VALUE * " + MAX_CHAR_UTF_8_LENGTH + " bytes (got %s bytes)", len);
 
         String string = buffer.toString(buffer.readerIndex(), len, StandardCharsets.UTF_8);
         buffer.skipBytes(len);
 
         Preconditions.checkArgument(string.length() <= maxLength,
-                "Cannot receive string longer than Short.MAX_VALUE characters (got %s bytes)", string.length());
+            "Cannot receive string longer than Short.MAX_VALUE characters (got %s bytes)", string.length());
 
         return string;
     }
 
     @Override
-    public void write(ByteBuf buffer, String object) throws Exception {
+    public void write(ByteBuf buffer, String object) {
         if (object.length() > maxLength) {
             throw new IllegalArgumentException("Cannot send string longer than Short.MAX_VALUE characters (got " + object.length() + " characters)");
         }
 
         byte[] b = object.getBytes(StandardCharsets.UTF_8);
-        Type.VAR_INT.writePrimitive(buffer, b.length);
+        Types.VAR_INT.writePrimitive(buffer, b.length);
         buffer.writeBytes(b);
     }
 
     public static final class OptionalStringType extends OptionalType<String> {
 
         public OptionalStringType() {
-            super(Type.STRING);
+            super(Types.STRING);
         }
     }
 }

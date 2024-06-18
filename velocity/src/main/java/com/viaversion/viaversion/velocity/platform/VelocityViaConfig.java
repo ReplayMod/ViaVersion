@@ -25,15 +25,16 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Logger;
 
 public class VelocityViaConfig extends AbstractViaConfig {
-    private static final List<String> UNSUPPORTED = Arrays.asList("nms-player-ticking", "item-cache", "quick-move-action-fix", "bungee-ping-interval", "bungee-ping-save", "bungee-servers", "blockconnection-method", "change-1_9-hitbox", "change-1_14-hitbox");
+    private static final List<String> UNSUPPORTED = Arrays.asList("nms-player-ticking", "item-cache", "quick-move-action-fix", "blockconnection-method", "change-1_9-hitbox", "change-1_14-hitbox");
     private int velocityPingInterval;
     private boolean velocityPingSave;
     private Map<String, Integer> velocityServerProtocols;
 
-    public VelocityViaConfig(File folder) {
-        super(new File(folder, "config.yml"));
+    public VelocityViaConfig(File folder, Logger logger) {
+        super(new File(folder, "config.yml"), logger);
     }
 
     @Override
@@ -48,16 +49,16 @@ public class VelocityViaConfig extends AbstractViaConfig {
     protected void handleConfig(Map<String, Object> config) {
         // Parse servers
         Map<String, Object> servers;
-        if (!(config.get("velocity-servers") instanceof Map)) {
-            servers = new HashMap<>();
+        if (config.get("velocity-servers") instanceof Map velocityServers) {
+            servers = velocityServers;
         } else {
-            servers = (Map) config.get("velocity-servers");
+            servers = new HashMap<>();
         }
         // Convert any bad Protocol Ids
         for (Map.Entry<String, Object> entry : new HashSet<>(servers.entrySet())) {
             if (!(entry.getValue() instanceof Integer)) {
-                if (entry.getValue() instanceof String) {
-                    ProtocolVersion found = ProtocolVersion.getClosest((String) entry.getValue());
+                if (entry.getValue() instanceof String protocol) {
+                    ProtocolVersion found = ProtocolVersion.getClosest(protocol);
                     if (found != null) {
                         servers.put(entry.getKey(), found.getVersion());
                     } else {

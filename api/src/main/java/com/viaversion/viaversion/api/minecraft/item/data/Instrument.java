@@ -24,48 +24,27 @@ package com.viaversion.viaversion.api.minecraft.item.data;
 
 import com.viaversion.viaversion.api.minecraft.Holder;
 import com.viaversion.viaversion.api.minecraft.SoundEvent;
-import com.viaversion.viaversion.api.type.Type;
+import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.api.type.types.misc.HolderType;
 import io.netty.buffer.ByteBuf;
 
-public final class Instrument {
+public record Instrument(Holder<SoundEvent> soundEvent, int useDuration, float range) {
 
-    public static final HolderType<Instrument> TYPE = new HolderType<Instrument>() {
+    public static final HolderType<Instrument> TYPE = new HolderType<>() {
         @Override
-        public Instrument readDirect(final ByteBuf buffer) throws Exception {
-            final Holder<SoundEvent> soundEvent = Type.SOUND_EVENT.read(buffer);
-            final int useDuration = Type.VAR_INT.readPrimitive(buffer);
+        public Instrument readDirect(final ByteBuf buffer) {
+            final Holder<SoundEvent> soundEvent = Types.SOUND_EVENT.read(buffer);
+            final int useDuration = Types.VAR_INT.readPrimitive(buffer);
             final float range = buffer.readFloat();
             return new Instrument(soundEvent, useDuration, range);
         }
 
         @Override
-        public void writeDirect(final ByteBuf buffer, final Instrument value) throws Exception {
-            Type.SOUND_EVENT.write(buffer, value.soundEvent());
-            Type.VAR_INT.writePrimitive(buffer, value.useDuration());
+        public void writeDirect(final ByteBuf buffer, final Instrument value) {
+            Types.SOUND_EVENT.write(buffer, value.soundEvent());
+            Types.VAR_INT.writePrimitive(buffer, value.useDuration());
             buffer.writeFloat(value.range());
         }
     };
 
-    private final Holder<SoundEvent> soundEvent;
-    private final int useDuration;
-    private final float range;
-
-    public Instrument(final Holder<SoundEvent> soundEvent, final int useDuration, final float range) {
-        this.soundEvent = soundEvent;
-        this.useDuration = useDuration;
-        this.range = range;
-    }
-
-    public Holder<SoundEvent> soundEvent() {
-        return soundEvent;
-    }
-
-    public int useDuration() {
-        return useDuration;
-    }
-
-    public float range() {
-        return range;
-    }
 }

@@ -3,6 +3,7 @@ import org.gradle.jvm.tasks.Jar
 
 plugins {
     id("via.base-conventions")
+    id("maven-publish")
     id("com.github.johnrengelman.shadow")
 }
 
@@ -21,9 +22,27 @@ tasks {
     }
 }
 
+publishing {
+    publications.create<MavenPublication>("mavenJava") {
+        groupId = rootProject.group as String
+        artifactId = project.name
+        version = rootProject.version as String
+
+        artifact(tasks["shadowJar"])
+        artifact(tasks["sourcesJar"])
+    }
+    repositories.maven {
+        name = "Via"
+        url = uri("https://repo.viaversion.com/")
+        credentials(PasswordCredentials::class)
+        authentication {
+            create<BasicAuthentication>("basic")
+        }
+    }
+}
+
 fun ShadowJar.configureRelocations() {
     relocate("com.google.gson", "com.viaversion.viaversion.libs.gson")
-    relocate("com.github.steveice10.opennbt", "com.viaversion.viaversion.libs.opennbt")
     relocate("it.unimi.dsi.fastutil", "com.viaversion.viaversion.libs.fastutil")
     relocate("net.lenni0451.mcstructs", "com.viaversion.viaversion.libs.mcstructs")
 }

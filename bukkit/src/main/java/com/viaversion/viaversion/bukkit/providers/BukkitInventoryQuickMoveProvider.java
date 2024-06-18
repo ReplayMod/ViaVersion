@@ -23,8 +23,8 @@ import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import com.viaversion.viaversion.bukkit.tasks.protocol1_12to1_11_1.BukkitInventoryUpdateTask;
 import com.viaversion.viaversion.bukkit.util.NMSUtil;
-import com.viaversion.viaversion.protocols.protocol1_12to1_11_1.providers.InventoryQuickMoveProvider;
-import com.viaversion.viaversion.protocols.protocol1_12to1_11_1.storage.ItemTransaction;
+import com.viaversion.viaversion.protocols.v1_11_1to1_12.provider.InventoryQuickMoveProvider;
+import com.viaversion.viaversion.protocols.v1_11_1to1_12.storage.ItemTransactionStorage;
 import com.viaversion.viaversion.util.ReflectionUtil;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
@@ -92,12 +92,12 @@ public class BukkitInventoryQuickMoveProvider extends InventoryQuickMoveProvider
         return true;
     }
 
-    public Object buildWindowClickPacket(Player p, ItemTransaction storage) {
+    public Object buildWindowClickPacket(Player p, ItemTransactionStorage storage) {
         if (!supported) {
             return null;
         }
         InventoryView inv = p.getOpenInventory();
-        short slotId = storage.getSlotId();
+        short slotId = storage.slotId();
         Inventory tinv = inv.getTopInventory();
         InventoryType tinvtype = tinv == null ? null : tinv.getType(); // can this even be null?
         if (tinvtype != null) {
@@ -118,17 +118,17 @@ public class BukkitInventoryQuickMoveProvider extends InventoryQuickMoveProvider
         } else {
             // if not true we got too many slots (version inventory slot changes)?
             String cause = "Too many inventory slots: slotId: " + slotId + " invSlotCount: " + inv.countSlots()
-                    + " invType: " + inv.getType() + " topInvType: " + tinvtype;
+                + " invType: " + inv.getType() + " topInvType: " + tinvtype;
             Via.getPlatform().getLogger().severe("Failed to get an item to create a window click packet. Please report this issue to the ViaVersion Github: " + cause);
         }
         Object packet = null;
         try {
             packet = windowClickPacketClass.getDeclaredConstructor().newInstance();
             Object nmsItem = itemstack == null ? null : nmsItemMethod.invoke(null, itemstack);
-            ReflectionUtil.set(packet, "a", (int) storage.getWindowId());
+            ReflectionUtil.set(packet, "a", (int) storage.windowId());
             ReflectionUtil.set(packet, "slot", (int) slotId);
             ReflectionUtil.set(packet, "button", 0); // shift + left mouse click
-            ReflectionUtil.set(packet, "d", storage.getActionId());
+            ReflectionUtil.set(packet, "d", storage.actionId());
             ReflectionUtil.set(packet, "item", nmsItem);
             final ProtocolVersion protocol = Via.getAPI().getServerVersion().lowestSupportedProtocolVersion();
             if (protocol.equalTo(ProtocolVersion.v1_8)) {

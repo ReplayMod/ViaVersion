@@ -22,50 +22,30 @@
  */
 package com.viaversion.viaversion.api.minecraft.item.data;
 
-import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
+import com.viaversion.nbt.tag.CompoundTag;
 import com.viaversion.viaversion.api.type.Type;
+import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.api.type.types.ArrayType;
 import io.netty.buffer.ByteBuf;
 
-public final class Bee {
+public record Bee(CompoundTag entityData, int ticksInHive, int minTicksInHive) {
 
-    public static final Type<Bee> TYPE = new Type<Bee>(Bee.class) {
+    public static final Type<Bee> TYPE = new Type<>(Bee.class) {
         @Override
-        public Bee read(final ByteBuf buffer) throws Exception {
-            final CompoundTag entityData = Type.COMPOUND_TAG.read(buffer);
-            final int ticksInHive = Type.VAR_INT.readPrimitive(buffer);
-            final int minTicksInHive = Type.VAR_INT.readPrimitive(buffer);
+        public Bee read(final ByteBuf buffer) {
+            final CompoundTag entityData = Types.COMPOUND_TAG.read(buffer);
+            final int ticksInHive = Types.VAR_INT.readPrimitive(buffer);
+            final int minTicksInHive = Types.VAR_INT.readPrimitive(buffer);
             return new Bee(entityData, ticksInHive, minTicksInHive);
         }
 
         @Override
-        public void write(final ByteBuf buffer, final Bee value) throws Exception {
-            Type.COMPOUND_TAG.write(buffer, value.entityData);
-            Type.VAR_INT.writePrimitive(buffer, value.ticksInHive);
-            Type.VAR_INT.writePrimitive(buffer, value.minTicksInHive);
+        public void write(final ByteBuf buffer, final Bee value) {
+            Types.COMPOUND_TAG.write(buffer, value.entityData);
+            Types.VAR_INT.writePrimitive(buffer, value.ticksInHive);
+            Types.VAR_INT.writePrimitive(buffer, value.minTicksInHive);
         }
     };
     public static final Type<Bee[]> ARRAY_TYPE = new ArrayType<>(TYPE);
 
-    private final CompoundTag entityData;
-    private final int ticksInHive;
-    private final int minTicksInHive;
-
-    public Bee(CompoundTag entityData, int ticksInHive, int minTicksInHive) {
-        this.entityData = entityData;
-        this.ticksInHive = ticksInHive;
-        this.minTicksInHive = minTicksInHive;
-    }
-
-    public CompoundTag entityData() {
-        return entityData;
-    }
-
-    public int ticksInHive() {
-        return ticksInHive;
-    }
-
-    public int minTicksInHive() {
-        return minTicksInHive;
-    }
 }

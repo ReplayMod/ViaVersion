@@ -5,9 +5,6 @@ dependencyResolutionManagement {
     repositories {
         maven("https://repo.viaversion.com")
         maven("https://repo.papermc.io/repository/maven-public/")
-        maven("https://oss.sonatype.org/content/repositories/snapshots/")
-        maven("https://repo.spongepowered.org/repository/maven-public/")
-        maven("https://libraries.minecraft.net")
         mavenCentral()
     }
     // only use these repos
@@ -27,16 +24,13 @@ rootProject.name = "viaversion-parent"
 
 includeBuild("build-logic")
 
-include("compat", "compat:snakeyaml-compat-common", "compat:snakeyaml2-compat", "compat:snakeyaml1-compat", "compat:protocolsupport-compat")
+include("compat", "compat:snakeyaml-compat-common", "compat:snakeyaml2-compat", "compat:snakeyaml1-compat")
 
 setupViaSubproject("api")
-setupViaSubproject("api-legacy")
 setupViaSubproject("common")
 setupViaSubproject("bukkit")
 setupViaSubproject("bukkit-legacy")
-setupViaSubproject("bungee")
 setupViaSubproject("velocity")
-setupViaSubproject("sponge")
 setupViaSubproject("fabric")
 setupViaSubproject("template")
 

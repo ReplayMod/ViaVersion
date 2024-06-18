@@ -30,9 +30,16 @@ public interface ViaVersionCommand {
      * Register your own subcommand inside ViaVersion
      *
      * @param command Your own SubCommand instance to handle it.
-     * @throws Exception throws an exception when the subcommand already exists or if it's not valid, example: spacee
+     * @throws IllegalArgumentException throws an exception when the subcommand already exists or if it's not valid, example: spacee
      */
     void registerSubCommand(ViaSubCommand command);
+
+    /**
+     * Removes a subcommand by name, can be used to unload default subcommands which are not supported
+     * on the platform.
+     * @param name Subcommand name
+     */
+    void removeSubCommand(String name);
 
     /**
      * Check if a subcommand is registered.

@@ -22,41 +22,27 @@
  */
 package com.viaversion.viaversion.api.minecraft.item.data;
 
-import com.viaversion.viaversion.api.minecraft.GlobalPosition;
+import com.viaversion.viaversion.api.minecraft.GlobalBlockPosition;
 import com.viaversion.viaversion.api.type.Type;
+import com.viaversion.viaversion.api.type.Types;
 import io.netty.buffer.ByteBuf;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
-public final class LodestoneTracker {
+public record LodestoneTracker(@Nullable GlobalBlockPosition position, boolean tracked) {
 
-    public static final Type<LodestoneTracker> TYPE = new Type<LodestoneTracker>(LodestoneTracker.class) {
+    public static final Type<LodestoneTracker> TYPE = new Type<>(LodestoneTracker.class) {
         @Override
-        public LodestoneTracker read(final ByteBuf buffer) throws Exception {
-            final GlobalPosition position = Type.OPTIONAL_GLOBAL_POSITION.read(buffer);
+        public LodestoneTracker read(final ByteBuf buffer) {
+            final GlobalBlockPosition position = Types.OPTIONAL_GLOBAL_POSITION.read(buffer);
             final boolean tracked = buffer.readBoolean();
             return new LodestoneTracker(position, tracked);
         }
 
         @Override
-        public void write(final ByteBuf buffer, final LodestoneTracker value) throws Exception {
-            Type.OPTIONAL_GLOBAL_POSITION.write(buffer, value.position);
+        public void write(final ByteBuf buffer, final LodestoneTracker value) {
+            Types.OPTIONAL_GLOBAL_POSITION.write(buffer, value.position);
             buffer.writeBoolean(value.tracked);
         }
     };
 
-    private final GlobalPosition position;
-    private final boolean tracked;
-
-    public LodestoneTracker(@Nullable final GlobalPosition position, final boolean tracked) {
-        this.position = position;
-        this.tracked = tracked;
-    }
-
-    public @Nullable GlobalPosition pos() {
-        return this.position;
-    }
-
-    public boolean tracked() {
-        return this.tracked;
-    }
 }

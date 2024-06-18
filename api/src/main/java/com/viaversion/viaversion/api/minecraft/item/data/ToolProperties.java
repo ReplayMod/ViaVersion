@@ -23,46 +23,34 @@
 package com.viaversion.viaversion.api.minecraft.item.data;
 
 import com.viaversion.viaversion.api.type.Type;
+import com.viaversion.viaversion.api.type.Types;
 import io.netty.buffer.ByteBuf;
+import it.unimi.dsi.fastutil.ints.Int2IntFunction;
 
-public final class ToolProperties {
+public record ToolProperties(ToolRule[] rules, float defaultMiningSpeed, int damagePerBlock) {
 
-    public static final Type<ToolProperties> TYPE = new Type<ToolProperties>(ToolProperties.class) {
+    public static final Type<ToolProperties> TYPE = new Type<>(ToolProperties.class) {
         @Override
-        public ToolProperties read(final ByteBuf buffer) throws Exception {
+        public ToolProperties read(final ByteBuf buffer) {
             final ToolRule[] rules = ToolRule.ARRAY_TYPE.read(buffer);
             final float defaultMiningSpeed = buffer.readFloat();
-            final int damagePerBlock = Type.VAR_INT.readPrimitive(buffer);
+            final int damagePerBlock = Types.VAR_INT.readPrimitive(buffer);
             return new ToolProperties(rules, defaultMiningSpeed, damagePerBlock);
         }
 
         @Override
-        public void write(final ByteBuf buffer, final ToolProperties value) throws Exception {
+        public void write(final ByteBuf buffer, final ToolProperties value) {
             ToolRule.ARRAY_TYPE.write(buffer, value.rules());
             buffer.writeFloat(value.defaultMiningSpeed());
-            Type.VAR_INT.writePrimitive(buffer, value.damagePerBlock());
+            Types.VAR_INT.writePrimitive(buffer, value.damagePerBlock());
         }
     };
 
-    private final ToolRule[] rules;
-    private final float defaultMiningSpeed;
-    private final int damagePerBlock;
-
-    public ToolProperties(final ToolRule[] rules, final float defaultMiningSpeed, final int damagePerBlock) {
-        this.rules = rules;
-        this.defaultMiningSpeed = defaultMiningSpeed;
-        this.damagePerBlock = damagePerBlock;
-    }
-
-    public ToolRule[] rules() {
-        return rules;
-    }
-
-    public float defaultMiningSpeed() {
-        return defaultMiningSpeed;
-    }
-
-    public int damagePerBlock() {
-        return damagePerBlock;
+    public ToolProperties rewrite(final Int2IntFunction blockIdRewriter) {
+        final ToolRule[] rules = new ToolRule[this.rules.length];
+        for (int i = 0; i < rules.length; i++) {
+            rules[i] = this.rules[i].rewrite(blockIdRewriter);
+        }
+        return new ToolProperties(rules, defaultMiningSpeed, damagePerBlock);
     }
 }

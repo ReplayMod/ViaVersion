@@ -23,11 +23,13 @@
 package com.viaversion.viaversion.util;
 
 import com.google.common.base.Preconditions;
+import com.viaversion.viaversion.api.protocol.Protocol;
 import com.viaversion.viaversion.api.protocol.packet.PacketType;
 import com.viaversion.viaversion.api.protocol.packet.State;
 import com.viaversion.viaversion.api.protocol.packet.provider.PacketTypeMap;
 import java.util.Collections;
 import java.util.EnumMap;
+import java.util.Locale;
 import java.util.Map;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
@@ -66,7 +68,20 @@ public final class ProtocolUtil {
      * @return packet id as a nice hex string
      */
     public static String toNiceHex(int id) {
-        final String hex = Integer.toHexString(id).toUpperCase();
+        final String hex = Integer.toHexString(id).toUpperCase(Locale.ROOT);
         return (hex.length() == 1 ? "0x0" : "0x") + hex;
+    }
+
+    /**
+     * Returns a readable name of a protocol. For example, "Protocol1_12_2To1_13" becomes "1.12.2->1.13".
+     *
+     * @param protocol protocol class
+     * @return readable name of the protocol
+     */
+    public static String toNiceName(Class<? extends Protocol> protocol) {
+        return protocol.getSimpleName().
+            replace("Protocol", "").
+            replace("To", "->").
+            replace("_", ".");
     }
 }

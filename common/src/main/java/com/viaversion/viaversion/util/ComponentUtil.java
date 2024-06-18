@@ -17,12 +17,13 @@
  */
 package com.viaversion.viaversion.util;
 
-import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
-import com.github.steveice10.opennbt.tag.builtin.StringTag;
-import com.github.steveice10.opennbt.tag.builtin.Tag;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.viaversion.nbt.tag.CompoundTag;
+import com.viaversion.nbt.tag.StringTag;
+import com.viaversion.nbt.tag.Tag;
 import com.viaversion.viaversion.api.Via;
+import java.nio.charset.StandardCharsets;
 import java.util.logging.Level;
 import net.lenni0451.mcstructs.text.ATextComponent;
 import net.lenni0451.mcstructs.text.Style;
@@ -30,12 +31,15 @@ import net.lenni0451.mcstructs.text.events.hover.AHoverEvent;
 import net.lenni0451.mcstructs.text.events.hover.impl.TextHoverEvent;
 import net.lenni0451.mcstructs.text.serializer.LegacyStringDeserializer;
 import net.lenni0451.mcstructs.text.serializer.TextComponentSerializer;
+import net.lenni0451.mcstructs.text.utils.TextUtils;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * Component conversion utility, trying to divert most calls to the component library to this class instead for easy replacement.
  */
 public final class ComponentUtil {
+
+    private static final int MAX_UNSIGNED_SHORT = 65535;
 
     public static JsonObject emptyJsonComponent() {
         return plainToJson("");
@@ -82,10 +86,10 @@ public final class ComponentUtil {
             return null;
         }
         return TagUtil.handleDeep(input, (key, tag) -> {
-            if (tag instanceof StringTag) {
-                final String value = ((StringTag) tag).getValue();
-                if (value.length() > Short.MAX_VALUE) {
-                    ((StringTag) tag).setValue("{}");
+            if (tag instanceof StringTag stringTag) {
+                final byte[] value = stringTag.getValue().getBytes(StandardCharsets.UTF_8);
+                if (value.length > MAX_UNSIGNED_SHORT) {
+                    stringTag.setValue("{}");
                 }
             }
             return tag;
@@ -152,7 +156,11 @@ public final class ComponentUtil {
     public static String legacyToJsonString(final String message, final boolean itemData) {
         final ATextComponent component = LegacyStringDeserializer.parse(message, true);
         if (itemData) {
-            component.setParentStyle(new Style().setItalic(false));
+            TextUtils.iterateAll(component, c -> {
+                if (!c.getStyle().isEmpty()) {
+                    c.setParentStyle(new Style().setItalic(false));
+                }
+            });
         }
         return SerializerVersion.V1_12.toString(component);
     }

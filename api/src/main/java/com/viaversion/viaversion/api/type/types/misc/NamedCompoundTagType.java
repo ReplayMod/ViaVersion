@@ -22,11 +22,12 @@
  */
 package com.viaversion.viaversion.api.type.types.misc;
 
-import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
-import com.github.steveice10.opennbt.tag.builtin.Tag;
-import com.github.steveice10.opennbt.tag.limiter.TagLimiter;
+import com.viaversion.nbt.limiter.TagLimiter;
+import com.viaversion.nbt.tag.CompoundTag;
+import com.viaversion.nbt.tag.Tag;
 import com.viaversion.viaversion.api.type.OptionalType;
 import com.viaversion.viaversion.api.type.Type;
+import com.viaversion.viaversion.api.type.Types;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufInputStream;
 import io.netty.buffer.ByteBufOutputStream;
@@ -43,13 +44,21 @@ public class NamedCompoundTagType extends Type<CompoundTag> {
     }
 
     @Override
-    public CompoundTag read(final ByteBuf buffer) throws IOException {
-        return read(buffer, true);
+    public CompoundTag read(final ByteBuf buffer) {
+        try {
+            return read(buffer, true);
+        } catch (final IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
-    public void write(final ByteBuf buffer, final CompoundTag object) throws IOException {
-        write(buffer, object, "");
+    public void write(final ByteBuf buffer, final CompoundTag object) {
+        try {
+            write(buffer, object, "");
+        } catch (final IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public static CompoundTag read(final ByteBuf buffer, final boolean readName) throws IOException {
@@ -86,7 +95,7 @@ public class NamedCompoundTagType extends Type<CompoundTag> {
     public static final class OptionalNamedCompoundTagType extends OptionalType<CompoundTag> {
 
         public OptionalNamedCompoundTagType() {
-            super(Type.NAMED_COMPOUND_TAG);
+            super(Types.NAMED_COMPOUND_TAG);
         }
     }
 }

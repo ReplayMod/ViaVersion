@@ -22,7 +22,7 @@ import com.viaversion.viaversion.api.command.ViaCommandSender;
 import com.viaversion.viaversion.api.command.ViaSubCommand;
 import com.viaversion.viaversion.velocity.platform.VelocityViaConfig;
 
-public class ProbeSubCmd extends ViaSubCommand {
+public class ProbeSubCmd implements ViaSubCommand {
     @Override
     public String name() {
         return "probe";
@@ -31,8 +31,8 @@ public class ProbeSubCmd extends ViaSubCommand {
     @Override
     public String description() {
         return "Forces ViaVersion to scan server protocol versions " +
-                (((VelocityViaConfig) Via.getConfig()).getVelocityPingInterval() == -1 ?
-                        "" : "(Also happens at an interval)");
+            (((VelocityViaConfig) Via.getConfig()).getVelocityPingInterval() == -1 ?
+                "" : "(Also happens at an interval)");
     }
 
     @Override

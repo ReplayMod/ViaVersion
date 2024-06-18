@@ -17,16 +17,18 @@
  */
 package com.viaversion.viaversion.template.protocols.rewriter;
 
+import com.viaversion.viaversion.api.minecraft.RegistryEntry;
 import com.viaversion.viaversion.api.minecraft.entities.EntityType;
 import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_20_5;
 import com.viaversion.viaversion.api.protocol.remapper.PacketHandlers;
-import com.viaversion.viaversion.api.type.Type;
+import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.api.type.types.version.Types1_20_5;
-import com.viaversion.viaversion.protocols.protocol1_20_5to1_20_3.packet.ClientboundConfigurationPackets1_20_5;
-import com.viaversion.viaversion.protocols.protocol1_20_5to1_20_3.packet.ClientboundPacket1_20_5;
-import com.viaversion.viaversion.protocols.protocol1_20_5to1_20_3.packet.ClientboundPackets1_20_5;
+import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.packet.ClientboundConfigurationPackets1_20_5;
+import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.packet.ClientboundPacket1_20_5;
+import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.packet.ClientboundPackets1_20_5;
 import com.viaversion.viaversion.rewriter.EntityRewriter;
 import com.viaversion.viaversion.template.protocols.Protocol1_99To_98;
+import com.viaversion.viaversion.util.Key;
 
 // Replace if needed
 //  Types1_OLD
@@ -39,74 +41,66 @@ public final class EntityPacketRewriter1_99 extends EntityRewriter<ClientboundPa
 
     @Override
     public void registerPackets() {
-        // Tracks entities, applies metadata rewrites registered below, untracks entities
-        registerTrackerWithData1_19(ClientboundPackets1_20_5.SPAWN_ENTITY, EntityTypes1_20_5.FALLING_BLOCK);
-        registerMetadataRewriter(ClientboundPackets1_20_5.ENTITY_METADATA, /*Types1_OLD.METADATA_LIST, */Types1_20_5.METADATA_LIST); // Specify old and new metadata list if changed
+        // Tracks entities, applies entity data rewrites registered below, untracks entities
+        registerTrackerWithData1_19(ClientboundPackets1_20_5.ADD_ENTITY, EntityTypes1_20_5.FALLING_BLOCK);
+        registerSetEntityData(ClientboundPackets1_20_5.SET_ENTITY_DATA, /*Types1_OLD_ENTITY_DATA_LIST, */Types1_20_5.ENTITY_DATA_LIST); // Specify old and new entity data list if changed
         registerRemoveEntities(ClientboundPackets1_20_5.REMOVE_ENTITIES);
 
-        protocol.registerClientbound(ClientboundConfigurationPackets1_20_5.REGISTRY_DATA, new PacketHandlers() {
-            @Override
-            protected void register() {
-                map(Type.STRING); // Registry
-                map(Type.REGISTRY_ENTRY_ARRAY); // Data
-                handler(registryDataHandler1_20_5()); // Caches dimensions to access data like height later and tracks the amount of biomes sent for chunk data
-            }
+        protocol.registerClientbound(ClientboundConfigurationPackets1_20_5.REGISTRY_DATA, wrapper -> {
+            final String registryKey = Key.stripMinecraftNamespace(wrapper.passthrough(Types.STRING));
+            final RegistryEntry[] entries = wrapper.passthrough(Types.REGISTRY_ENTRY_ARRAY);
+            handleRegistryData1_20_5(wrapper.user(), registryKey, entries); // Caches dimensions to access data like height later and tracks the amount of biomes sent for chunk data
         });
 
-        protocol.registerClientbound(ClientboundPackets1_20_5.JOIN_GAME, new PacketHandlers() {
+        protocol.registerClientbound(ClientboundPackets1_20_5.LOGIN, new PacketHandlers() {
             @Override
             public void register() {
-                map(Type.INT); // Entity id
-                map(Type.BOOLEAN); // Hardcore
-                map(Type.STRING_ARRAY); // World List
-                map(Type.VAR_INT); // Max players
-                map(Type.VAR_INT); // View distance
-                map(Type.VAR_INT); // Simulation distance
-                map(Type.BOOLEAN); // Reduced debug info
-                map(Type.BOOLEAN); // Show death screen
-                map(Type.BOOLEAN); // Limited crafting
-                map(Type.VAR_INT); // Dimension id
-                map(Type.STRING); // World
+                map(Types.INT); // Entity id
+                map(Types.BOOLEAN); // Hardcore
+                map(Types.STRING_ARRAY); // World List
+                map(Types.VAR_INT); // Max players
+                map(Types.VAR_INT); // View distance
+                map(Types.VAR_INT); // Simulation distance
+                map(Types.BOOLEAN); // Reduced debug info
+                map(Types.BOOLEAN); // Show death screen
+                map(Types.BOOLEAN); // Limited crafting
+                map(Types.VAR_INT); // Dimension id
+                map(Types.STRING); // World
                 handler(worldDataTrackerHandlerByKey1_20_5(3)); // Tracks world height and name for chunk data and entity (un)tracking
                 handler(playerTrackerHandler());
             }
         });
 
-        protocol.registerClientbound(ClientboundPackets1_20_5.RESPAWN, new PacketHandlers() {
-            @Override
-            public void register() {
-                map(Type.VAR_INT); // Dimension
-                map(Type.STRING); // World
-                handler(worldDataTrackerHandlerByKey1_20_5(0)); // Tracks world height and name for chunk data and entity (un)tracking
-            }
+        protocol.registerClientbound(ClientboundPackets1_20_5.RESPAWN, wrapper -> {
+            final int dimensionId = wrapper.passthrough(Types.VAR_INT);
+            final String world = wrapper.passthrough(Types.STRING);
+            trackWorldDataByKey1_20_5(wrapper.user(), dimensionId, world); // Tracks world height and name for chunk data and entity (un)tracking
         });
     }
 
     @Override
     protected void registerRewrites() {
-        /* Uncomment if metatype classes changed
-        filter().mapMetaType(typeId -> {
+        /* Uncomment if entity data classes changed
+        filter().mapDataType(typeId -> {
             final int id = typeId;
             if (id >= SomeAddedIndex) {
                 id++;
             }
-            return Types1_20_5.META_TYPES.byId(id);
+            return Types1_20_5.ENTITY_DATA_TYPES.byId(id);
         });*/
 
         // Registers registry type id changes
-        registerMetaTypeHandler(
-            Types1_20_5.META_TYPES.itemType,
-            Types1_20_5.META_TYPES.blockStateType,
-            Types1_20_5.META_TYPES.optionalBlockStateType,
-            Types1_20_5.META_TYPES.particleType,
-            Types1_20_5.META_TYPES.particlesType
+        registerEntityDataTypeHandler(
+            Types1_20_5.ENTITY_DATA_TYPES.itemType,
+            Types1_20_5.ENTITY_DATA_TYPES.blockStateType,
+            Types1_20_5.ENTITY_DATA_TYPES.optionalBlockStateType,
+            Types1_20_5.ENTITY_DATA_TYPES.particleType,
+            Types1_20_5.ENTITY_DATA_TYPES.particlesType,
+            Types1_20_5.ENTITY_DATA_TYPES.componentType,
+            Types1_20_5.ENTITY_DATA_TYPES.optionalComponentType
         );
-
         // Minecarts are special
-        filter().type(EntityTypes1_20_5.MINECART_ABSTRACT).index(11).handler((event, meta) -> {
-            final int blockState = meta.value();
-            meta.setValue(protocol.getMappingData().getNewBlockStateId(blockState));
-        });
+        registerBlockStateHandler(EntityTypes1_20_5.ABSTRACT_MINECART, 11);
     }
 
     @Override

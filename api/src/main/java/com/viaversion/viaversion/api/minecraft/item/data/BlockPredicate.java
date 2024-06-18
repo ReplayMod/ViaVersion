@@ -22,57 +22,47 @@
  */
 package com.viaversion.viaversion.api.minecraft.item.data;
 
-import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
+import com.viaversion.nbt.tag.CompoundTag;
 import com.viaversion.viaversion.api.minecraft.HolderSet;
 import com.viaversion.viaversion.api.type.Type;
+import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.api.type.types.ArrayType;
 import io.netty.buffer.ByteBuf;
+import it.unimi.dsi.fastutil.ints.Int2IntFunction;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
-public final class BlockPredicate {
+public record BlockPredicate(@Nullable HolderSet holderSet, StatePropertyMatcher @Nullable [] propertyMatchers,
+                             @Nullable CompoundTag tag) {
 
-    public static final Type<BlockPredicate> TYPE = new Type<BlockPredicate>(BlockPredicate.class) {
+    public static final Type<BlockPredicate> TYPE = new Type<>(BlockPredicate.class) {
         @Override
-        public BlockPredicate read(final ByteBuf buffer) throws Exception {
-            final HolderSet holders = Type.OPTIONAL_HOLDER_SET.read(buffer);
+        public BlockPredicate read(final ByteBuf buffer) {
+            final HolderSet holders = Types.OPTIONAL_HOLDER_SET.read(buffer);
             final StatePropertyMatcher[] propertyMatchers = buffer.readBoolean() ? StatePropertyMatcher.ARRAY_TYPE.read(buffer) : null;
-            final CompoundTag tag = Type.OPTIONAL_COMPOUND_TAG.read(buffer);
+            final CompoundTag tag = Types.OPTIONAL_COMPOUND_TAG.read(buffer);
             return new BlockPredicate(holders, propertyMatchers, tag);
         }
 
         @Override
-        public void write(final ByteBuf buffer, final BlockPredicate value) throws Exception {
-            Type.OPTIONAL_HOLDER_SET.write(buffer, value.holderSet);
+        public void write(final ByteBuf buffer, final BlockPredicate value) {
+            Types.OPTIONAL_HOLDER_SET.write(buffer, value.holderSet);
 
             buffer.writeBoolean(value.propertyMatchers != null);
             if (value.propertyMatchers != null) {
                 StatePropertyMatcher.ARRAY_TYPE.write(buffer, value.propertyMatchers);
             }
 
-            Type.OPTIONAL_COMPOUND_TAG.write(buffer, value.tag);
+            Types.OPTIONAL_COMPOUND_TAG.write(buffer, value.tag);
         }
     };
     public static final Type<BlockPredicate[]> ARRAY_TYPE = new ArrayType<>(TYPE);
 
-    private final HolderSet holderSet;
-    private final StatePropertyMatcher[] propertyMatchers;
-    private final CompoundTag tag;
+    public BlockPredicate rewrite(final Int2IntFunction blockIdRewriter) {
+        if (holderSet == null || holderSet.hasTagKey()) {
+            return this;
+        }
 
-    public BlockPredicate(@Nullable final HolderSet holderSet, final StatePropertyMatcher @Nullable [] propertyMatchers, @Nullable final CompoundTag tag) {
-        this.holderSet = holderSet;
-        this.propertyMatchers = propertyMatchers;
-        this.tag = tag;
-    }
-
-    public @Nullable HolderSet holderSet() {
-        return holderSet;
-    }
-
-    public StatePropertyMatcher @Nullable [] propertyMatchers() {
-        return propertyMatchers;
-    }
-
-    public @Nullable CompoundTag tag() {
-        return tag;
+        final HolderSet updatedHolders = holderSet.rewrite(blockIdRewriter);
+        return new BlockPredicate(updatedHolders, propertyMatchers, tag);
     }
 }

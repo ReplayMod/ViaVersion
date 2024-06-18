@@ -30,6 +30,7 @@ import com.viaversion.viaversion.commands.defaultsubs.DumpSubCmd;
 import com.viaversion.viaversion.commands.defaultsubs.ListSubCmd;
 import com.viaversion.viaversion.commands.defaultsubs.PPSSubCmd;
 import com.viaversion.viaversion.commands.defaultsubs.ReloadSubCmd;
+import com.viaversion.viaversion.commands.defaultsubs.PlayerSubCmd;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -54,6 +55,11 @@ public abstract class ViaCommandHandler implements ViaVersionCommand {
         Preconditions.checkArgument(command.name().matches("^[a-z0-9_-]{3,15}$"), command.name() + " is not a valid sub-command name.");
         Preconditions.checkArgument(!hasSubCommand(command.name()), "ViaSubCommand " + command.name() + " does already exists!");
         commandMap.put(command.name().toLowerCase(Locale.ROOT), command);
+    }
+
+    @Override
+    public void removeSubCommand(final String name) {
+        commandMap.remove(name.toLowerCase(Locale.ROOT));
     }
 
     @Override
@@ -115,7 +121,7 @@ public abstract class ViaCommandHandler implements ViaVersionCommand {
         if (args.length == 1) {
             if (!args[0].isEmpty()) {
                 for (ViaSubCommand sub : allowed) {
-                    if (sub.name().toLowerCase().startsWith(args[0].toLowerCase(Locale.ROOT))) {
+                    if (sub.name().toLowerCase(Locale.ROOT).startsWith(args[0].toLowerCase(Locale.ROOT))) {
                         output.add(sub.name());
                     }
                 }
@@ -194,5 +200,6 @@ public abstract class ViaCommandHandler implements ViaVersionCommand {
         registerSubCommand(new DontBugMeSubCmd());
         registerSubCommand(new AutoTeamSubCmd());
         registerSubCommand(new ReloadSubCmd());
+        registerSubCommand(new PlayerSubCmd());
     }
 }

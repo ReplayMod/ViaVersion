@@ -25,6 +25,7 @@ package com.viaversion.viaversion.api.type.types.item;
 import com.viaversion.viaversion.api.minecraft.item.DataItem;
 import com.viaversion.viaversion.api.minecraft.item.Item;
 import com.viaversion.viaversion.api.type.Type;
+import com.viaversion.viaversion.api.type.Types;
 import io.netty.buffer.ByteBuf;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
@@ -35,7 +36,7 @@ public class ItemType1_8 extends Type<Item> {
     }
 
     @Override
-    public @Nullable Item read(ByteBuf buffer) throws Exception {
+    public @Nullable Item read(ByteBuf buffer) {
         short id = buffer.readShort();
         if (id < 0) {
             return null;
@@ -44,20 +45,20 @@ public class ItemType1_8 extends Type<Item> {
             item.setIdentifier(id);
             item.setAmount(buffer.readByte());
             item.setData(buffer.readShort());
-            item.setTag(Type.NAMED_COMPOUND_TAG.read(buffer));
+            item.setTag(Types.NAMED_COMPOUND_TAG.read(buffer));
             return item;
         }
     }
 
     @Override
-    public void write(ByteBuf buffer, @Nullable Item object) throws Exception {
+    public void write(ByteBuf buffer, @Nullable Item object) {
         if (object == null) {
             buffer.writeShort(-1);
         } else {
             buffer.writeShort(object.identifier());
             buffer.writeByte(object.amount());
             buffer.writeShort(object.data());
-            Type.NAMED_COMPOUND_TAG.write(buffer, object.tag());
+            Types.NAMED_COMPOUND_TAG.write(buffer, object.tag());
         }
     }
 }

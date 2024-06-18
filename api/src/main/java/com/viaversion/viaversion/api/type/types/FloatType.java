@@ -25,6 +25,7 @@ package com.viaversion.viaversion.api.type.types;
 import com.viaversion.viaversion.api.type.OptionalType;
 import com.viaversion.viaversion.api.type.Type;
 import com.viaversion.viaversion.api.type.TypeConverter;
+import com.viaversion.viaversion.api.type.Types;
 import io.netty.buffer.ByteBuf;
 
 public class FloatType extends Type<Float> implements TypeConverter<Float> {
@@ -61,18 +62,18 @@ public class FloatType extends Type<Float> implements TypeConverter<Float> {
 
     @Override
     public Float from(Object o) {
-        if (o instanceof Number) {
-            return ((Number) o).floatValue();
-        } else if (o instanceof Boolean) {
-            return ((Boolean) o) ? 1F : 0;
+        if (o instanceof Number number) {
+            return number.floatValue();
+        } else if (o instanceof Boolean boo) {
+            return boo ? 1F : 0;
         }
-        return (Float) o;
+        throw new UnsupportedOperationException();
     }
 
     public static final class OptionalFloatType extends OptionalType<Float> {
 
         public OptionalFloatType() {
-            super(Type.FLOAT);
+            super(Types.FLOAT);
         }
     }
 }

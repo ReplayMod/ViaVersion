@@ -23,63 +23,31 @@
 package com.viaversion.viaversion.api.minecraft.item.data;
 
 import com.viaversion.viaversion.api.type.Type;
+import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.api.type.types.ArrayType;
 import io.netty.buffer.ByteBuf;
 
-public final class FireworkExplosion {
-    public static final Type<FireworkExplosion> TYPE = new Type<FireworkExplosion>(FireworkExplosion.class) {
+public record FireworkExplosion(int shape, int[] colors, int[] fadeColors, boolean hasTrail, boolean hasTwinkle) {
+    public static final Type<FireworkExplosion> TYPE = new Type<>(FireworkExplosion.class) {
         @Override
-        public FireworkExplosion read(final ByteBuf buffer) throws Exception {
-            final int shape = Type.VAR_INT.readPrimitive(buffer);
-            final int[] colors = Type.INT_ARRAY_PRIMITIVE.read(buffer);
-            final int[] fadeColors = Type.INT_ARRAY_PRIMITIVE.read(buffer);
+        public FireworkExplosion read(final ByteBuf buffer) {
+            final int shape = Types.VAR_INT.readPrimitive(buffer);
+            final int[] colors = Types.INT_ARRAY_PRIMITIVE.read(buffer);
+            final int[] fadeColors = Types.INT_ARRAY_PRIMITIVE.read(buffer);
             final boolean hasTrail = buffer.readBoolean();
             final boolean hasTwinkle = buffer.readBoolean();
             return new FireworkExplosion(shape, colors, fadeColors, hasTrail, hasTwinkle);
         }
 
         @Override
-        public void write(final ByteBuf buffer, final FireworkExplosion value) throws Exception {
-            Type.VAR_INT.writePrimitive(buffer, value.shape);
-            Type.INT_ARRAY_PRIMITIVE.write(buffer, value.colors);
-            Type.INT_ARRAY_PRIMITIVE.write(buffer, value.fadeColors);
+        public void write(final ByteBuf buffer, final FireworkExplosion value) {
+            Types.VAR_INT.writePrimitive(buffer, value.shape);
+            Types.INT_ARRAY_PRIMITIVE.write(buffer, value.colors);
+            Types.INT_ARRAY_PRIMITIVE.write(buffer, value.fadeColors);
             buffer.writeBoolean(value.hasTrail);
             buffer.writeBoolean(value.hasTwinkle);
         }
     };
     public static final Type<FireworkExplosion[]> ARRAY_TYPE = new ArrayType<>(TYPE);
 
-    private final int shape;
-    private final int[] colors;
-    private final int[] fadeColors;
-    private final boolean hasTrail;
-    private final boolean hasTwinkle;
-
-    public FireworkExplosion(final int shape, final int[] colors, final int[] fadeColors, final boolean hasTrail, final boolean hasTwinkle) {
-        this.shape = shape;
-        this.colors = colors;
-        this.fadeColors = fadeColors;
-        this.hasTrail = hasTrail;
-        this.hasTwinkle = hasTwinkle;
-    }
-
-    public int shape() {
-        return shape;
-    }
-
-    public int[] colors() {
-        return colors;
-    }
-
-    public int[] fadeColors() {
-        return fadeColors;
-    }
-
-    public boolean hasTrail() {
-        return hasTrail;
-    }
-
-    public boolean hasTwinkle() {
-        return hasTwinkle;
-    }
 }

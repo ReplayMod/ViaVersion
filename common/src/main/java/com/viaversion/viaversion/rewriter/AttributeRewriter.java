@@ -19,7 +19,7 @@ package com.viaversion.viaversion.rewriter;
 
 import com.viaversion.viaversion.api.protocol.Protocol;
 import com.viaversion.viaversion.api.protocol.packet.ClientboundPacketType;
-import com.viaversion.viaversion.api.type.Type;
+import com.viaversion.viaversion.api.type.Types;
 
 public class AttributeRewriter<C extends ClientboundPacketType> {
     private final Protocol<C, ?, ?, ?> protocol;
@@ -28,22 +28,40 @@ public class AttributeRewriter<C extends ClientboundPacketType> {
         this.protocol = protocol;
     }
 
-    public void register1_20_5(C packetType) {
+    public void register1_21(C packetType) {
         protocol.registerClientbound(packetType, wrapper -> {
-            wrapper.passthrough(Type.VAR_INT); // Entity ID
+            wrapper.passthrough(Types.VAR_INT); // Entity ID
 
-            final int size = wrapper.passthrough(Type.VAR_INT);
+            final int size = wrapper.passthrough(Types.VAR_INT);
+            int newSize = size;
             for (int i = 0; i < size; i++) {
-                final int attributeId = wrapper.read(Type.VAR_INT);
-                wrapper.write(Type.VAR_INT, protocol.getMappingData().getNewAttributeId(attributeId));
+                final int attributeId = wrapper.read(Types.VAR_INT);
+                final int mappedId = protocol.getMappingData().getNewAttributeId(attributeId);
+                if (mappedId == -1) {
+                    newSize--;
 
-                wrapper.passthrough(Type.DOUBLE); // Base
-                final int modifierSize = wrapper.passthrough(Type.VAR_INT);
-                for (int j = 0; j < modifierSize; j++) {
-                    wrapper.passthrough(Type.UUID); // ID
-                    wrapper.passthrough(Type.DOUBLE); // Amount
-                    wrapper.passthrough(Type.BYTE); // Operation
+                    wrapper.read(Types.DOUBLE); // Base
+                    final int modifierSize = wrapper.read(Types.VAR_INT);
+                    for (int j = 0; j < modifierSize; j++) {
+                        wrapper.read(Types.STRING); // ID
+                        wrapper.read(Types.DOUBLE); // Amount
+                        wrapper.read(Types.BYTE); // Operation
+                    }
+                    continue;
                 }
+
+                wrapper.write(Types.VAR_INT, mappedId);
+                wrapper.passthrough(Types.DOUBLE); // Base
+                final int modifierSize = wrapper.passthrough(Types.VAR_INT);
+                for (int j = 0; j < modifierSize; j++) {
+                    wrapper.passthrough(Types.STRING); // ID
+                    wrapper.passthrough(Types.DOUBLE); // Amount
+                    wrapper.passthrough(Types.BYTE); // Operation
+                }
+            }
+
+            if (size != newSize) {
+                wrapper.set(Types.VAR_INT, 1, newSize);
             }
         });
     }

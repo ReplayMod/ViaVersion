@@ -22,9 +22,10 @@
  */
 package com.viaversion.viaversion.api.type.types.misc;
 
-import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
+import com.viaversion.nbt.tag.CompoundTag;
 import com.viaversion.viaversion.api.type.OptionalType;
 import com.viaversion.viaversion.api.type.Type;
+import com.viaversion.viaversion.api.type.Types;
 import io.netty.buffer.ByteBuf;
 import java.io.IOException;
 
@@ -42,19 +43,27 @@ public class CompoundTagType extends Type<CompoundTag> {
     }
 
     @Override
-    public CompoundTag read(final ByteBuf buffer) throws IOException {
-        return NamedCompoundTagType.read(buffer, false);
+    public CompoundTag read(final ByteBuf buffer) {
+        try {
+            return NamedCompoundTagType.read(buffer, false);
+        } catch (final IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
-    public void write(final ByteBuf buffer, final CompoundTag object) throws IOException {
-        NamedCompoundTagType.write(buffer, object, null);
+    public void write(final ByteBuf buffer, final CompoundTag object) {
+        try {
+            NamedCompoundTagType.write(buffer, object, null);
+        } catch (final IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public static final class OptionalCompoundTagType extends OptionalType<CompoundTag> {
 
         public OptionalCompoundTagType() {
-            super(Type.COMPOUND_TAG);
+            super(Types.COMPOUND_TAG);
         }
     }
 }

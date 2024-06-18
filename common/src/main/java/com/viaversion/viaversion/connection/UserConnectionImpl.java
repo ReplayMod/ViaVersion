@@ -23,13 +23,15 @@ import com.viaversion.viaversion.api.connection.ProtocolInfo;
 import com.viaversion.viaversion.api.connection.StorableObject;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.data.entity.EntityTracker;
+import com.viaversion.viaversion.api.platform.ViaInjector;
 import com.viaversion.viaversion.api.protocol.Protocol;
 import com.viaversion.viaversion.api.protocol.packet.Direction;
 import com.viaversion.viaversion.api.protocol.packet.PacketTracker;
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.protocol.packet.State;
-import com.viaversion.viaversion.api.type.Type;
+import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.exception.CancelException;
+import com.viaversion.viaversion.exception.InformativeException;
 import com.viaversion.viaversion.protocol.packet.PacketWrapperImpl;
 import com.viaversion.viaversion.util.ChatColorUtil;
 import com.viaversion.viaversion.util.PipelineUtil;
@@ -37,6 +39,8 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelPipeline;
+import io.netty.handler.codec.CodecException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -56,14 +60,13 @@ public class UserConnectionImpl implements UserConnection {
     private final Map<Class<? extends Protocol>, EntityTracker> entityTrackers = new HashMap<>();
     private final PacketTracker packetTracker = new PacketTracker(this);
     private final Set<UUID> passthroughTokens = Collections.newSetFromMap(CacheBuilder.newBuilder()
-            .expireAfterWrite(10, TimeUnit.SECONDS)
-            .<UUID, Boolean>build().asMap());
-    private final ProtocolInfo protocolInfo = new ProtocolInfoImpl(this);
+        .expireAfterWrite(10, TimeUnit.SECONDS)
+        .<UUID, Boolean>build().asMap());
+    private final ProtocolInfo protocolInfo = new ProtocolInfoImpl();
     private final Channel channel;
     private final boolean clientSide;
     private boolean active = true;
     private boolean pendingDisconnect;
-    private boolean packetLimiterEnabled = true;
 
     /**
      * Creates an UserConnection. When it's a client-side connection, some method behaviors are modified.
@@ -160,24 +163,27 @@ public class UserConnectionImpl implements UserConnection {
         sendRawPacket(packet, false);
     }
 
-    private void sendRawPacket(final ByteBuf packet, boolean currentThread) {
-        Runnable act;
-        if (clientSide) {
-            // We'll just assume that Via decoder isn't wrapping the original decoder
-            act = () -> getChannel().pipeline()
-                    .context(Via.getManager().getInjector().getDecoderName()).fireChannelRead(packet);
-        } else {
-            act = () -> channel.pipeline().context(Via.getManager().getInjector().getEncoderName()).writeAndFlush(packet);
-        }
+    private void sendRawPacket(final ByteBuf packet, final boolean currentThread) {
         if (currentThread) {
-            act.run();
+            sendRawPacketNow(packet);
         } else {
             try {
-                channel.eventLoop().submit(act);
+                channel.eventLoop().submit(() -> sendRawPacketNow(packet));
             } catch (Throwable e) {
                 packet.release(); // Couldn't schedule
                 e.printStackTrace();
             }
+        }
+    }
+
+    private void sendRawPacketNow(final ByteBuf buf) {
+        final ChannelPipeline pipeline = getChannel().pipeline();
+        final ViaInjector injector = Via.getManager().getInjector();
+        if (clientSide) {
+            // We'll just assume that Via decoder isn't wrapping the original decoder
+            pipeline.context(injector.getDecoderName()).fireChannelRead(buf);
+        } else {
+            pipeline.context(injector.getEncoderName()).writeAndFlush(buf);
         }
     }
 
@@ -227,36 +233,25 @@ public class UserConnectionImpl implements UserConnection {
         }
     }
 
-    private void sendRawPacketToServerServerSide(final ByteBuf packet, boolean currentThread) {
+    private void sendRawPacketToServerServerSide(final ByteBuf packet, final boolean currentThread) {
         final ByteBuf buf = packet.alloc().buffer();
         try {
             // We'll use passing through because there are some encoder wrappers
             ChannelHandlerContext context = PipelineUtil
-                    .getPreviousContext(Via.getManager().getInjector().getDecoderName(), channel.pipeline());
+                .getPreviousContext(Via.getManager().getInjector().getDecoderName(), channel.pipeline());
 
             if (shouldTransformPacket()) {
                 // Bypass serverbound packet decoder transforming
-                try {
-                    Type.VAR_INT.writePrimitive(buf, PacketWrapper.PASSTHROUGH_ID);
-                    Type.UUID.write(buf, generatePassthroughToken());
-                } catch (Exception shouldNotHappen) {
-                    throw new RuntimeException(shouldNotHappen);
-                }
+                Types.VAR_INT.writePrimitive(buf, PacketWrapper.PASSTHROUGH_ID);
+                Types.UUID.write(buf, generatePassthroughToken());
             }
 
             buf.writeBytes(packet);
-            Runnable act = () -> {
-                if (context != null) {
-                    context.fireChannelRead(buf);
-                } else {
-                    channel.pipeline().fireChannelRead(buf);
-                }
-            };
             if (currentThread) {
-                act.run();
+                fireChannelRead(context, buf);
             } else {
                 try {
-                    channel.eventLoop().submit(act);
+                    channel.eventLoop().submit(() -> fireChannelRead(context, buf));
                 } catch (Throwable t) {
                     // Couldn't schedule
                     buf.release();
@@ -268,19 +263,29 @@ public class UserConnectionImpl implements UserConnection {
         }
     }
 
-    private void sendRawPacketToServerClientSide(final ByteBuf packet, boolean currentThread) {
-        Runnable act = () -> getChannel().pipeline()
-                .context(Via.getManager().getInjector().getEncoderName()).writeAndFlush(packet);
+    private void fireChannelRead(@Nullable final ChannelHandlerContext context, final ByteBuf buf) {
+        if (context != null) {
+            context.fireChannelRead(buf);
+        } else {
+            channel.pipeline().fireChannelRead(buf);
+        }
+    }
+
+    private void sendRawPacketToServerClientSide(final ByteBuf packet, final boolean currentThread) {
         if (currentThread) {
-            act.run();
+            writeAndFlush(packet);
         } else {
             try {
-                getChannel().eventLoop().submit(act);
+                getChannel().eventLoop().submit(() -> writeAndFlush(packet));
             } catch (Throwable e) {
                 e.printStackTrace();
                 packet.release(); // Couldn't schedule
             }
         }
+    }
+
+    private void writeAndFlush(final ByteBuf buf) {
+        getChannel().pipeline().context(Via.getManager().getInjector().getEncoderName()).writeAndFlush(buf);
     }
 
     @Override
@@ -289,7 +294,7 @@ public class UserConnectionImpl implements UserConnection {
             return false;
         }
         // Increment received + Check PPS
-        return !packetLimiterEnabled || !packetTracker.incrementReceived() || !packetTracker.exceedsMaxPPS();
+        return !packetTracker.isPacketLimiterEnabled() || !packetTracker.incrementReceived() || !packetTracker.exceedsMaxPPS();
     }
 
     @Override
@@ -304,21 +309,23 @@ public class UserConnectionImpl implements UserConnection {
     }
 
     @Override
-    public void transformClientbound(ByteBuf buf, Function<Throwable, Exception> cancelSupplier) throws Exception {
+    public void transformClientbound(ByteBuf buf, Function<Throwable, CodecException> cancelSupplier) throws InformativeException, CodecException {
         transform(buf, Direction.CLIENTBOUND, cancelSupplier);
     }
 
     @Override
-    public void transformServerbound(ByteBuf buf, Function<Throwable, Exception> cancelSupplier) throws Exception {
+    public void transformServerbound(ByteBuf buf, Function<Throwable, CodecException> cancelSupplier) throws InformativeException, CodecException {
         transform(buf, Direction.SERVERBOUND, cancelSupplier);
     }
 
-    private void transform(ByteBuf buf, Direction direction, Function<Throwable, Exception> cancelSupplier) throws Exception {
-        if (!buf.isReadable()) return;
+    private void transform(ByteBuf buf, Direction direction, Function<Throwable, CodecException> cancelSupplier) throws InformativeException, CodecException {
+        if (!buf.isReadable()) {
+            return;
+        }
 
-        int id = Type.VAR_INT.readPrimitive(buf);
+        int id = Types.VAR_INT.readPrimitive(buf);
         if (id == PacketWrapper.PASSTHROUGH_ID) {
-            if (!passthroughTokens.remove(Type.UUID.read(buf))) {
+            if (!passthroughTokens.remove(Types.UUID.read(buf))) {
                 throw new IllegalArgumentException("Invalid token");
             }
             return;
@@ -389,16 +396,6 @@ public class UserConnectionImpl implements UserConnection {
     @Override
     public boolean shouldApplyBlockProtocol() {
         return !clientSide; // Don't apply protocol blocking on client-side
-    }
-
-    @Override
-    public boolean isPacketLimiterEnabled() {
-        return packetLimiterEnabled;
-    }
-
-    @Override
-    public void setPacketLimiterEnabled(boolean packetLimiterEnabled) {
-        this.packetLimiterEnabled = packetLimiterEnabled;
     }
 
     @Override

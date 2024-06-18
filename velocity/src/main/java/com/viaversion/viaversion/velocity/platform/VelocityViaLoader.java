@@ -23,7 +23,7 @@ import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.platform.ViaPlatformLoader;
 import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import com.viaversion.viaversion.api.protocol.version.VersionProvider;
-import com.viaversion.viaversion.protocols.protocol1_9to1_8.providers.BossBarProvider;
+import com.viaversion.viaversion.protocols.v1_8to1_9.provider.BossBarProvider;
 import com.viaversion.viaversion.velocity.listeners.UpdateListener;
 import com.viaversion.viaversion.velocity.providers.VelocityBossBarProvider;
 import com.viaversion.viaversion.velocity.providers.VelocityVersionProvider;
@@ -33,7 +33,7 @@ public class VelocityViaLoader implements ViaPlatformLoader {
     @Override
     public void load() {
         Object plugin = VelocityPlugin.PROXY.getPluginManager()
-                .getPlugin("viaversion").flatMap(PluginContainer::getInstance).get();
+            .getPlugin("viaversion").flatMap(PluginContainer::getInstance).get();
 
         final ProtocolVersion protocolVersion = Via.getAPI().getServerVersion().lowestSupportedProtocolVersion();
         if (protocolVersion.olderThan(ProtocolVersion.v1_9)) {
@@ -49,8 +49,8 @@ public class VelocityViaLoader implements ViaPlatformLoader {
         int pingInterval = ((VelocityViaConfig) Via.getPlatform().getConf()).getVelocityPingInterval();
         if (pingInterval > 0) {
             Via.getPlatform().runRepeatingAsync(
-                    () -> Via.proxyPlatform().protocolDetectorService().probeAllServers(),
-                    pingInterval * 20L);
+                () -> Via.proxyPlatform().protocolDetectorService().probeAllServers(),
+                pingInterval * 20L);
         }
     }
 

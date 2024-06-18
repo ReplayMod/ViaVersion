@@ -22,9 +22,9 @@
  */
 package com.viaversion.viaversion.api.data;
 
-import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
-import com.github.steveice10.opennbt.tag.builtin.IntArrayTag;
-import com.github.steveice10.opennbt.tag.builtin.Tag;
+import com.viaversion.nbt.tag.CompoundTag;
+import com.viaversion.nbt.tag.IntArrayTag;
+import com.viaversion.nbt.tag.Tag;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.minecraft.RegistryType;
 import com.viaversion.viaversion.api.minecraft.TagData;
@@ -39,13 +39,13 @@ public class MappingDataBase implements MappingData {
 
     protected final String unmappedVersion;
     protected final String mappedVersion;
-    protected BiMappings itemMappings;
     protected FullMappings argumentTypeMappings;
     protected FullMappings entityMappings;
     protected FullMappings recipeSerializerMappings;
     protected FullMappings itemDataSerializerMappings;
     protected ParticleMappings particleMappings;
-    protected Mappings blockMappings;
+    protected BiMappings itemMappings;
+    protected BiMappings blockMappings;
     protected Mappings blockStateMappings;
     protected Mappings blockEntityMappings;
     protected Mappings soundMappings;
@@ -68,7 +68,7 @@ public class MappingDataBase implements MappingData {
         }
 
         final CompoundTag data = readMappingsFile("mappings-" + unmappedVersion + "to" + mappedVersion + ".nbt");
-        blockMappings = loadMappings(data, "blocks");
+        blockMappings = loadBiMappings(data, "blocks");
         blockStateMappings = loadMappings(data, "blockstates");
         blockEntityMappings = loadMappings(data, "blockentities");
         soundMappings = loadMappings(data, "sounds");
@@ -107,6 +107,7 @@ public class MappingDataBase implements MappingData {
             this.tags = new EnumMap<>(RegistryType.class);
             loadTags(RegistryType.ITEM, tagsTag);
             loadTags(RegistryType.BLOCK, tagsTag);
+            loadTags(RegistryType.ENTITY, tagsTag);
         }
 
         loadExtras(data);
@@ -175,6 +176,11 @@ public class MappingDataBase implements MappingData {
     @Override
     public int getNewBlockId(final int id) {
         return checkValidity(id, blockMappings.getNewId(id), "block");
+    }
+
+    @Override
+    public int getOldBlockId(final int id) {
+        return blockMappings.getNewIdOrDefault(id, 1);
     }
 
     @Override

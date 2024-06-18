@@ -28,6 +28,7 @@ import com.viaversion.viaversion.api.minecraft.data.StructuredData;
 import com.viaversion.viaversion.api.minecraft.data.StructuredDataKey;
 import com.viaversion.viaversion.api.protocol.Protocol;
 import com.viaversion.viaversion.api.type.Type;
+import com.viaversion.viaversion.api.type.Types;
 import io.netty.buffer.ByteBuf;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
@@ -40,15 +41,15 @@ public class StructuredDataType extends Type<StructuredData<?>> {
     }
 
     @Override
-    public void write(final ByteBuf buffer, final StructuredData<?> object) throws Exception {
-        Type.VAR_INT.writePrimitive(buffer, object.id());
+    public void write(final ByteBuf buffer, final StructuredData<?> object) {
+        Types.VAR_INT.writePrimitive(buffer, object.id());
         object.write(buffer);
     }
 
     @Override
-    public StructuredData<?> read(final ByteBuf buffer) throws Exception {
+    public StructuredData<?> read(final ByteBuf buffer) {
         Preconditions.checkNotNull(types, "StructuredDataType has not been initialized");
-        final int id = Type.VAR_INT.readPrimitive(buffer);
+        final int id = Types.VAR_INT.readPrimitive(buffer);
         final StructuredDataKey<?> key = this.types[id];
         if (key == null) {
             throw new IllegalArgumentException("No data component serializer found for id " + id);
@@ -60,7 +61,7 @@ public class StructuredDataType extends Type<StructuredData<?>> {
         return id >= 0 && id < types.length ? types[id] : null;
     }
 
-    private <T> StructuredData<T> readData(final ByteBuf buffer, final StructuredDataKey<T> key, final int id) throws Exception {
+    private <T> StructuredData<T> readData(final ByteBuf buffer, final StructuredDataKey<T> key, final int id) {
         return StructuredData.of(key, key.type().read(buffer), id);
     }
 
@@ -82,6 +83,7 @@ public class StructuredDataType extends Type<StructuredData<?>> {
         public DataFiller add(final StructuredDataKey<?> key) {
             final int id = mappings.mappedId(key.identifier());
             Preconditions.checkArgument(id != -1, "No mapped id found for %s", key.identifier());
+            Preconditions.checkArgument(types[id] == null, "Data component serializer already exists for id %s", id);
             types[id] = key;
             return this;
         }

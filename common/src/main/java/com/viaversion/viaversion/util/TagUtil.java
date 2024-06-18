@@ -17,9 +17,9 @@
  */
 package com.viaversion.viaversion.util;
 
-import com.github.steveice10.opennbt.tag.builtin.CompoundTag;
-import com.github.steveice10.opennbt.tag.builtin.ListTag;
-import com.github.steveice10.opennbt.tag.builtin.Tag;
+import com.viaversion.nbt.tag.CompoundTag;
+import com.viaversion.nbt.tag.ListTag;
+import com.viaversion.nbt.tag.Tag;
 import java.util.Map;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
@@ -30,12 +30,9 @@ public final class TagUtil {
     }
 
     public static ListTag<CompoundTag> getRegistryEntries(final CompoundTag tag, final String key, final @Nullable ListTag<CompoundTag> defaultValue) {
-        CompoundTag registry = tag.getCompoundTag(Key.namespaced(key));
+        CompoundTag registry = getNamespacedCompoundTag(tag, key);
         if (registry == null) {
-            registry = tag.getCompoundTag(Key.stripMinecraftNamespace(key));
-            if (registry == null) {
-                return defaultValue;
-            }
+            return defaultValue;
         }
         return registry.getListTag("value", CompoundTag.class);
     }
@@ -62,19 +59,23 @@ public final class TagUtil {
         return tag.remove(Key.namespaced(key)) != null || tag.remove(Key.stripMinecraftNamespace(key)) != null;
     }
 
+    public static @Nullable CompoundTag getNamespacedCompoundTag(final CompoundTag tag, final String key) {
+        final CompoundTag compoundTag = tag.getCompoundTag(Key.namespaced(key));
+        return compoundTag != null ? compoundTag : tag.getCompoundTag(Key.stripMinecraftNamespace(key));
+    }
+
     public static Tag handleDeep(final Tag tag, final TagUpdater consumer) {
         return handleDeep(null, tag, consumer);
     }
 
     private static Tag handleDeep(@Nullable final String key, final Tag tag, final TagUpdater consumer) {
-        if (tag instanceof CompoundTag) {
-            final CompoundTag compoundTag = (CompoundTag) tag;
+        if (tag instanceof final CompoundTag compoundTag) {
             for (final Map.Entry<String, Tag> entry : compoundTag.entrySet()) {
                 final Tag updatedTag = handleDeep(entry.getKey(), entry.getValue(), consumer);
                 entry.setValue(updatedTag);
             }
-        } else if (tag instanceof ListTag) {
-            handleListTag((ListTag<?>) tag, consumer);
+        } else if (tag instanceof ListTag<?> listTag) {
+            handleListTag(listTag, consumer);
         }
         return consumer.update(key, tag);
     }

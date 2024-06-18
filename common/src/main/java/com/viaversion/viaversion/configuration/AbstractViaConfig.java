@@ -18,6 +18,7 @@
 package com.viaversion.viaversion.configuration;
 
 import com.google.gson.JsonElement;
+import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.configuration.ViaVersionConfig;
 import com.viaversion.viaversion.api.minecraft.WorldIdentifiers;
 import com.viaversion.viaversion.api.protocol.version.BlockedProtocolVersions;
@@ -28,6 +29,7 @@ import java.io.File;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Logger;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import it.unimi.dsi.fastutil.objects.ObjectSet;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -88,9 +90,10 @@ public abstract class AbstractViaConfig extends Config implements ViaVersionConf
     private boolean cache1_17Light;
     private boolean translateOcelotToCat;
     private boolean enforceSecureChat;
+    private boolean handleInvalidItemCount;
 
-    protected AbstractViaConfig(final File configFile) {
-        super(configFile);
+    protected AbstractViaConfig(final File configFile, final Logger logger) {
+        super(configFile, logger);
     }
 
     @Override
@@ -100,7 +103,7 @@ public abstract class AbstractViaConfig extends Config implements ViaVersionConf
     }
 
     protected void loadFields() {
-        checkForUpdates = getBoolean("checkforupdates", true);
+        checkForUpdates = getBoolean("check-for-updates", true);
         preventCollision = getBoolean("prevent-collision", true);
         useNewEffectIndicator = getBoolean("use-new-effect-indicator", true);
         useNewDeathmessages = getBoolean("use-new-deathmessages", true);
@@ -152,11 +155,12 @@ public abstract class AbstractViaConfig extends Config implements ViaVersionConf
         resourcePack1_17PromptMessage = getSerializedComponent("resource-pack-1_17-prompt");
         Map<String, String> worlds = get("map-1_16-world-names", new HashMap<>());
         map1_16WorldNames = new WorldIdentifiers(worlds.getOrDefault("overworld", WorldIdentifiers.OVERWORLD_DEFAULT),
-                worlds.getOrDefault("nether", WorldIdentifiers.NETHER_DEFAULT),
-                worlds.getOrDefault("end", WorldIdentifiers.END_DEFAULT));
+            worlds.getOrDefault("nether", WorldIdentifiers.NETHER_DEFAULT),
+            worlds.getOrDefault("end", WorldIdentifiers.END_DEFAULT));
         cache1_17Light = getBoolean("cache-1_17-light", true);
         translateOcelotToCat = getBoolean("translate-ocelot-to-cat", true);
         enforceSecureChat = getBoolean("enforce-secure-chat", false);
+        handleInvalidItemCount = getBoolean("handle-invalid-item-count", false);
     }
 
     private BlockedProtocolVersions loadBlockedProtocolVersions() {
@@ -180,12 +184,12 @@ public abstract class AbstractViaConfig extends Config implements ViaVersionConf
 
                 if (c == '<') {
                     if (lowerBound.isKnown()) {
-                        LOGGER.warning("Already set lower bound " + lowerBound + " overridden by " + protocolVersion.getName());
+                        logger.warning("Already set lower bound " + lowerBound + " overridden by " + protocolVersion.getName());
                     }
                     lowerBound = protocolVersion;
                 } else {
                     if (upperBound.isKnown()) {
-                        LOGGER.warning("Already set upper bound " + upperBound + " overridden by " + protocolVersion.getName());
+                        logger.warning("Already set upper bound " + upperBound + " overridden by " + protocolVersion.getName());
                     }
                     upperBound = protocolVersion;
                 }
@@ -199,7 +203,7 @@ public abstract class AbstractViaConfig extends Config implements ViaVersionConf
 
             // Add single protocol version and check for duplication
             if (!blockedProtocols.add(protocolVersion)) {
-                LOGGER.warning("Duplicated blocked protocol version " + protocolVersion);
+                logger.warning("Duplicated blocked protocol version " + protocolVersion);
             }
         }
 
@@ -209,7 +213,7 @@ public abstract class AbstractViaConfig extends Config implements ViaVersionConf
             final ProtocolVersion finalUpperBound = upperBound;
             blockedProtocols.removeIf(version -> {
                 if (finalLowerBound.isKnown() && version.olderThan(finalLowerBound) || finalUpperBound.isKnown() && version.newerThan(finalUpperBound)) {
-                    LOGGER.warning("Blocked protocol version " + version + " already covered by upper or lower bound");
+                    logger.warning("Blocked protocol version " + version + " already covered by upper or lower bound");
                     return true;
                 }
                 return false;
@@ -221,7 +225,7 @@ public abstract class AbstractViaConfig extends Config implements ViaVersionConf
     private @Nullable ProtocolVersion protocolVersion(String s) {
         ProtocolVersion protocolVersion = ProtocolVersion.getClosest(s);
         if (protocolVersion == null) {
-            LOGGER.warning("Unknown protocol version in block-versions: " + s);
+            logger.warning("Unknown protocol version in block-versions: " + s);
             return null;
         }
         return protocolVersion;
@@ -411,7 +415,7 @@ public abstract class AbstractViaConfig extends Config implements ViaVersionConf
 
     @Override
     public boolean isSuppressConversionWarnings() {
-        return suppressConversionWarnings;
+        return suppressConversionWarnings && !Via.getManager().isDebug(); // Debug mode overrules config
     }
 
     @Override
@@ -532,5 +536,10 @@ public abstract class AbstractViaConfig extends Config implements ViaVersionConf
     @Override
     public boolean enforceSecureChat() {
         return enforceSecureChat;
+    }
+
+    @Override
+    public boolean handleInvalidItemCount() {
+        return handleInvalidItemCount;
     }
 }
