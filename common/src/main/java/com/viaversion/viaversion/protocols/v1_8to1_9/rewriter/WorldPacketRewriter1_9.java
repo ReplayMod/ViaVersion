@@ -21,8 +21,8 @@ import com.viaversion.nbt.tag.CompoundTag;
 import com.viaversion.nbt.tag.StringTag;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.minecraft.BlockFace;
-import com.viaversion.viaversion.api.minecraft.ClientWorld;
 import com.viaversion.viaversion.api.minecraft.BlockPosition;
+import com.viaversion.viaversion.api.minecraft.ChunkPosition;
 import com.viaversion.viaversion.api.minecraft.chunks.BaseChunk;
 import com.viaversion.viaversion.api.minecraft.chunks.Chunk;
 import com.viaversion.viaversion.api.minecraft.chunks.ChunkSection;
@@ -45,7 +45,7 @@ import com.viaversion.viaversion.protocols.v1_8to1_9.packet.ServerboundPackets1_
 import com.viaversion.viaversion.protocols.v1_8to1_9.packet.ServerboundPackets1_9;
 import com.viaversion.viaversion.protocols.v1_8to1_9.provider.CommandBlockProvider;
 import com.viaversion.viaversion.protocols.v1_8to1_9.provider.HandItemProvider;
-import com.viaversion.viaversion.protocols.v1_8to1_9.storage.ClientChunks;
+import com.viaversion.viaversion.protocols.v1_8to1_9.storage.ClientWorld1_9;
 import com.viaversion.viaversion.protocols.v1_8to1_9.storage.EntityTracker1_9;
 import com.viaversion.viaversion.util.ComponentUtil;
 import com.viaversion.viaversion.util.Key;
@@ -112,6 +112,10 @@ public class WorldPacketRewriter1_9 {
                     }
                     wrapper.set(Types.STRING, 0, newname);
                     wrapper.write(Types.VAR_INT, catid); // Write Category ID
+
+                    if (!Via.getConfig().cancelBlockSounds()) {
+                        return;
+                    }
                     if (effect != null && effect.isBreakSound()) {
                         EntityTracker1_9 tracker = wrapper.user().getEntityTracker(Protocol1_8To1_9.class);
                         int x = wrapper.passthrough(Types.INT); //Position X
@@ -126,11 +130,10 @@ public class WorldPacketRewriter1_9 {
         });
 
         protocol.registerClientbound(ClientboundPackets1_8.LEVEL_CHUNK, wrapper -> {
-            ClientWorld clientWorld = wrapper.user().get(ClientWorld.class);
-            ClientChunks clientChunks = wrapper.user().get(ClientChunks.class);
+            ClientWorld1_9 clientWorld = wrapper.user().getClientWorld(Protocol1_8To1_9.class);
             Chunk chunk = wrapper.read(ChunkType1_8.forEnvironment(clientWorld.getEnvironment()));
 
-            long chunkHash = ClientChunks.toLong(chunk.getX(), chunk.getZ());
+            long chunkHash = ChunkPosition.chunkKey(chunk.getX(), chunk.getZ());
 
             // Check if the chunk should be handled as an unload packet
             if (chunk.isFullChunk() && chunk.getBitmask() == 0) {
@@ -142,14 +145,14 @@ public class WorldPacketRewriter1_9 {
                 CommandBlockProvider provider = Via.getManager().getProviders().get(CommandBlockProvider.class);
                 provider.unloadChunk(wrapper.user(), chunk.getX(), chunk.getZ());
 
-                clientChunks.getLoadedChunks().remove(chunkHash);
+                clientWorld.getLoadedChunks().remove(chunkHash);
 
                 // Unload the empty chunks
                 if (Via.getConfig().isChunkBorderFix()) {
                     for (BlockFace face : BlockFace.HORIZONTAL) {
                         int chunkX = chunk.getX() + face.modX();
                         int chunkZ = chunk.getZ() + face.modZ();
-                        if (!clientChunks.getLoadedChunks().contains(ClientChunks.toLong(chunkX, chunkZ))) {
+                        if (!clientWorld.getLoadedChunks().contains(ChunkPosition.chunkKey(chunkX, chunkZ))) {
                             PacketWrapper unloadChunk = wrapper.create(ClientboundPackets1_9.FORGET_LEVEL_CHUNK);
                             unloadChunk.write(Types.INT, chunkX);
                             unloadChunk.write(Types.INT, chunkZ);
@@ -161,14 +164,14 @@ public class WorldPacketRewriter1_9 {
                 Type<Chunk> chunkType = ChunkType1_9_1.forEnvironment(clientWorld.getEnvironment());
                 wrapper.write(chunkType, chunk);
 
-                clientChunks.getLoadedChunks().add(chunkHash);
+                clientWorld.getLoadedChunks().add(chunkHash);
 
                 // Send empty chunks surrounding the loaded chunk to force 1.9+ clients to render the new chunk
                 if (Via.getConfig().isChunkBorderFix()) {
                     for (BlockFace face : BlockFace.HORIZONTAL) {
                         int chunkX = chunk.getX() + face.modX();
                         int chunkZ = chunk.getZ() + face.modZ();
-                        if (!clientChunks.getLoadedChunks().contains(ClientChunks.toLong(chunkX, chunkZ))) {
+                        if (!clientWorld.getLoadedChunks().contains(ChunkPosition.chunkKey(chunkX, chunkZ))) {
                             PacketWrapper emptyChunk = wrapper.create(ClientboundPackets1_9.LEVEL_CHUNK);
                             Chunk c = new BaseChunk(chunkX, chunkZ, true, false, 0, new ChunkSection[16], new int[256], new ArrayList<>());
                             emptyChunk.write(chunkType, c);
@@ -181,8 +184,7 @@ public class WorldPacketRewriter1_9 {
 
         protocol.registerClientbound(ClientboundPackets1_8.MAP_BULK_CHUNK, null, wrapper -> {
             wrapper.cancel(); // Cancel the packet from being sent
-            ClientWorld clientWorld = wrapper.user().get(ClientWorld.class);
-            ClientChunks clientChunks = wrapper.user().get(ClientChunks.class);
+            ClientWorld1_9 clientWorld = wrapper.user().getClientWorld(Protocol1_8To1_9.class);
             Chunk[] chunks = wrapper.read(BulkChunkType1_8.TYPE);
 
             Type<Chunk> chunkType = ChunkType1_9_1.forEnvironment(clientWorld.getEnvironment());
@@ -192,14 +194,14 @@ public class WorldPacketRewriter1_9 {
                 chunkData.write(chunkType, chunk);
                 chunkData.send(Protocol1_8To1_9.class);
 
-                clientChunks.getLoadedChunks().add(ClientChunks.toLong(chunk.getX(), chunk.getZ()));
+                clientWorld.getLoadedChunks().add(ChunkPosition.chunkKey(chunk.getX(), chunk.getZ()));
 
                 // Send empty chunks surrounding the loaded chunk to force 1.9+ clients to render the new chunk
                 if (Via.getConfig().isChunkBorderFix()) {
                     for (BlockFace face : BlockFace.HORIZONTAL) {
                         int chunkX = chunk.getX() + face.modX();
                         int chunkZ = chunk.getZ() + face.modZ();
-                        if (!clientChunks.getLoadedChunks().contains(ClientChunks.toLong(chunkX, chunkZ))) {
+                        if (!clientWorld.getLoadedChunks().contains(ChunkPosition.chunkKey(chunkX, chunkZ))) {
                             PacketWrapper emptyChunk = wrapper.create(ClientboundPackets1_9.LEVEL_CHUNK);
                             Chunk c = new BaseChunk(chunkX, chunkZ, true, false, 0, new ChunkSection[16], new int[256], new ArrayList<>());
                             emptyChunk.write(chunkType, c);
@@ -358,7 +360,27 @@ public class WorldPacketRewriter1_9 {
                 map(Types.UNSIGNED_BYTE); // 5 - Y
                 map(Types.UNSIGNED_BYTE); // 6 - Z
 
-                //Register block place to fix sounds
+                // Handle CommandBlocks
+                handler(wrapper -> {
+                    CommandBlockProvider provider = Via.getManager().getProviders().get(CommandBlockProvider.class);
+
+                    BlockPosition pos = wrapper.get(Types.BLOCK_POSITION1_8, 0);
+                    Optional<CompoundTag> tag = provider.get(wrapper.user(), pos);
+                    // Send the Update Block Entity packet if present
+                    if (tag.isPresent()) {
+                        PacketWrapper updateBlockEntity = PacketWrapper.create(ClientboundPackets1_9.BLOCK_ENTITY_DATA, null, wrapper.user());
+
+                        updateBlockEntity.write(Types.BLOCK_POSITION1_8, pos);
+                        updateBlockEntity.write(Types.UNSIGNED_BYTE, (short) 2);
+                        updateBlockEntity.write(Types.NAMED_COMPOUND_TAG, tag.get());
+
+                        updateBlockEntity.scheduleSend(Protocol1_8To1_9.class);
+                    }
+                });
+
+                if (!Via.getConfig().cancelBlockSounds()) {
+                    return;
+                }
                 handler(wrapper -> {
                     int face = wrapper.get(Types.UNSIGNED_BYTE, 0);
                     if (face == 255)
@@ -378,25 +400,6 @@ public class WorldPacketRewriter1_9 {
                     EntityTracker1_9 tracker = wrapper.user().getEntityTracker(Protocol1_8To1_9.class);
                     tracker.addBlockInteraction(new BlockPosition(x, y, z));
                 });
-
-                // Handle CommandBlocks
-                handler(wrapper -> {
-                    CommandBlockProvider provider = Via.getManager().getProviders().get(CommandBlockProvider.class);
-
-                    BlockPosition pos = wrapper.get(Types.BLOCK_POSITION1_8, 0);
-                    Optional<CompoundTag> tag = provider.get(wrapper.user(), pos);
-                    // Send the Update Block Entity packet if present
-                    if (tag.isPresent()) {
-                        PacketWrapper updateBlockEntity = PacketWrapper.create(ClientboundPackets1_9.BLOCK_ENTITY_DATA, null, wrapper.user());
-
-                        updateBlockEntity.write(Types.BLOCK_POSITION1_8, pos);
-                        updateBlockEntity.write(Types.UNSIGNED_BYTE, (short) 2);
-                        updateBlockEntity.write(Types.NAMED_COMPOUND_TAG, tag.get());
-
-                        updateBlockEntity.scheduleSend(Protocol1_8To1_9.class);
-                    }
-                });
-
             }
         });
     }

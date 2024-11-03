@@ -45,6 +45,7 @@ import com.viaversion.viaversion.protocols.v1_18_2to1_19.storage.DimensionRegist
 import com.viaversion.viaversion.protocols.v1_18_2to1_19.storage.NonceStorage1_19;
 import com.viaversion.viaversion.protocols.v1_18_2to1_19.storage.SequenceStorage;
 import com.viaversion.viaversion.rewriter.CommandRewriter;
+import com.viaversion.viaversion.rewriter.ParticleRewriter;
 import com.viaversion.viaversion.rewriter.SoundRewriter;
 import com.viaversion.viaversion.rewriter.StatisticsRewriter;
 import com.viaversion.viaversion.rewriter.TagRewriter;
@@ -57,6 +58,7 @@ public final class Protocol1_18_2To1_19 extends AbstractProtocol<ClientboundPack
     public static final MappingData1_19 MAPPINGS = new MappingData1_19();
     private final EntityPacketRewriter1_19 entityRewriter = new EntityPacketRewriter1_19(this);
     private final ItemPacketRewriter1_19 itemRewriter = new ItemPacketRewriter1_19(this);
+    private final ParticleRewriter<ClientboundPackets1_18> particleRewriter = new ParticleRewriter<>(this);
     private final TagRewriter<ClientboundPackets1_18> tagRewriter = new TagRewriter<>(this);
 
     public Protocol1_18_2To1_19() {
@@ -232,7 +234,7 @@ public final class Protocol1_18_2To1_19 extends AbstractProtocol<ClientboundPack
         cancelServerbound(ServerboundPackets1_19.CHAT_PREVIEW);
 
         // Login changes
-        registerClientbound(State.LOGIN, ClientboundLoginPackets.GAME_PROFILE.getId(), ClientboundLoginPackets.GAME_PROFILE.getId(), new PacketHandlers() {
+        registerClientbound(State.LOGIN, ClientboundLoginPackets.LOGIN_FINISHED, new PacketHandlers() {
             @Override
             public void register() {
                 map(Types.UUID); // UUID
@@ -241,7 +243,7 @@ public final class Protocol1_18_2To1_19 extends AbstractProtocol<ClientboundPack
             }
         });
 
-        registerClientbound(State.LOGIN, ClientboundLoginPackets.HELLO.getId(), ClientboundLoginPackets.HELLO.getId(), new PacketHandlers() {
+        registerClientbound(State.LOGIN, ClientboundLoginPackets.HELLO, new PacketHandlers() {
             @Override
             public void register() {
                 map(Types.STRING); // Server id
@@ -253,7 +255,7 @@ public final class Protocol1_18_2To1_19 extends AbstractProtocol<ClientboundPack
             }
         });
 
-        registerServerbound(State.LOGIN, ServerboundLoginPackets.HELLO.getId(), ServerboundLoginPackets.HELLO.getId(), new PacketHandlers() {
+        registerServerbound(State.LOGIN, ServerboundLoginPackets.HELLO, new PacketHandlers() {
             @Override
             public void register() {
                 map(Types.STRING); // Name
@@ -261,7 +263,7 @@ public final class Protocol1_18_2To1_19 extends AbstractProtocol<ClientboundPack
             }
         });
 
-        registerServerbound(State.LOGIN, ServerboundLoginPackets.ENCRYPTION_KEY.getId(), ServerboundLoginPackets.ENCRYPTION_KEY.getId(), new PacketHandlers() {
+        registerServerbound(State.LOGIN, ServerboundLoginPackets.ENCRYPTION_KEY, new PacketHandlers() {
             @Override
             public void register() {
                 map(Types.BYTE_ARRAY_PRIMITIVE); // Keys
@@ -345,6 +347,11 @@ public final class Protocol1_18_2To1_19 extends AbstractProtocol<ClientboundPack
     @Override
     public ItemPacketRewriter1_19 getItemRewriter() {
         return itemRewriter;
+    }
+
+    @Override
+    public ParticleRewriter<ClientboundPackets1_18> getParticleRewriter() {
+        return particleRewriter;
     }
 
     @Override

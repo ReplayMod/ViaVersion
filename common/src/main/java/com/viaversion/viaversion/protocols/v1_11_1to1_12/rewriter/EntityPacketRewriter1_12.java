@@ -17,13 +17,18 @@
  */
 package com.viaversion.viaversion.protocols.v1_11_1to1_12.rewriter;
 
+import com.viaversion.viaversion.api.minecraft.ClientWorld;
 import com.viaversion.viaversion.api.minecraft.entities.EntityType;
 import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_12;
 import com.viaversion.viaversion.api.minecraft.item.Item;
 import com.viaversion.viaversion.api.protocol.remapper.PacketHandlers;
+import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.api.type.types.version.Types1_12;
+import com.viaversion.viaversion.api.type.types.version.Types1_9;
 import com.viaversion.viaversion.protocols.v1_11_1to1_12.Protocol1_11_1To1_12;
+import com.viaversion.viaversion.protocols.v1_12_2to1_13.Protocol1_12_2To1_13;
+import com.viaversion.viaversion.protocols.v1_12_2to1_13.packet.ClientboundPackets1_13;
 import com.viaversion.viaversion.protocols.v1_9_1to1_9_3.packet.ClientboundPackets1_9_3;
 import com.viaversion.viaversion.rewriter.EntityRewriter;
 
@@ -35,6 +40,40 @@ public class EntityPacketRewriter1_12 extends EntityRewriter<ClientboundPackets1
 
     @Override
     protected void registerPackets() {
+        protocol.registerClientbound(ClientboundPackets1_9_3.LOGIN, new PacketHandlers() {
+            @Override
+            public void register() {
+                map(Types.INT);
+                map(Types.UNSIGNED_BYTE);
+                map(Types.INT);
+                handler(wrapper -> {
+                    ClientWorld clientWorld = wrapper.user().getClientWorld(Protocol1_11_1To1_12.class);
+                    int dimensionId = wrapper.get(Types.INT, 1);
+                    clientWorld.setEnvironment(dimensionId);
+
+                    // Reset recipes
+                    if (wrapper.user().getProtocolInfo().protocolVersion().newerThanOrEqualTo(ProtocolVersion.v1_13)) {
+                        wrapper.create(ClientboundPackets1_13.UPDATE_RECIPES, packetWrapper -> packetWrapper.write(Types.VAR_INT, 0))
+                            .scheduleSend(Protocol1_12_2To1_13.class);
+                    }
+                });
+            }
+        });
+
+        protocol.registerClientbound(ClientboundPackets1_9_3.RESPAWN, new PacketHandlers() {
+            @Override
+            public void register() {
+                map(Types.INT);
+                handler(wrapper -> {
+                    ClientWorld clientWorld = wrapper.user().getClientWorld(Protocol1_11_1To1_12.class);
+                    int dimensionId = wrapper.get(Types.INT, 0);
+                    if (clientWorld.setEnvironment(dimensionId)) {
+                        tracker(wrapper.user()).clearEntities();
+                    }
+                });
+            }
+        });
+
         protocol.registerClientbound(ClientboundPackets1_9_3.ADD_ENTITY, new PacketHandlers() {
             @Override
             public void register() {
@@ -62,22 +101,22 @@ public class EntityPacketRewriter1_12 extends EntityRewriter<ClientboundPackets1
                 map(Types.SHORT); // 9 - Velocity X
                 map(Types.SHORT); // 10 - Velocity Y
                 map(Types.SHORT); // 11 - Velocity Z
-                map(Types1_12.ENTITY_DATA_LIST); // 12 - Metadata
+                map(Types1_9.ENTITY_DATA_LIST, Types1_12.ENTITY_DATA_LIST); // 12 - Entity data
 
-                // Track mob and rewrite metadata
+                // Track mob and rewrite entity data
                 handler(trackerAndRewriterHandler(Types1_12.ENTITY_DATA_LIST));
             }
         });
 
         registerRemoveEntities(ClientboundPackets1_9_3.REMOVE_ENTITIES);
-        registerSetEntityData(ClientboundPackets1_9_3.SET_ENTITY_DATA, Types1_12.ENTITY_DATA_LIST);
+        registerSetEntityData(ClientboundPackets1_9_3.SET_ENTITY_DATA, Types1_9.ENTITY_DATA_LIST, Types1_12.ENTITY_DATA_LIST);
     }
 
     @Override
     protected void registerRewrites() {
-        filter().handler((event, meta) -> {
-            if (meta.getValue() instanceof Item) {
-                meta.setValue(protocol.getItemRewriter().handleItemToClient(event.user(), meta.value()));
+        filter().handler((event, data) -> {
+            if (data.getValue() instanceof Item) {
+                data.setValue(protocol.getItemRewriter().handleItemToClient(event.user(), data.value()));
             }
         });
 

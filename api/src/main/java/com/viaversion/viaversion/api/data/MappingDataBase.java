@@ -43,6 +43,7 @@ public class MappingDataBase implements MappingData {
     protected FullMappings entityMappings;
     protected FullMappings recipeSerializerMappings;
     protected FullMappings itemDataSerializerMappings;
+    protected FullMappings attributeMappings;
     protected ParticleMappings particleMappings;
     protected BiMappings itemMappings;
     protected BiMappings blockMappings;
@@ -53,7 +54,6 @@ public class MappingDataBase implements MappingData {
     protected Mappings enchantmentMappings;
     protected Mappings paintingMappings;
     protected Mappings menuMappings;
-    protected Mappings attributeMappings;
     protected Map<RegistryType, List<TagData>> tags;
 
     public MappingDataBase(final String unmappedVersion, final String mappedVersion) {
@@ -76,8 +76,6 @@ public class MappingDataBase implements MappingData {
         menuMappings = loadMappings(data, "menus");
         enchantmentMappings = loadMappings(data, "enchantments");
         paintingMappings = loadMappings(data, "paintings");
-        attributeMappings = loadMappings(data, "attributes");
-
 
         final CompoundTag unmappedIdentifierData = readUnmappedIdentifiersFile("identifiers-" + unmappedVersion + ".nbt");
         final CompoundTag mappedIdentifierData = readMappedIdentifiersFile("identifiers-" + mappedVersion + ".nbt");
@@ -87,6 +85,7 @@ public class MappingDataBase implements MappingData {
             argumentTypeMappings = loadFullMappings(data, unmappedIdentifierData, mappedIdentifierData, "argumenttypes");
             recipeSerializerMappings = loadFullMappings(data, unmappedIdentifierData, mappedIdentifierData, "recipe_serializers");
             itemDataSerializerMappings = loadFullMappings(data, unmappedIdentifierData, mappedIdentifierData, "data_component_type");
+            attributeMappings = loadFullMappings(data, unmappedIdentifierData, mappedIdentifierData, "attributes");
 
             final List<String> unmappedParticles = identifiersFromGlobalIds(unmappedIdentifierData, "particles");
             final List<String> mappedParticles = identifiersFromGlobalIds(mappedIdentifierData, "particles");
@@ -180,7 +179,7 @@ public class MappingDataBase implements MappingData {
 
     @Override
     public int getOldBlockId(final int id) {
-        return blockMappings.getNewIdOrDefault(id, 1);
+        return blockMappings.inverse().getNewIdOrDefault(id, 1);
     }
 
     @Override
@@ -201,6 +200,16 @@ public class MappingDataBase implements MappingData {
     @Override
     public int getNewAttributeId(final int id) {
         return checkValidity(id, attributeMappings.getNewId(id), "attributes");
+    }
+
+    @Override
+    public int getNewSoundId(final int id) {
+        return checkValidity(id, soundMappings.getNewId(id), "sound");
+    }
+
+    @Override
+    public int getOldSoundId(final int i) {
+        return soundMappings.getNewIdOrDefault(i, 0);
     }
 
     @Override
@@ -262,7 +271,7 @@ public class MappingDataBase implements MappingData {
     }
 
     @Override
-    public @Nullable Mappings getAttributeMappings() {
+    public @Nullable FullMappings getAttributeMappings() {
         return attributeMappings;
     }
 

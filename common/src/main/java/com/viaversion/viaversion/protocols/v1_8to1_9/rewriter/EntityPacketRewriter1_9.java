@@ -23,10 +23,10 @@ import com.viaversion.viaversion.api.minecraft.EulerAngle;
 import com.viaversion.viaversion.api.minecraft.Vector;
 import com.viaversion.viaversion.api.minecraft.entities.EntityType;
 import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_9;
-import com.viaversion.viaversion.api.minecraft.item.Item;
 import com.viaversion.viaversion.api.minecraft.entitydata.EntityData;
 import com.viaversion.viaversion.api.minecraft.entitydata.EntityDataType;
 import com.viaversion.viaversion.api.minecraft.entitydata.types.EntityDataTypes1_8;
+import com.viaversion.viaversion.api.minecraft.item.Item;
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.protocol.remapper.PacketHandlers;
 import com.viaversion.viaversion.api.protocol.remapper.ValueTransformer;
@@ -210,30 +210,30 @@ public class EntityPacketRewriter1_9 extends EntityRewriter<ClientboundPackets1_
             @Override
             public void register() {
                 map(Types.VAR_INT); // 0 - Entity ID
-                map(Types1_8.ENTITY_DATA_LIST, Types1_9.ENTITY_DATA_LIST); // 1 - Metadata List
+                map(Types1_8.ENTITY_DATA_LIST, Types1_9.ENTITY_DATA_LIST); // 1 - Entity data List
                 handler(wrapper -> {
-                    List<EntityData> metadataList = wrapper.get(Types1_9.ENTITY_DATA_LIST, 0);
+                    List<EntityData> entityDataList = wrapper.get(Types1_9.ENTITY_DATA_LIST, 0);
                     int entityId = wrapper.get(Types.VAR_INT, 0);
                     EntityTracker1_9 tracker = wrapper.user().getEntityTracker(Protocol1_8To1_9.class);
                     if (tracker.hasEntity(entityId)) {
-                        handleEntityData(entityId, metadataList, wrapper.user());
+                        handleEntityData(entityId, entityDataList, wrapper.user());
                     } else {
                         wrapper.cancel();
                     }
                 });
 
-                // Handler for meta data
+                // Handler for entity data
                 handler(wrapper -> {
-                    List<EntityData> metadataList = wrapper.get(Types1_9.ENTITY_DATA_LIST, 0);
+                    List<EntityData> entityDataList = wrapper.get(Types1_9.ENTITY_DATA_LIST, 0);
                     int entityID = wrapper.get(Types.VAR_INT, 0);
                     EntityTracker1_9 tracker = wrapper.user().getEntityTracker(Protocol1_8To1_9.class);
-                    tracker.handleMetadata(entityID, metadataList);
+                    tracker.handleEntityData(entityID, entityDataList);
                 });
 
                 // Cancel packet if list empty
                 handler(wrapper -> {
-                    List<EntityData> metadataList = wrapper.get(Types1_9.ENTITY_DATA_LIST, 0);
-                    if (metadataList.isEmpty()) {
+                    List<EntityData> entityDataList = wrapper.get(Types1_9.ENTITY_DATA_LIST, 0);
+                    if (entityDataList.isEmpty()) {
                         wrapper.cancel();
                     }
                 });
@@ -278,8 +278,6 @@ public class EntityPacketRewriter1_9 extends EntityRewriter<ClientboundPackets1_
             public void register() {
                 map(Types.VAR_INT);
                 handler(wrapper -> {
-                    if (!Via.getConfig().isMinimizeCooldown()) return;
-
                     EntityTracker1_9 tracker = wrapper.user().getEntityTracker(Protocol1_8To1_9.class);
                     if (wrapper.get(Types.VAR_INT, 0) != tracker.getProvidedEntityId()) {
                         return;
@@ -302,11 +300,8 @@ public class EntityPacketRewriter1_9 extends EntityRewriter<ClientboundPackets1_
                         }
                         properties.put(key, new Pair<>(value, modifiers));
                     }
-
-                    // == Why 15.9? ==
-                    // Higher values hides the cooldown but it bugs visual animation on hand
-                    // when removing item from hand with inventory gui
-                    properties.put("generic.attackSpeed", new Pair<>(15.9, ImmutableList.of( // Neutralize modifiers
+                    
+                    properties.put("generic.attackSpeed", new Pair<>(20.0, ImmutableList.of( // Neutralize modifiers
                         new Triple<>(UUID.fromString("FA233E1C-4180-4865-B01B-BCCE9785ACA3"), 0.0, (byte) 0), // Tool and weapon modifier
                         new Triple<>(UUID.fromString("AF8B6E3F-3328-4C0A-AA36-5BA2BB9DBEF3"), 0.0, (byte) 2), // Dig speed
                         new Triple<>(UUID.fromString("55FCED67-E92A-486E-9800-B47F202C4386"), 0.0, (byte) 2) // Dig slow down
@@ -388,48 +383,48 @@ public class EntityPacketRewriter1_9 extends EntityRewriter<ClientboundPackets1_
 
     @Override
     protected void registerRewrites() {
-        filter().handler(this::handleMetadata);
+        filter().handler(this::handleEntityData);
     }
 
-    private void handleMetadata(EntityDataHandlerEvent event, EntityData metadata) {
+    private void handleEntityData(EntityDataHandlerEvent event, EntityData data) {
         EntityType type = event.entityType();
-        EntityDataIndex1_9 metaIndex = EntityDataIndex1_9.searchIndex(type, metadata.id());
-        if (metaIndex == null) {
+        EntityDataIndex1_9 dataIndex = EntityDataIndex1_9.searchIndex(type, data.id());
+        if (dataIndex == null) {
             // Almost certainly bad data, remove it
             event.cancel();
             return;
         }
 
-        if (metaIndex.getNewType() == null) {
+        if (dataIndex.getNewType() == null) {
             event.cancel();
             return;
         }
 
-        metadata.setId(metaIndex.getNewIndex());
-        metadata.setDataTypeUnsafe(metaIndex.getNewType());
+        data.setId(dataIndex.getNewIndex());
+        data.setDataTypeUnsafe(dataIndex.getNewType());
 
-        Object value = metadata.getValue();
-        switch (metaIndex.getNewType()) {
-            case BYTE:
+        Object value = data.getValue();
+        switch (dataIndex.getNewType()) {
+            case BYTE -> {
                 // convert from int, byte
-                if (metaIndex.getOldType() == EntityDataTypes1_8.BYTE) {
-                    metadata.setValue(value);
+                if (dataIndex.getOldType() == EntityDataTypes1_8.BYTE) {
+                    data.setValue(value);
                 }
-                if (metaIndex.getOldType() == EntityDataTypes1_8.INT) {
-                    metadata.setValue(((Integer) value).byteValue());
+                if (dataIndex.getOldType() == EntityDataTypes1_8.INT) {
+                    data.setValue(((Integer) value).byteValue());
                 }
                 // After writing the last one
-                if (metaIndex == EntityDataIndex1_9.ENTITY_STATUS && type == EntityTypes1_9.EntityType.PLAYER) {
+                if (dataIndex == EntityDataIndex1_9.ENTITY_STATUS && type == EntityTypes1_9.EntityType.PLAYER) {
                     byte val = 0;
                     if ((((Byte) value) & 0x10) == 0x10) { // Player eating/aiming/drinking
                         val = 1;
                     }
                     int newIndex = EntityDataIndex1_9.PLAYER_HAND.getNewIndex();
-                    EntityDataType metaType = EntityDataIndex1_9.PLAYER_HAND.getNewType();
-                    event.createExtraData(new EntityData(newIndex, metaType, val));
+                    EntityDataType dataType = EntityDataIndex1_9.PLAYER_HAND.getNewType();
+                    event.createExtraData(new EntityData(newIndex, dataType, val));
                 }
-                break;
-            case OPTIONAL_UUID:
+            }
+            case OPTIONAL_UUID -> {
                 String owner = (String) value;
                 UUID toWrite = null;
                 if (!owner.isEmpty()) {
@@ -438,52 +433,46 @@ public class EntityPacketRewriter1_9 extends EntityRewriter<ClientboundPackets1_
                     } catch (Exception ignored) {
                     }
                 }
-                metadata.setValue(toWrite);
-                break;
-            case VAR_INT:
+                data.setValue(toWrite);
+            }
+            case VAR_INT -> {
                 // convert from int, short, byte
-                if (metaIndex.getOldType() == EntityDataTypes1_8.BYTE) {
-                    metadata.setValue(((Byte) value).intValue());
+                if (dataIndex.getOldType() == EntityDataTypes1_8.BYTE) {
+                    data.setValue(((Byte) value).intValue());
                 }
-                if (metaIndex.getOldType() == EntityDataTypes1_8.SHORT) {
-                    metadata.setValue(((Short) value).intValue());
+                if (dataIndex.getOldType() == EntityDataTypes1_8.SHORT) {
+                    data.setValue(((Short) value).intValue());
                 }
-                if (metaIndex.getOldType() == EntityDataTypes1_8.INT) {
-                    metadata.setValue(value);
+                if (dataIndex.getOldType() == EntityDataTypes1_8.INT) {
+                    data.setValue(value);
                 }
-                break;
-            case FLOAT, STRING:
-                metadata.setValue(value);
-                break;
-            case BOOLEAN:
-                if (metaIndex == EntityDataIndex1_9.ABSTRACT_AGEABLE_AGE)
-                    metadata.setValue((Byte) value < 0);
+            }
+            case FLOAT, STRING -> data.setValue(value);
+            case BOOLEAN -> {
+                if (dataIndex == EntityDataIndex1_9.ABSTRACT_AGEABLE_AGE)
+                    data.setValue((Byte) value < 0);
                 else
-                    metadata.setValue((Byte) value != 0);
-                break;
-            case ITEM:
-                metadata.setValue(value);
-                protocol.getItemRewriter().handleItemToClient(event.user(), (Item) metadata.getValue());
-                break;
-            case BLOCK_POSITION:
+                    data.setValue((Byte) value != 0);
+            }
+            case ITEM -> {
+                data.setValue(value);
+                protocol.getItemRewriter().handleItemToClient(event.user(), (Item) data.getValue());
+            }
+            case BLOCK_POSITION -> {
                 Vector vector = (Vector) value;
-                metadata.setValue(vector);
-                break;
-            case ROTATIONS:
+                data.setValue(vector);
+            }
+            case ROTATIONS -> {
                 EulerAngle angle = (EulerAngle) value;
-                metadata.setValue(angle);
-                break;
-            case COMPONENT:
+                data.setValue(angle);
+            }
+            case COMPONENT -> {
                 // Was previously also a component, so just convert it
                 String text = (String) value;
-                metadata.setValue(ComponentUtil.convertJsonOrEmpty(text, SerializerVersion.V1_8, SerializerVersion.V1_9));
-                break;
-            case OPTIONAL_BLOCK_STATE:
-                // Convert from int, short, byte
-                metadata.setValue(((Number) value).intValue());
-                break;
-            default:
-                throw new RuntimeException("Unhandled MetaDataType: " + metaIndex.getNewType());
+                data.setValue(ComponentUtil.convertJsonOrEmpty(text, SerializerVersion.V1_8, SerializerVersion.V1_9));
+            }
+            case OPTIONAL_BLOCK_STATE -> data.setValue(((Number) value).intValue()); // Convert from int, short, byte
+            default -> throw new RuntimeException("Unhandled EntityDataType: " + dataIndex.getNewType());
         }
     }
 

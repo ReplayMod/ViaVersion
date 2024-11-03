@@ -25,21 +25,26 @@ import com.viaversion.viaversion.api.protocol.version.BlockedProtocolVersions;
 import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import com.viaversion.viaversion.protocol.BlockedProtocolVersionsImpl;
 import com.viaversion.viaversion.util.Config;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ObjectSet;
 import java.io.File;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
-import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
-import it.unimi.dsi.fastutil.objects.ObjectSet;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 public abstract class AbstractViaConfig extends Config implements ViaVersionConfig {
+    public static final List<String> BUKKIT_ONLY_OPTIONS = Arrays.asList("register-userconnections-on-join", "quick-move-action-fix",
+        "change-1_9-hitbox", "change-1_14-hitbox", "blockconnection-method", "armor-toggle-fix", "use-new-deathmessages",
+        "item-cache", "nms-player-ticking");
+
+    public static final List<String> VELOCITY_ONLY_OPTIONS = Arrays.asList("velocity-ping-interval", "velocity-ping-save", "velocity-servers");
 
     private boolean checkForUpdates;
     private boolean preventCollision;
     private boolean useNewEffectIndicator;
-    private boolean useNewDeathmessages;
     private boolean suppressMetadataErrors;
     private boolean shieldBlocking;
     private boolean noDelayShieldBlocking;
@@ -57,8 +62,6 @@ public abstract class AbstractViaConfig extends Config implements ViaVersionConf
     private String maxPPSWarningsKickMessage;
     private boolean sendSupportedVersions;
     private boolean simulatePlayerTick;
-    private boolean itemCache;
-    private boolean nmsPlayerTicking;
     private boolean replacePistons;
     private int pistonReplacementId;
     private boolean chunkBorderFix;
@@ -69,7 +72,6 @@ public abstract class AbstractViaConfig extends Config implements ViaVersionConf
     private String reloadDisconnectMessage;
     private boolean suppressConversionWarnings;
     private boolean disable1_13TabComplete;
-    private boolean minimizeCooldown;
     private boolean teamColourFix;
     private boolean serversideBlockConnections;
     private boolean reduceBlockStorageMemory;
@@ -91,6 +93,9 @@ public abstract class AbstractViaConfig extends Config implements ViaVersionConf
     private boolean translateOcelotToCat;
     private boolean enforceSecureChat;
     private boolean handleInvalidItemCount;
+    private boolean cancelBlockSounds;
+    private boolean hideScoreboardNumbers;
+    private boolean fix1_21PlacementRotation;
 
     protected AbstractViaConfig(final File configFile, final Logger logger) {
         super(configFile, logger);
@@ -106,7 +111,6 @@ public abstract class AbstractViaConfig extends Config implements ViaVersionConf
         checkForUpdates = getBoolean("check-for-updates", true);
         preventCollision = getBoolean("prevent-collision", true);
         useNewEffectIndicator = getBoolean("use-new-effect-indicator", true);
-        useNewDeathmessages = getBoolean("use-new-deathmessages", true);
         suppressMetadataErrors = getBoolean("suppress-metadata-errors", false);
         shieldBlocking = getBoolean("shield-blocking", true);
         noDelayShieldBlocking = getBoolean("no-delay-shield-blocking", false);
@@ -124,8 +128,6 @@ public abstract class AbstractViaConfig extends Config implements ViaVersionConf
         maxPPSWarningsKickMessage = getString("tracking-max-kick-msg", "You are sending too many packets, :(");
         sendSupportedVersions = getBoolean("send-supported-versions", false);
         simulatePlayerTick = getBoolean("simulate-pt", true);
-        itemCache = getBoolean("item-cache", true);
-        nmsPlayerTicking = getBoolean("nms-player-ticking", true);
         replacePistons = getBoolean("replace-pistons", false);
         pistonReplacementId = getInt("replacement-piston-id", 0);
         chunkBorderFix = getBoolean("chunk-border-fix", false);
@@ -134,7 +136,6 @@ public abstract class AbstractViaConfig extends Config implements ViaVersionConf
         blockedProtocolVersions = loadBlockedProtocolVersions();
         blockedDisconnectMessage = getString("block-disconnect-msg", "You are using an unsupported Minecraft version!");
         reloadDisconnectMessage = getString("reload-disconnect-msg", "Server reload, please rejoin!");
-        minimizeCooldown = getBoolean("minimize-cooldown", true);
         teamColourFix = getBoolean("team-colour-fix", true);
         suppressConversionWarnings = getBoolean("suppress-conversion-warnings", false);
         disable1_13TabComplete = getBoolean("disable-1_13-auto-complete", false);
@@ -161,6 +162,9 @@ public abstract class AbstractViaConfig extends Config implements ViaVersionConf
         translateOcelotToCat = getBoolean("translate-ocelot-to-cat", true);
         enforceSecureChat = getBoolean("enforce-secure-chat", false);
         handleInvalidItemCount = getBoolean("handle-invalid-item-count", false);
+        cancelBlockSounds = getBoolean("cancel-block-sounds", true);
+        hideScoreboardNumbers = getBoolean("hide-scoreboard-numbers", false);
+        fix1_21PlacementRotation = getBoolean("fix-1_21-placement-rotation", false);
     }
 
     private BlockedProtocolVersions loadBlockedProtocolVersions() {
@@ -254,7 +258,7 @@ public abstract class AbstractViaConfig extends Config implements ViaVersionConf
 
     @Override
     public boolean isShowNewDeathMessages() {
-        return useNewDeathmessages;
+        return false;
     }
 
     @Override
@@ -344,12 +348,12 @@ public abstract class AbstractViaConfig extends Config implements ViaVersionConf
 
     @Override
     public boolean isItemCache() {
-        return itemCache;
+        return false;
     }
 
     @Override
     public boolean isNMSPlayerTicking() {
-        return nmsPlayerTicking;
+        return false;
     }
 
     @Override
@@ -401,11 +405,6 @@ public abstract class AbstractViaConfig extends Config implements ViaVersionConf
     @Override
     public String getReloadDisconnectMsg() {
         return reloadDisconnectMessage;
-    }
-
-    @Override
-    public boolean isMinimizeCooldown() {
-        return minimizeCooldown;
     }
 
     @Override
@@ -541,5 +540,20 @@ public abstract class AbstractViaConfig extends Config implements ViaVersionConf
     @Override
     public boolean handleInvalidItemCount() {
         return handleInvalidItemCount;
+    }
+
+    @Override
+    public boolean cancelBlockSounds() {
+        return cancelBlockSounds;
+    }
+
+    @Override
+    public boolean hideScoreboardNumbers() {
+        return hideScoreboardNumbers;
+    }
+
+    @Override
+    public boolean fix1_21PlacementRotation() {
+        return fix1_21PlacementRotation;
     }
 }

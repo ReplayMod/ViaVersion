@@ -37,7 +37,7 @@ import com.viaversion.viaversion.protocols.v1_16_4to1_17.packet.ServerboundPacke
 import com.viaversion.viaversion.protocols.v1_16_4to1_17.rewriter.EntityPacketRewriter1_17;
 import com.viaversion.viaversion.protocols.v1_16_4to1_17.rewriter.ItemPacketRewriter1_17;
 import com.viaversion.viaversion.protocols.v1_16_4to1_17.rewriter.WorldPacketRewriter1_17;
-import com.viaversion.viaversion.protocols.v1_16_4to1_17.storage.InventoryAcknowledgements;
+import com.viaversion.viaversion.rewriter.ParticleRewriter;
 import com.viaversion.viaversion.rewriter.SoundRewriter;
 import com.viaversion.viaversion.rewriter.StatisticsRewriter;
 import com.viaversion.viaversion.rewriter.TagRewriter;
@@ -47,6 +47,7 @@ public final class Protocol1_16_4To1_17 extends AbstractProtocol<ClientboundPack
     public static final MappingData MAPPINGS = new MappingDataBase("1.16.2", "1.17");
     private final EntityPacketRewriter1_17 entityRewriter = new EntityPacketRewriter1_17(this);
     private final ItemPacketRewriter1_17 itemRewriter = new ItemPacketRewriter1_17(this);
+    private final ParticleRewriter<ClientboundPackets1_16_2> particleRewriter = new ParticleRewriter<>(this);
     private final TagRewriter<ClientboundPackets1_16_2> tagRewriter = new TagRewriter<>(this);
 
     public Protocol1_16_4To1_17() {
@@ -68,7 +69,7 @@ public final class Protocol1_16_4To1_17 extends AbstractProtocol<ClientboundPack
                 wrapper.write(Types.STRING, type.resourceLocation());
 
                 // Id conversion
-                tagRewriter.handle(wrapper, tagRewriter.getRewriter(type), tagRewriter.getNewTags(type));
+                tagRewriter.handle(wrapper, type);
 
                 // Stop iterating after entity types
                 if (type == RegistryType.ENTITY) {
@@ -86,6 +87,8 @@ public final class Protocol1_16_4To1_17 extends AbstractProtocol<ClientboundPack
         SoundRewriter<ClientboundPackets1_16_2> soundRewriter = new SoundRewriter<>(this);
         soundRewriter.registerSound(ClientboundPackets1_16_2.SOUND);
         soundRewriter.registerSound(ClientboundPackets1_16_2.SOUND_ENTITY);
+
+        particleRewriter.registerLevelParticles1_13(ClientboundPackets1_16_2.LEVEL_PARTICLES, Types.DOUBLE);
 
         registerClientbound(ClientboundPackets1_16_2.RESOURCE_PACK, wrapper -> {
             wrapper.passthrough(Types.STRING);
@@ -192,7 +195,6 @@ public final class Protocol1_16_4To1_17 extends AbstractProtocol<ClientboundPack
     @Override
     public void init(UserConnection user) {
         addEntityTracker(user, new EntityTrackerBase(user, EntityTypes1_17.PLAYER));
-        user.put(new InventoryAcknowledgements());
     }
 
     @Override
@@ -208,6 +210,11 @@ public final class Protocol1_16_4To1_17 extends AbstractProtocol<ClientboundPack
     @Override
     public ItemPacketRewriter1_17 getItemRewriter() {
         return itemRewriter;
+    }
+
+    @Override
+    public ParticleRewriter<ClientboundPackets1_16_2> getParticleRewriter() {
+        return particleRewriter;
     }
 
     @Override

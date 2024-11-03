@@ -48,6 +48,30 @@ public final class EntityPacketRewriter1_17 extends EntityRewriter<ClientboundPa
         registerTracker(ClientboundPackets1_16_2.ADD_PLAYER, EntityTypes1_17.PLAYER);
         registerSetEntityData(ClientboundPackets1_16_2.SET_ENTITY_DATA, Types1_16.ENTITY_DATA_LIST, Types1_17.ENTITY_DATA_LIST);
 
+        protocol.appendClientbound(ClientboundPackets1_16_2.ADD_ENTITY, wrapper -> {
+            final int entityType = wrapper.get(Types.VAR_INT, 1);
+            if (entityType != EntityTypes1_17.ITEM_FRAME.getId()) {
+                return;
+            }
+
+            // Older clients will ignore the data field and the server sets the item frame rotation by the yaw/pitch field inside the packet,
+            // newer clients do the opposite and ignore yaw/pitch and use the data field from the packet.
+            final int entityId = wrapper.get(Types.VAR_INT, 0);
+
+            final byte pitch = wrapper.get(Types.BYTE, 0);
+            final byte yaw = wrapper.get(Types.BYTE, 1);
+
+            final PacketWrapper setDirection = PacketWrapper.create(ClientboundPackets1_17.MOVE_ENTITY_ROT, wrapper.user());
+            setDirection.write(Types.VAR_INT, entityId);
+            setDirection.write(Types.BYTE, yaw);
+            setDirection.write(Types.BYTE, pitch);
+            setDirection.write(Types.BOOLEAN, false); // On Ground
+
+            wrapper.send(Protocol1_16_4To1_17.class);
+            wrapper.cancel();
+            setDirection.send(Protocol1_16_4To1_17.class);
+        });
+
         protocol.registerClientbound(ClientboundPackets1_16_2.REMOVE_ENTITIES, null, wrapper -> {
             int[] entityIds = wrapper.read(Types.VAR_INT_ARRAY_PRIMITIVE);
             wrapper.cancel();
@@ -92,6 +116,8 @@ public final class EntityPacketRewriter1_17 extends EntityRewriter<ClientboundPa
         protocol.registerClientbound(ClientboundPackets1_16_2.RESPAWN, wrapper -> {
             CompoundTag dimensionData = wrapper.passthrough(Types.NAMED_COMPOUND_TAG);
             addNewDimensionData(dimensionData);
+
+            tracker(wrapper.user()).clearEntities();
         });
 
         protocol.registerClientbound(ClientboundPackets1_16_2.UPDATE_ATTRIBUTES, new PacketHandlers() {
@@ -136,11 +162,11 @@ public final class EntityPacketRewriter1_17 extends EntityRewriter<ClientboundPa
     @Override
     protected void registerRewrites() {
         filter().mapDataType(Types1_17.ENTITY_DATA_TYPES::byId);
-        filter().dataType(Types1_17.ENTITY_DATA_TYPES.poseType).handler((event, meta) -> {
-            int pose = meta.value();
+        filter().dataType(Types1_17.ENTITY_DATA_TYPES.poseType).handler((event, data) -> {
+            int pose = data.value();
             if (pose > 5) {
                 // Added LONG_JUMP at 6
-                meta.setValue(pose + 1);
+                data.setValue(pose + 1);
             }
         });
         registerEntityDataTypeHandler(Types1_17.ENTITY_DATA_TYPES.itemType, Types1_17.ENTITY_DATA_TYPES.optionalBlockStateType, Types1_17.ENTITY_DATA_TYPES.particleType);

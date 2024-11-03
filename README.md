@@ -1,7 +1,7 @@
 # ViaVersion
 
 [![Latest Release](https://img.shields.io/github/v/release/ViaVersion/ViaVersion)](https://viaversion.com)
-[![Build Status](https://github.com/ViaVersion/ViaVersion/actions/workflows/gradle.yml/badge.svg?branch=master)](https://github.com/ViaVersion/ViaVersion/actions)
+[![Build Status](https://github.com/ViaVersion/ViaVersion/actions/workflows/build.yml/badge.svg?branch=master)](https://github.com/ViaVersion/ViaVersion/actions)
 [![Discord](https://img.shields.io/badge/chat-on%20discord-blue.svg)](https://viaversion.com/discord)
 
 **Allows the connection of higher client versions to lower server versions -
@@ -9,14 +9,14 @@ it works on any platform you can think of.**
 
 The base ViaVersion jar runs on Paper and Velocity. We also have projects integrating ViaVersion to run
 on Fabric, Forge, Bungee, Sponge, or as a standalone proxy to join from basically any client version on
-any server version from the past decade. **See [HERE](https://github.com/ViaVersion) for an overview of the different Via\* projects.**
+any server version from the past decade. **See [HERE](https://viaversion.com) for an overview of the different Via\* projects.**
 
-Note that ViaVersion will be able to **run best on either Paper servers or Fabric clients** due to having
+Note that ViaVersion will be able to **run best on either Paper servers or through [ViaFabricPlus](https://github.com/ViaVersion/ViaFabricPlus?tab=readme-ov-file#viafabricplus)** due to having
 direct access to client/server state and more extensive API.
 
 Supported Versions:
 
-![Table (https://i.imgur.com/sTrVnC2.png)](https://i.imgur.com/sTrVnC2.png)
+![Table (https://i.imgur.com/zrQTcf0.png)](https://i.imgur.com/zrQTcf0.png)
 
 **User Docs:** https://docs.viaversion.com/display/VIAVERSION/
 
@@ -83,7 +83,7 @@ You need JDK 17 or newer to build ViaVersion.
 
 Mapping Files
 --------------
-Mapping files are generated and managed in our [Mappings repository](https://github.com/ViaVersion/Mappings).
+Mapping files are generated and managed in our [Mappings repository](https://github.com/ViaVersion/Mappings). The generated mapping output is stored [here](./common/src/main/resources/assets/viaversion).
 
 
 Resources
@@ -96,7 +96,7 @@ Resources
 
 License
 --------
-The entirety of the [API directory](api) (including the legacy API directory) is licensed under the MIT License;
+The entirety of the [API directory](api) is licensed under the MIT License;
 see [licenses/MIT.md](licenses/MIT.md) for
 details.
 

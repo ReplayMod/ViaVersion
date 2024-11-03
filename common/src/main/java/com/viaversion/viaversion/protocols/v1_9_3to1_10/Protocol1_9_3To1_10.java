@@ -36,7 +36,6 @@ import com.viaversion.viaversion.protocols.v1_9_1to1_9_3.packet.ServerboundPacke
 import com.viaversion.viaversion.protocols.v1_9_3to1_10.rewriter.ItemPacketRewriter1_10;
 import com.viaversion.viaversion.protocols.v1_9_3to1_10.storage.ResourcePackTracker;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 public class Protocol1_9_3To1_10 extends AbstractProtocol<ClientboundPackets1_9_3, ClientboundPackets1_9_3, ServerboundPackets1_9_3, ServerboundPackets1_9_3> {
 
@@ -46,15 +45,15 @@ public class Protocol1_9_3To1_10 extends AbstractProtocol<ClientboundPackets1_9_
             return inputValue / 63.0F;
         }
     };
-    public static final ValueTransformer<List<EntityData>, List<EntityData>> TRANSFORM_METADATA = new ValueTransformer<>(Types1_9.ENTITY_DATA_LIST) {
+    public static final ValueTransformer<List<EntityData>, List<EntityData>> TRANSFORM_ENTITY_DATA = new ValueTransformer<>(Types1_9.ENTITY_DATA_LIST) {
         @Override
         public List<EntityData> transform(PacketWrapper wrapper, List<EntityData> inputValue) {
-            List<EntityData> metaList = new CopyOnWriteArrayList<>(inputValue);
-            for (EntityData m : metaList) {
-                if (m.id() >= 5)
-                    m.setId(m.id() + 1);
+            for (EntityData data : inputValue) {
+                if (data.id() >= 5) {
+                    data.setId(data.id() + 1);
+                }
             }
-            return metaList;
+            return inputValue;
         }
     };
     private final ItemPacketRewriter1_10 itemRewriter = new ItemPacketRewriter1_10(this);
@@ -100,12 +99,12 @@ public class Protocol1_9_3To1_10 extends AbstractProtocol<ClientboundPackets1_9_
             }
         });
 
-        // Metadata packet
+        // Entity data packet
         registerClientbound(ClientboundPackets1_9_3.SET_ENTITY_DATA, new PacketHandlers() {
             @Override
             public void register() {
                 map(Types.VAR_INT); // 0 - Entity ID
-                map(Types1_9.ENTITY_DATA_LIST, TRANSFORM_METADATA); // 1 - Metadata list
+                map(Types1_9.ENTITY_DATA_LIST, TRANSFORM_ENTITY_DATA); // 1 - Entity data list
             }
         });
 
@@ -125,7 +124,7 @@ public class Protocol1_9_3To1_10 extends AbstractProtocol<ClientboundPackets1_9_
                 map(Types.SHORT); // 9 - Velocity X
                 map(Types.SHORT); // 10 - Velocity Y
                 map(Types.SHORT); // 11 - Velocity Z
-                map(Types1_9.ENTITY_DATA_LIST, TRANSFORM_METADATA); // 12 - Metadata
+                map(Types1_9.ENTITY_DATA_LIST, TRANSFORM_ENTITY_DATA); // 12 - Entity data
             }
         });
 
@@ -140,7 +139,7 @@ public class Protocol1_9_3To1_10 extends AbstractProtocol<ClientboundPackets1_9_
                 map(Types.DOUBLE); // 4 - Z
                 map(Types.BYTE); // 5 - Yaw
                 map(Types.BYTE); // 6 - Pitch
-                map(Types1_9.ENTITY_DATA_LIST, TRANSFORM_METADATA); // 7 - Metadata list
+                map(Types1_9.ENTITY_DATA_LIST, TRANSFORM_ENTITY_DATA); // 7 - Entity data list
             }
         });
 
@@ -153,7 +152,7 @@ public class Protocol1_9_3To1_10 extends AbstractProtocol<ClientboundPackets1_9_
                 map(Types.INT); // 2 - Dimension
 
                 handler(wrapper -> {
-                    ClientWorld clientWorld = wrapper.user().get(ClientWorld.class);
+                    ClientWorld clientWorld = wrapper.user().getClientWorld(Protocol1_9_3To1_10.class);
 
                     int dimensionId = wrapper.get(Types.INT, 1);
                     clientWorld.setEnvironment(dimensionId);
@@ -168,7 +167,7 @@ public class Protocol1_9_3To1_10 extends AbstractProtocol<ClientboundPackets1_9_
                 map(Types.INT); // 0 - Dimension ID
 
                 handler(wrapper -> {
-                    ClientWorld clientWorld = wrapper.user().get(ClientWorld.class);
+                    ClientWorld clientWorld = wrapper.user().getClientWorld(Protocol1_9_3To1_10.class);
 
                     int dimensionId = wrapper.get(Types.INT, 0);
                     clientWorld.setEnvironment(dimensionId);
@@ -178,7 +177,7 @@ public class Protocol1_9_3To1_10 extends AbstractProtocol<ClientboundPackets1_9_
 
         // Chunk Data
         registerClientbound(ClientboundPackets1_9_3.LEVEL_CHUNK, wrapper -> {
-            ClientWorld clientWorld = wrapper.user().get(ClientWorld.class);
+            ClientWorld clientWorld = wrapper.user().getClientWorld(Protocol1_9_3To1_10.class);
             Chunk chunk = wrapper.passthrough(ChunkType1_9_3.forEnvironment(clientWorld.getEnvironment()));
 
             if (Via.getConfig().isReplacePistons()) {
@@ -234,11 +233,9 @@ public class Protocol1_9_3To1_10 extends AbstractProtocol<ClientboundPackets1_9_
 
     @Override
     public void init(UserConnection userConnection) {
-        userConnection.put(new ResourcePackTracker());
+        userConnection.addClientWorld(this.getClass(), new ClientWorld());
 
-        if (!userConnection.has(ClientWorld.class)) {
-            userConnection.put(new ClientWorld());
-        }
+        userConnection.put(new ResourcePackTracker());
     }
 
     @Override

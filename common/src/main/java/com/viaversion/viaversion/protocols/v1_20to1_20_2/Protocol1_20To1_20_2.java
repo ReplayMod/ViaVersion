@@ -18,6 +18,7 @@
 package com.viaversion.viaversion.protocols.v1_20to1_20_2;
 
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.viaversion.nbt.tag.CompoundTag;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.connection.ProtocolInfo;
@@ -52,6 +53,7 @@ import com.viaversion.viaversion.protocols.v1_20to1_20_2.storage.ConfigurationSt
 import com.viaversion.viaversion.protocols.v1_20to1_20_2.storage.ConfigurationState.BridgePhase;
 import com.viaversion.viaversion.protocols.v1_20to1_20_2.storage.LastResourcePack;
 import com.viaversion.viaversion.protocols.v1_20to1_20_2.storage.LastTags;
+import com.viaversion.viaversion.rewriter.ParticleRewriter;
 import com.viaversion.viaversion.rewriter.SoundRewriter;
 import com.viaversion.viaversion.rewriter.TagRewriter;
 import com.viaversion.viaversion.util.Key;
@@ -63,6 +65,7 @@ public final class Protocol1_20To1_20_2 extends AbstractProtocol<ClientboundPack
     public static final MappingData MAPPINGS = new MappingDataBase("1.20", "1.20.2");
     private final EntityPacketRewriter1_20_2 entityPacketRewriter = new EntityPacketRewriter1_20_2(this);
     private final BlockItemPacketRewriter1_20_2 itemPacketRewriter = new BlockItemPacketRewriter1_20_2(this);
+    private final ParticleRewriter<ClientboundPackets1_19_4> particleRewriter = new ParticleRewriter<>(this);
     private final TagRewriter<ClientboundPackets1_19_4> tagRewriter = new TagRewriter<>(this);
 
     public Protocol1_20To1_20_2() {
@@ -78,6 +81,8 @@ public final class Protocol1_20To1_20_2 extends AbstractProtocol<ClientboundPack
         soundRewriter.registerSound1_19_3(ClientboundPackets1_19_4.SOUND);
         soundRewriter.registerSound1_19_3(ClientboundPackets1_19_4.SOUND_ENTITY);
 
+        particleRewriter.registerLevelParticles1_19(ClientboundPackets1_19_4.LEVEL_PARTICLES);
+
         registerClientbound(ClientboundPackets1_19_4.CUSTOM_PAYLOAD, new PacketHandlers() {
             @Override
             protected void register() {
@@ -90,6 +95,22 @@ public final class Protocol1_20To1_20_2 extends AbstractProtocol<ClientboundPack
             sanitizeCustomPayload(wrapper);
         });
 
+        registerClientbound(ClientboundPackets1_19_4.SYSTEM_CHAT, wrapper -> {
+            if (wrapper.user().isClientSide() || Via.getPlatform().isProxy()) {
+                return;
+            }
+
+            // Workaround for GH-3438, where chat messages are sent before the login has completed, usually during proxy server switches
+            // The server will unnecessarily send an error text message, thinking a packet ran into an error, when it was just cancelled and re-queued
+            final JsonElement component = wrapper.passthrough(Types.COMPONENT);
+            if (component instanceof JsonObject object && object.has("translate")) {
+                final JsonElement translate = object.get("translate");
+                if (translate != null && translate.getAsString().equals("multiplayer.message_not_delivered")) {
+                    wrapper.cancel();
+                }
+            }
+        });
+
         registerClientbound(ClientboundPackets1_19_4.RESOURCE_PACK, wrapper -> {
             final String url = wrapper.passthrough(Types.STRING);
             final String hash = wrapper.passthrough(Types.STRING);
@@ -99,12 +120,12 @@ public final class Protocol1_20To1_20_2 extends AbstractProtocol<ClientboundPack
         });
 
         registerClientbound(ClientboundPackets1_19_4.UPDATE_TAGS, wrapper -> {
-            tagRewriter.getGenericHandler().handle(wrapper);
+            tagRewriter.handleGeneric(wrapper);
             wrapper.resetReader();
             wrapper.user().put(new LastTags(wrapper));
         });
-        registerClientbound(State.CONFIGURATION, ClientboundConfigurationPackets1_20_2.UPDATE_TAGS.getId(), ClientboundConfigurationPackets1_20_2.UPDATE_TAGS.getId(), wrapper -> {
-            tagRewriter.getGenericHandler().handle(wrapper);
+        registerClientbound(State.CONFIGURATION, ClientboundConfigurationPackets1_20_2.UPDATE_TAGS, wrapper -> {
+            tagRewriter.handleGeneric(wrapper);
             wrapper.resetReader();
             wrapper.user().put(new LastTags(wrapper));
         });
@@ -114,7 +135,7 @@ public final class Protocol1_20To1_20_2 extends AbstractProtocol<ClientboundPack
             wrapper.write(Types.VAR_INT, (int) slot);
         });
 
-        registerServerbound(State.LOGIN, ServerboundLoginPackets.HELLO.getId(), ServerboundLoginPackets.HELLO.getId(), wrapper -> {
+        registerServerbound(State.LOGIN, ServerboundLoginPackets.HELLO, wrapper -> {
             wrapper.passthrough(Types.STRING); // Name
 
             final UUID uuid = wrapper.read(Types.UUID);
@@ -127,7 +148,7 @@ public final class Protocol1_20To1_20_2 extends AbstractProtocol<ClientboundPack
         // We need to wait for it send the login ack before actually sending the play login,
         // hence packets are added to a queue. With the data from the login packet, we sent what is needed
         // during the configuration phase before finally transitioning to the play state with the client as well.
-        registerClientbound(State.LOGIN, ClientboundLoginPackets.GAME_PROFILE.getId(), ClientboundLoginPackets.GAME_PROFILE.getId(), wrapper -> {
+        registerClientbound(State.LOGIN, ClientboundLoginPackets.LOGIN_FINISHED, wrapper -> {
             wrapper.user().get(ConfigurationState.class).setBridgePhase(BridgePhase.PROFILE_SENT);
             wrapper.user().getProtocolInfo().setServerState(State.PLAY);
         });
@@ -358,6 +379,11 @@ public final class Protocol1_20To1_20_2 extends AbstractProtocol<ClientboundPack
     @Override
     public ItemRewriter<Protocol1_20To1_20_2> getItemRewriter() {
         return itemPacketRewriter;
+    }
+
+    @Override
+    public ParticleRewriter<ClientboundPackets1_19_4> getParticleRewriter() {
+        return particleRewriter;
     }
 
     @Override

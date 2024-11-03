@@ -30,7 +30,7 @@ public final class DummyInitializer {
         }
 
         initialized = true;
-        Via.init(new ViaManagerImpl(new TestPlatform(), new TestInjector(), null, new TestLoader()));
+        Via.init(new ViaManagerImpl(new TestPlatform(), new TestInjector(), new TestCommandHandler(), new TestLoader()));
 
         final ViaManagerImpl manager = (ViaManagerImpl) Via.getManager();
         manager.init();

@@ -26,8 +26,8 @@ import com.viaversion.nbt.tag.NumberTag;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.data.ParticleMappings;
 import com.viaversion.viaversion.api.data.entity.DimensionData;
-import com.viaversion.viaversion.api.minecraft.Particle;
 import com.viaversion.viaversion.api.minecraft.BlockPosition;
+import com.viaversion.viaversion.api.minecraft.Particle;
 import com.viaversion.viaversion.api.minecraft.entities.EntityType;
 import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_19;
 import com.viaversion.viaversion.api.minecraft.entitydata.EntityData;
@@ -115,13 +115,13 @@ public final class EntityPacketRewriter1_19 extends EntityRewriter<ClientboundPa
                     wrapper.send(Protocol1_18_2To1_19.class);
                     wrapper.cancel();
 
-                    // Send motive in metadata
-                    final PacketWrapper metaPacket = wrapper.create(ClientboundPackets1_19.SET_ENTITY_DATA);
-                    metaPacket.write(Types.VAR_INT, wrapper.get(Types.VAR_INT, 0)); // Entity id
-                    final List<EntityData> metadata = new ArrayList<>();
-                    metadata.add(new EntityData(8, Types1_19.ENTITY_DATA_TYPES.paintingVariantType, protocol.getMappingData().getPaintingMappings().getNewIdOrDefault(motive, 0)));
-                    metaPacket.write(Types1_19.ENTITY_DATA_LIST, metadata);
-                    metaPacket.send(Protocol1_18_2To1_19.class);
+                    // Send motive in entity data
+                    final PacketWrapper entityDataPacket = wrapper.create(ClientboundPackets1_19.SET_ENTITY_DATA);
+                    entityDataPacket.write(Types.VAR_INT, wrapper.get(Types.VAR_INT, 0)); // Entity id
+                    final List<EntityData> entityData = new ArrayList<>();
+                    entityData.add(new EntityData(8, Types1_19.ENTITY_DATA_TYPES.paintingVariantType, protocol.getMappingData().getPaintingMappings().getNewIdOrDefault(motive, 0)));
+                    entityDataPacket.write(Types1_19.ENTITY_DATA_LIST, entityData);
+                    entityDataPacket.send(Protocol1_18_2To1_19.class);
                 });
             }
         });
@@ -227,7 +227,7 @@ public final class EntityPacketRewriter1_19 extends EntityRewriter<ClientboundPa
                 map(Types.BYTE); // Previous gamemode
                 map(Types.BOOLEAN); // Debug
                 map(Types.BOOLEAN); // Flat
-                map(Types.BOOLEAN); // Keep player data
+                map(Types.BOOLEAN); // Keep player attributes
                 create(Types.OPTIONAL_GLOBAL_POSITION, null); // Last death location
                 handler(worldDataTrackerHandlerByKey());
             }
@@ -317,8 +317,8 @@ public final class EntityPacketRewriter1_19 extends EntityRewriter<ClientboundPa
     @Override
     protected void registerRewrites() {
         filter().mapDataType(Types1_19.ENTITY_DATA_TYPES::byId);
-        filter().dataType(Types1_19.ENTITY_DATA_TYPES.particleType).handler((event, meta) -> {
-            final Particle particle = (Particle) meta.getValue();
+        filter().dataType(Types1_19.ENTITY_DATA_TYPES.particleType).handler((event, data) -> {
+            final Particle particle = (Particle) data.getValue();
             final ParticleMappings particleMappings = protocol.getMappingData().getParticleMappings();
             if (particle.id() == particleMappings.id("vibration")) {
                 // Remove the position
@@ -331,7 +331,7 @@ public final class EntityPacketRewriter1_19 extends EntityRewriter<ClientboundPa
                 }
             }
 
-            rewriteParticle(event.user(), particle);
+            protocol.getParticleRewriter().rewriteParticle(event.user(), particle);
         });
 
         registerEntityDataTypeHandler(Types1_19.ENTITY_DATA_TYPES.itemType, Types1_19.ENTITY_DATA_TYPES.optionalBlockStateType, null);

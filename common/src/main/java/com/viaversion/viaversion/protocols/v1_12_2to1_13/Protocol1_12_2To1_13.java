@@ -34,6 +34,7 @@ import com.viaversion.viaversion.api.protocol.packet.State;
 import com.viaversion.viaversion.api.protocol.remapper.PacketHandler;
 import com.viaversion.viaversion.api.protocol.remapper.PacketHandlers;
 import com.viaversion.viaversion.api.protocol.remapper.ValueTransformer;
+import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.api.type.types.misc.ParticleType;
 import com.viaversion.viaversion.api.type.types.version.Types1_13;
@@ -145,7 +146,7 @@ public class Protocol1_12_2To1_13 extends AbstractProtocol<ClientboundPackets1_1
             }).scheduleSend(Protocol1_12_2To1_13.class);
 
             // Send tags packet
-            w.create(ClientboundPackets1_13.UPDATE_TAGS, wrapper -> {
+            final PacketWrapper tagsPacket = w.create(ClientboundPackets1_13.UPDATE_TAGS, wrapper -> {
                 wrapper.write(Types.VAR_INT, MAPPINGS.getBlockTags().size()); // block tags
                 for (Map.Entry<String, int[]> tag : MAPPINGS.getBlockTags().entrySet()) {
                     wrapper.write(Types.STRING, tag.getKey());
@@ -164,7 +165,13 @@ public class Protocol1_12_2To1_13 extends AbstractProtocol<ClientboundPackets1_1
                     // Needs copy as other protocols may modify it
                     wrapper.write(Types.VAR_INT_ARRAY_PRIMITIVE, tag.getValue().clone());
                 }
-            }).scheduleSend(Protocol1_12_2To1_13.class);
+            });
+            if (w.user().getProtocolInfo().protocolVersion().newerThanOrEqualTo(ProtocolVersion.v1_20_2)) {
+                // Make sure it's included in the configuration packets
+                tagsPacket.send(Protocol1_12_2To1_13.class);
+            } else {
+                tagsPacket.scheduleSend(Protocol1_12_2To1_13.class);
+            }
         };
 
     @Override
@@ -173,11 +180,11 @@ public class Protocol1_12_2To1_13 extends AbstractProtocol<ClientboundPackets1_1
 
         WorldPacketRewriter1_13.register(this);
 
-        registerClientbound(State.LOGIN, ClientboundLoginPackets.LOGIN_DISCONNECT.getId(), ClientboundLoginPackets.LOGIN_DISCONNECT.getId(), wrapper -> {
+        registerClientbound(State.LOGIN, ClientboundLoginPackets.LOGIN_DISCONNECT, wrapper -> {
             componentRewriter.processText(wrapper.user(), wrapper.passthrough(Types.COMPONENT));
         });
 
-        registerClientbound(State.STATUS, ClientboundStatusPackets.STATUS_RESPONSE.getId(), ClientboundStatusPackets.STATUS_RESPONSE.getId(), new PacketHandlers() {
+        registerClientbound(State.STATUS, ClientboundStatusPackets.STATUS_RESPONSE, new PacketHandlers() {
             @Override
             public void register() {
                 map(Types.STRING);
@@ -346,7 +353,7 @@ public class Protocol1_12_2To1_13 extends AbstractProtocol<ClientboundPackets1_1
         registerClientbound(ClientboundPackets1_12_1.PLACE_GHOST_RECIPE, new PacketHandlers() {
             @Override
             public void register() {
-                map(Types.BYTE);
+                map(Types.UNSIGNED_BYTE);
                 handler(wrapper -> wrapper.write(Types.STRING, "viaversion:legacy/" + wrapper.read(Types.VAR_INT)));
             }
         });
@@ -398,23 +405,6 @@ public class Protocol1_12_2To1_13 extends AbstractProtocol<ClientboundPackets1_1
                         wrapper.create(ClientboundPackets1_13.UPDATE_RECIPES, w -> writeDeclareRecipes(w)).send(Protocol1_12_2To1_13.class);
                     }
                 });
-            }
-        });
-
-        registerClientbound(ClientboundPackets1_12_1.RESPAWN, new PacketHandlers() {
-            @Override
-            public void register() {
-                map(Types.INT); // 0 - Dimension ID
-                handler(wrapper -> {
-                    ClientWorld clientWorld = wrapper.user().get(ClientWorld.class);
-                    int dimensionId = wrapper.get(Types.INT, 0);
-                    clientWorld.setEnvironment(dimensionId);
-
-                    if (Via.getConfig().isServersideBlockConnections()) {
-                        ConnectionData.clearBlockStorage(wrapper.user());
-                    }
-                });
-                handler(SEND_DECLARE_COMMANDS_AND_TAGS);
             }
         });
 
@@ -604,7 +594,7 @@ public class Protocol1_12_2To1_13 extends AbstractProtocol<ClientboundPackets1_1
         registerServerbound(ServerboundPackets1_13.PLACE_RECIPE, new PacketHandlers() {
             @Override
             public void register() {
-                map(Types.BYTE); // Window id
+                map(Types.UNSIGNED_BYTE); // Window id
 
                 handler(wrapper -> {
                     String s = wrapper.read(Types.STRING);
@@ -779,7 +769,7 @@ public class Protocol1_12_2To1_13 extends AbstractProtocol<ClientboundPackets1_1
 
             // Clone item arrays because array and item are mutable, also make sure the array type is the interface
             switch (recipe.type()) {
-                case "crafting_shapeless": {
+                case "crafting_shapeless" -> {
                     recipesPacket.write(Types.STRING, recipe.group());
                     recipesPacket.write(Types.VAR_INT, recipe.ingredients().length);
                     for (Item[] ingredient : recipe.ingredients()) {
@@ -791,9 +781,8 @@ public class Protocol1_12_2To1_13 extends AbstractProtocol<ClientboundPackets1_1
                         recipesPacket.write(Types.ITEM1_13_ARRAY, clone);
                     }
                     recipesPacket.write(Types.ITEM1_13, recipe.result().copy());
-                    break;
                 }
-                case "crafting_shaped": {
+                case "crafting_shaped" -> {
                     recipesPacket.write(Types.VAR_INT, recipe.width());
                     recipesPacket.write(Types.VAR_INT, recipe.height());
                     recipesPacket.write(Types.STRING, recipe.group());
@@ -806,9 +795,8 @@ public class Protocol1_12_2To1_13 extends AbstractProtocol<ClientboundPackets1_1
                         recipesPacket.write(Types.ITEM1_13_ARRAY, clone);
                     }
                     recipesPacket.write(Types.ITEM1_13, recipe.result().copy());
-                    break;
                 }
-                case "smelting": {
+                case "smelting" -> {
                     recipesPacket.write(Types.STRING, recipe.group());
                     Item[] ingredient = new Item[recipe.ingredient().length];
                     for (int i = 0; i < ingredient.length; i++) {
@@ -819,7 +807,6 @@ public class Protocol1_12_2To1_13 extends AbstractProtocol<ClientboundPackets1_1
                     recipesPacket.write(Types.ITEM1_13, recipe.result().copy());
                     recipesPacket.write(Types.FLOAT, recipe.experience());
                     recipesPacket.write(Types.VAR_INT, recipe.cookingTime());
-                    break;
                 }
             }
         }
@@ -847,9 +834,9 @@ public class Protocol1_12_2To1_13 extends AbstractProtocol<ClientboundPackets1_1
     @Override
     public void init(UserConnection userConnection) {
         userConnection.addEntityTracker(this.getClass(), new EntityTrackerBase(userConnection, EntityTypes1_13.EntityType.PLAYER));
+        userConnection.addClientWorld(this.getClass(), new ClientWorld());
+
         userConnection.put(new TabCompleteTracker());
-        if (!userConnection.has(ClientWorld.class))
-            userConnection.put(new ClientWorld());
         userConnection.put(new BlockStorage());
         if (Via.getConfig().isServersideBlockConnections()) {
             if (Via.getManager().getProviders().get(BlockConnectionProvider.class) instanceof PacketBlockConnectionProvider) {

@@ -44,8 +44,8 @@ import com.viaversion.viaversion.api.minecraft.item.data.Enchantments;
 import com.viaversion.viaversion.api.minecraft.item.data.FilterableComponent;
 import com.viaversion.viaversion.api.minecraft.item.data.FilterableString;
 import com.viaversion.viaversion.api.minecraft.item.data.FireworkExplosion;
-import com.viaversion.viaversion.api.minecraft.item.data.FoodEffect;
-import com.viaversion.viaversion.api.minecraft.item.data.Instrument;
+import com.viaversion.viaversion.api.minecraft.item.data.FoodProperties1_20_5.FoodEffect;
+import com.viaversion.viaversion.api.minecraft.item.data.Instrument1_20_5;
 import com.viaversion.viaversion.api.minecraft.item.data.PotionEffect;
 import com.viaversion.viaversion.api.minecraft.item.data.PotionEffectData;
 import com.viaversion.viaversion.api.minecraft.item.data.StatePropertyMatcher;
@@ -60,8 +60,7 @@ import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.data.Instruments1_20_
 import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.data.MapDecorations1_20_5;
 import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.data.PotionEffects1_20_5;
 import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.data.Potions1_20_5;
-import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.data.TrimMaterials1_20_3;
-import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.data.TrimPatterns1_20_3;
+import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.storage.ArmorTrimStorage;
 import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.storage.BannerPatternStorage;
 import com.viaversion.viaversion.util.ComponentUtil;
 import com.viaversion.viaversion.util.UUIDUtil;
@@ -73,7 +72,6 @@ import java.util.Collections;
 import java.util.Map;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
-// 1.20.5 data component -> 1.20.3 nbt conversion
 public final class StructuredDataConverter {
 
     static final int HIDE_ENCHANTMENTS = 1;
@@ -280,12 +278,12 @@ public final class StructuredDataConverter {
             }
             profileTag.put("Properties", propertiesTag);
         });
-        register(StructuredDataKey.INSTRUMENT, (data, tag) -> {
+        register(StructuredDataKey.INSTRUMENT1_20_5, (data, tag) -> {
             // Can't do anything with direct values
             if (!data.hasId()) {
                 if (backupInconvertibleData) {
                     final CompoundTag backupTag = new CompoundTag();
-                    final Instrument instrument = data.value();
+                    final Instrument1_20_5 instrument = data.value();
                     if (instrument.soundEvent().hasId()) {
                         backupTag.putInt("sound_event", instrument.soundEvent().id());
                     } else {
@@ -389,6 +387,9 @@ public final class StructuredDataConverter {
             if (enchantmentsTag == null) {
                 enchantmentsTag = new ListTag<>(CompoundTag.class);
                 tag.put("Enchantments", enchantmentsTag);
+            } else if (!enchantmentsTag.isEmpty()) {
+                // If there already are enchantments, we don't need to add an invalid one
+                return;
             }
 
             final CompoundTag invalidEnchantment = new CompoundTag();
@@ -397,7 +398,7 @@ public final class StructuredDataConverter {
 
             enchantmentsTag.add(invalidEnchantment);
         });
-        register(StructuredDataKey.POTION_CONTENTS, (data, tag) -> {
+        register(StructuredDataKey.POTION_CONTENTS1_20_5, (data, tag) -> {
             if (data.potion() != null) {
                 final String potion = Potions1_20_5.idToKey(data.potion()); // Include 1.20.5 names
                 if (potion != null) {
@@ -512,8 +513,9 @@ public final class StructuredDataConverter {
                 tag.putInt("map_scale_direction", 1);
             }
         });
-        register(StructuredDataKey.TRIM, (data, tag) -> {
+        register(StructuredDataKey.TRIM, (connection, data, tag) -> {
             final CompoundTag trimTag = new CompoundTag();
+            final ArmorTrimStorage trimStorage = connection.get(ArmorTrimStorage.class);
             if (data.material().isDirect()) {
                 final CompoundTag materialTag = new CompoundTag();
                 final ArmorTrimMaterial material = data.material().value();
@@ -536,7 +538,7 @@ public final class StructuredDataConverter {
                 materialTag.put("description", material.description());
                 trimTag.put("material", materialTag);
             } else {
-                final String oldKey = TrimMaterials1_20_3.idToKey(data.material().id());
+                final String oldKey = trimStorage.trimMaterials().idToKey(data.material().id());
                 if (oldKey != null) {
                     trimTag.putString("material", oldKey);
                 }
@@ -555,7 +557,7 @@ public final class StructuredDataConverter {
                 patternTag.putBoolean("decal", pattern.decal());
                 trimTag.put("pattern", patternTag);
             } else {
-                final String oldKey = TrimPatterns1_20_3.idToKey(data.pattern().id());
+                final String oldKey = trimStorage.trimPatterns().idToKey(data.pattern().id());
                 if (oldKey != null) {
                     trimTag.putString("pattern", oldKey);
                 }
@@ -738,8 +740,8 @@ public final class StructuredDataConverter {
                 predicatedListTag.add(serializeBlockPredicate(predicate, tagKey));
             } else {
                 for (final int id : holders.ids()) {
-                    final String name = toMappedItemName(id);
-                    if (name.isEmpty()) {
+                    final String name = Protocol1_20_3To1_20_5.MAPPINGS.blockName(id);
+                    if (name == null) {
                         if (backupInconvertibleData) {
                             // TODO Backup
                         }
@@ -798,28 +800,37 @@ public final class StructuredDataConverter {
 
     private void convertItemList(final UserConnection connection, final Item[] items, final CompoundTag tag, final String key) {
         final ListTag<CompoundTag> itemsTag = new ListTag<>(CompoundTag.class);
-        for (final Item item : items) {
-            final CompoundTag savedItem = new CompoundTag();
-            if (item != null) {
-                final String name = toMappedItemName(item.identifier());
-                savedItem.putString("id", name);
-                if (backupInconvertibleData && name.isEmpty()) {
-                    savedItem.putInt(ITEM_BACKUP_TAG_KEY, item.identifier());
-                }
-                savedItem.putByte("Count", (byte) item.amount());
-
-                final CompoundTag itemTag = new CompoundTag();
-                for (final StructuredData<?> data : item.dataContainer().data().values()) {
-                    writeToTag(connection, data, itemTag);
-                }
-                savedItem.put("tag", itemTag);
-            } else {
-                savedItem.putString("id", "air");
+        for (int i = 0; i < items.length; i++) {
+            final Item item = items[i];
+            final CompoundTag savedItem = itemToTag(connection, item);
+            // 1.20.4 clients need the Slot to display the item correctly
+            if (backupInconvertibleData) {
+                savedItem.putByte("Slot", (byte) i);
             }
-
             itemsTag.add(savedItem);
         }
         tag.put(key, itemsTag);
+    }
+
+    private CompoundTag itemToTag(final UserConnection connection, final Item item) {
+        final CompoundTag savedItem = new CompoundTag();
+        if (item != null) {
+            final String name = toMappedItemName(item.identifier());
+            savedItem.putString("id", name);
+            if (backupInconvertibleData && name.isEmpty()) {
+                savedItem.putInt(ITEM_BACKUP_TAG_KEY, item.identifier());
+            }
+            savedItem.putByte("Count", (byte) item.amount());
+
+            final CompoundTag itemTag = new CompoundTag();
+            for (final StructuredData<?> data : item.dataContainer().data().values()) {
+                writeToTag(connection, data, itemTag);
+            }
+            savedItem.put("tag", itemTag);
+        } else {
+            savedItem.putString("id", "air");
+        }
+        return savedItem;
     }
 
     private void convertEnchantments(final Enchantments data, final CompoundTag tag, final boolean storedEnchantments) {

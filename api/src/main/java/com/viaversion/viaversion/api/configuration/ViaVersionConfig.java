@@ -67,9 +67,9 @@ public interface ViaVersionConfig extends Config {
     boolean isShowNewDeathMessages();
 
     /**
-     * Get if metadata errors will be suppressed
+     * Get if entity data errors will be suppressed
      *
-     * @return true if metadata errors suppression is enabled
+     * @return true if entity data errors suppression is enabled
      */
     boolean isSuppressMetadataErrors();
 
@@ -293,13 +293,6 @@ public interface ViaVersionConfig extends Config {
     boolean isDisable1_13AutoComplete();
 
     /**
-     * Tries to minimize cooldown animation.
-     *
-     * @return true if enabled
-     */
-    boolean isMinimizeCooldown();
-
-    /**
      * Enable the serverside blockconnections for 1.13+ clients
      *
      * @return true if enabled
@@ -464,4 +457,25 @@ public interface ViaVersionConfig extends Config {
      * @return true if enabled
      */
     boolean handleInvalidItemCount();
+
+    /**
+     * Tries to cancel block break/place sounds sent by 1.8 servers to 1.9+ clients to prevent them from playing twice
+     *
+     * @return true if enabled
+     */
+    boolean cancelBlockSounds();
+
+    /**
+     * Hides scoreboard numbers for 1.20.3+ clients on older server versions.
+     *
+     * @return true if enabled
+     */
+    boolean hideScoreboardNumbers();
+
+    /**
+     * Fixes 1.21+ clients on 1.20.5 servers placing water/lava buckets at the wrong location when moving fast.
+     *
+     * @return true if enabled
+     */
+    boolean fix1_21PlacementRotation();
 }

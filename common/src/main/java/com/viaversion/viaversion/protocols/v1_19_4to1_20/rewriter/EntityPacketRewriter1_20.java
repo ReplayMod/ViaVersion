@@ -79,8 +79,8 @@ public final class EntityPacketRewriter1_20 extends EntityRewriter<ClientboundPa
                     final ListTag<CompoundTag> damageTypes = TagUtil.getRegistryEntries(registry, "damage_type");
                     int highestId = -1;
                     for (final CompoundTag damageType : damageTypes) {
-                        final IntTag id = damageType.getUnchecked("id");
-                        highestId = Math.max(highestId, id.asInt());
+                        final int id = damageType.getInt("id");
+                        highestId = Math.max(highestId, id);
                     }
 
                     // AaaaAAAaa
@@ -132,7 +132,7 @@ public final class EntityPacketRewriter1_20 extends EntityRewriter<ClientboundPa
         registerBlockStateHandler(EntityTypes1_19_4.ABSTRACT_MINECART, 11);
 
         // Rotate item display by 180 degrees around the Y axis
-        filter().type(EntityTypes1_19_4.ITEM_DISPLAY).handler((event, meta) -> {
+        filter().type(EntityTypes1_19_4.ITEM_DISPLAY).handler((event, data) -> {
             if (event.trackedEntity().hasSentEntityData() || event.hasExtraData()) {
                 return;
             }
@@ -141,9 +141,9 @@ public final class EntityPacketRewriter1_20 extends EntityRewriter<ClientboundPa
                 event.createExtraData(new EntityData(12, Types1_20.ENTITY_DATA_TYPES.quaternionType, Y_FLIPPED_ROTATION));
             }
         });
-        filter().type(EntityTypes1_19_4.ITEM_DISPLAY).index(12).handler((event, meta) -> {
-            final Quaternion quaternion = meta.value();
-            meta.setValue(rotateY180(quaternion));
+        filter().type(EntityTypes1_19_4.ITEM_DISPLAY).index(12).handler((event, data) -> {
+            final Quaternion quaternion = data.value();
+            data.setValue(rotateY180(quaternion));
         });
     }
 

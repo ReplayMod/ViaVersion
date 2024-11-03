@@ -29,7 +29,6 @@ import com.viaversion.viaversion.protocols.v1_16_1to1_16_2.packet.ServerboundPac
 import com.viaversion.viaversion.protocols.v1_16_4to1_17.Protocol1_16_4To1_17;
 import com.viaversion.viaversion.protocols.v1_16_4to1_17.packet.ClientboundPackets1_17;
 import com.viaversion.viaversion.protocols.v1_16_4to1_17.packet.ServerboundPackets1_17;
-import com.viaversion.viaversion.protocols.v1_16_4to1_17.storage.InventoryAcknowledgements;
 import com.viaversion.viaversion.rewriter.ItemRewriter;
 import com.viaversion.viaversion.rewriter.RecipeRewriter;
 
@@ -47,7 +46,6 @@ public final class ItemPacketRewriter1_17 extends ItemRewriter<ClientboundPacket
         registerSetSlot(ClientboundPackets1_16_2.CONTAINER_SET_SLOT);
         registerAdvancements(ClientboundPackets1_16_2.UPDATE_ADVANCEMENTS);
         registerSetEquipment(ClientboundPackets1_16_2.SET_EQUIPMENT);
-        registerLevelParticles(ClientboundPackets1_16_2.LEVEL_PARTICLES, Types.DOUBLE);
 
         new RecipeRewriter<>(protocol).register(ClientboundPackets1_16_2.UPDATE_RECIPES);
 
@@ -97,7 +95,6 @@ public final class ItemPacketRewriter1_17 extends ItemRewriter<ClientboundPacket
             if (!accepted) {
                 // Use the new ping packet to replace the removed acknowledgement, extra bit for fast dismissal
                 int id = (1 << 30) | (inventoryId << 16) | (confirmationId & 0xFFFF);
-                wrapper.user().get(InventoryAcknowledgements.class).addId(id);
 
                 PacketWrapper pingPacket = wrapper.create(ClientboundPackets1_17.PING);
                 pingPacket.write(Types.INT, id);
@@ -111,7 +108,7 @@ public final class ItemPacketRewriter1_17 extends ItemRewriter<ClientboundPacket
         protocol.registerServerbound(ServerboundPackets1_17.PONG, null, wrapper -> {
             int id = wrapper.read(Types.INT);
             // Check extra bit for fast dismissal
-            if ((id & (1 << 30)) != 0 && wrapper.user().get(InventoryAcknowledgements.class).removeId(id)) {
+            if ((id & (1 << 30)) != 0) {
                 // Decode our requested inventory acknowledgement
                 short inventoryId = (short) ((id >> 16) & 0xFF);
                 short confirmationId = (short) (id & 0xFFFF);

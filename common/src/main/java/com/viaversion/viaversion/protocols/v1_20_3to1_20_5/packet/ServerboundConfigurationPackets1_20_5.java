@@ -18,8 +18,9 @@
 package com.viaversion.viaversion.protocols.v1_20_3to1_20_5.packet;
 
 import com.viaversion.viaversion.api.protocol.packet.State;
+import com.viaversion.viaversion.protocols.v1_21to1_21_2.packet.ServerboundPacket1_21_2;
 
-public enum ServerboundConfigurationPackets1_20_5 implements ServerboundPacket1_20_5 {
+public enum ServerboundConfigurationPackets1_20_5 implements ServerboundPacket1_20_5, ServerboundPacket1_21_2 {
 
     CLIENT_INFORMATION, // 0x00
     COOKIE_RESPONSE, // 0x01

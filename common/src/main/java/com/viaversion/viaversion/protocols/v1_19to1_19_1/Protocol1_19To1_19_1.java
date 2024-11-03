@@ -228,7 +228,7 @@ public final class Protocol1_19To1_19_1 extends AbstractProtocol<ClientboundPack
             }
         });
 
-        registerServerbound(State.LOGIN, ServerboundLoginPackets.HELLO.getId(), ServerboundLoginPackets.HELLO.getId(), new PacketHandlers() {
+        registerServerbound(State.LOGIN, ServerboundLoginPackets.HELLO, new PacketHandlers() {
             @Override
             public void register() {
                 map(Types.STRING); // Name
@@ -246,7 +246,7 @@ public final class Protocol1_19To1_19_1 extends AbstractProtocol<ClientboundPack
                 read(Types.OPTIONAL_UUID); // Profile uuid
             }
         });
-        registerClientbound(State.LOGIN, ClientboundLoginPackets.HELLO.getId(), ClientboundLoginPackets.HELLO.getId(), new PacketHandlers() {
+        registerClientbound(State.LOGIN, ClientboundLoginPackets.HELLO, new PacketHandlers() {
             @Override
             public void register() {
                 map(Types.STRING); // Server id
@@ -261,7 +261,7 @@ public final class Protocol1_19To1_19_1 extends AbstractProtocol<ClientboundPack
                 });
             }
         });
-        registerServerbound(State.LOGIN, ServerboundLoginPackets.ENCRYPTION_KEY.getId(), ServerboundLoginPackets.ENCRYPTION_KEY.getId(), new PacketHandlers() {
+        registerServerbound(State.LOGIN, ServerboundLoginPackets.ENCRYPTION_KEY, new PacketHandlers() {
             @Override
             public void register() {
                 map(Types.BYTE_ARRAY_PRIMITIVE); // Keys
@@ -281,7 +281,7 @@ public final class Protocol1_19To1_19_1 extends AbstractProtocol<ClientboundPack
                 });
             }
         });
-        registerClientbound(State.LOGIN, ClientboundLoginPackets.CUSTOM_QUERY.getId(), ClientboundLoginPackets.CUSTOM_QUERY.getId(), new PacketHandlers() {
+        registerClientbound(State.LOGIN, ClientboundLoginPackets.CUSTOM_QUERY, new PacketHandlers() {
             @Override
             public void register() {
                 map(Types.VAR_INT);
@@ -399,19 +399,13 @@ public final class Protocol1_19To1_19_1 extends AbstractProtocol<ClientboundPack
             for (final StringTag element : parameters) {
                 JsonElement argument = null;
                 switch (element.getValue()) {
-                    case "sender":
-                        argument = senderName;
-                        break;
-                    case "content":
-                        argument = message;
-                        break;
-                    case "team_name":
-                    case "target": // So that this method can also be used in VB
+                    case "sender" -> argument = senderName;
+                    case "content" -> argument = message;
+                    case "team_name", "target" /*So that this method can also be used in VB*/ -> {
                         Preconditions.checkNotNull(targetName, "Team name is null");
                         argument = targetName;
-                        break;
-                    default:
-                        LOGGER.warning("Unknown parameter for chat decoration: " + element.getValue());
+                    }
+                    default -> LOGGER.warning("Unknown parameter for chat decoration: " + element.getValue());
                 }
                 if (argument != null) {
                     arguments.add(SerializerVersion.V1_18.toComponent(argument));

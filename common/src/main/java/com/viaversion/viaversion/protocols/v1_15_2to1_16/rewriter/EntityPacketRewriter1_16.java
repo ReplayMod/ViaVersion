@@ -24,6 +24,7 @@ import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_16;
 import com.viaversion.viaversion.api.minecraft.entitydata.EntityData;
 import com.viaversion.viaversion.api.protocol.remapper.PacketHandler;
 import com.viaversion.viaversion.api.protocol.remapper.PacketHandlers;
+import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.api.type.types.version.Types1_14;
 import com.viaversion.viaversion.api.type.types.version.Types1_16;
@@ -50,22 +51,23 @@ public class EntityPacketRewriter1_16 extends EntityRewriter<ClientboundPackets1
         String dimensionName;
         String outputName;
         switch (dimension) {
-            case -1:
+            case -1 -> {
                 dimensionName = "minecraft:the_nether";
                 outputName = map.nether();
-                break;
-            case 0:
+            }
+            case 0 -> {
                 dimensionName = "minecraft:overworld";
                 outputName = map.overworld();
-                break;
-            case 1:
+            }
+            case 1 -> {
                 dimensionName = "minecraft:the_end";
                 outputName = map.end();
-                break;
-            default:
+            }
+            default -> {
                 protocol.getLogger().warning("Invalid dimension id: " + dimension);
                 dimensionName = "minecraft:overworld";
                 outputName = map.overworld();
+            }
         }
 
         wrapper.write(Types.STRING, dimensionName); // dimension
@@ -117,12 +119,17 @@ public class EntityPacketRewriter1_16 extends EntityRewriter<ClientboundPackets1
                 map(Types.LONG); // Seed
                 map(Types.UNSIGNED_BYTE); // Gamemode
                 handler(wrapper -> {
+                    tracker(wrapper.user()).clearEntities();
+
                     wrapper.write(Types.BYTE, (byte) -1); // Previous gamemode, set to none
+
+                    // <= 1.14.4 didn't keep attributes on respawn and 1.15.x always kept them
+                    final boolean keepAttributes = wrapper.user().getProtocolInfo().serverProtocolVersion().newerThanOrEqualTo(ProtocolVersion.v1_15);
 
                     String levelType = wrapper.read(Types.STRING);
                     wrapper.write(Types.BOOLEAN, false); // debug
                     wrapper.write(Types.BOOLEAN, levelType.equals("flat"));
-                    wrapper.write(Types.BOOLEAN, true); // keep all playerdata
+                    wrapper.write(Types.BOOLEAN, keepAttributes); // keep player attributes
                 });
             }
         });
@@ -140,9 +147,8 @@ public class EntityPacketRewriter1_16 extends EntityRewriter<ClientboundPackets1
                 handler(DIMENSION_HANDLER); // Dimension
                 map(Types.LONG); // Seed
                 map(Types.UNSIGNED_BYTE); // Max players
+                handler(playerTrackerHandler());
                 handler(wrapper -> {
-                    wrapper.user().getEntityTracker(Protocol1_15_2To1_16.class).addEntity(wrapper.get(Types.INT, 0), EntityTypes1_16.PLAYER);
-
                     final String type = wrapper.read(Types.STRING);// level type
                     wrapper.passthrough(Types.VAR_INT); // View distance
                     wrapper.passthrough(Types.BOOLEAN); // Reduced debug info
@@ -211,8 +217,8 @@ public class EntityPacketRewriter1_16 extends EntityRewriter<ClientboundPackets1
         registerBlockStateHandler(EntityTypes1_16.ABSTRACT_MINECART, 10);
 
         filter().type(EntityTypes1_16.ABSTRACT_ARROW).removeIndex(8);
-        filter().type(EntityTypes1_16.WOLF).index(16).handler((event, meta) -> {
-            byte mask = meta.value();
+        filter().type(EntityTypes1_16.WOLF).index(16).handler((event, data) -> {
+            byte mask = data.value();
             int angerTime = (mask & 0x02) != 0 ? Integer.MAX_VALUE : 0;
             event.createExtraData(new EntityData(20, Types1_16.ENTITY_DATA_TYPES.varIntType, angerTime));
         });

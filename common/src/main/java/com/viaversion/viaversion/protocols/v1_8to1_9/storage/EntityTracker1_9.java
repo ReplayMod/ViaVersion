@@ -24,13 +24,13 @@ import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.legacy.bossbar.BossBar;
 import com.viaversion.viaversion.api.legacy.bossbar.BossColor;
 import com.viaversion.viaversion.api.legacy.bossbar.BossStyle;
-import com.viaversion.viaversion.api.minecraft.GameMode;
 import com.viaversion.viaversion.api.minecraft.BlockPosition;
+import com.viaversion.viaversion.api.minecraft.GameMode;
 import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_9.EntityType;
-import com.viaversion.viaversion.api.minecraft.item.DataItem;
-import com.viaversion.viaversion.api.minecraft.item.Item;
 import com.viaversion.viaversion.api.minecraft.entitydata.EntityData;
 import com.viaversion.viaversion.api.minecraft.entitydata.types.EntityDataTypes1_9;
+import com.viaversion.viaversion.api.minecraft.item.DataItem;
+import com.viaversion.viaversion.api.minecraft.item.Item;
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.data.entity.EntityTrackerBase;
@@ -38,6 +38,7 @@ import com.viaversion.viaversion.protocols.v1_8to1_9.Protocol1_8To1_9;
 import com.viaversion.viaversion.protocols.v1_8to1_9.packet.ClientboundPackets1_9;
 import com.viaversion.viaversion.protocols.v1_8to1_9.provider.BossBarProvider;
 import com.viaversion.viaversion.protocols.v1_8to1_9.provider.EntityIdProvider;
+import com.viaversion.viaversion.util.ComponentUtil;
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -157,32 +158,32 @@ public class EntityTracker1_9 extends EntityTrackerBase {
         blockInteractions.add(p);
     }
 
-    public void handleMetadata(int entityId, List<EntityData> metadataList) {
+    public void handleEntityData(int entityId, List<EntityData> entityDataList) {
         com.viaversion.viaversion.api.minecraft.entities.EntityType type = entityType(entityId);
         if (type == null) {
             return;
         }
 
-        for (EntityData metadata : new ArrayList<>(metadataList)) {
+        for (EntityData entityData : new ArrayList<>(entityDataList)) {
             if (type == EntityType.SKELETON) {
-                if ((getMetaByIndex(metadataList, 12)) == null) {
-                    metadataList.add(new EntityData(12, EntityDataTypes1_9.BOOLEAN, true));
+                if ((getDataByIndex(entityDataList, 12)) == null) {
+                    entityDataList.add(new EntityData(12, EntityDataTypes1_9.BOOLEAN, true));
                 }
             }
 
             // 1.8 can handle out of range values and will just not show any armor, 1.9+ clients will get
             // exceptions and won't render the entity at all
-            if (type == EntityType.HORSE && metadata.id() == 16) {
-                final int value = metadata.value();
+            if (type == EntityType.HORSE && entityData.id() == 16) {
+                final int value = entityData.value();
                 if (value < 0 || value > 3) { // no armor, iron armor, gold armor and diamond armor
-                    metadata.setValue(0);
+                    entityData.setValue(0);
                 }
             }
 
             if (type == EntityType.PLAYER) {
-                if (metadata.id() == 0) {
+                if (entityData.id() == 0) {
                     // Byte
-                    byte data = (byte) metadata.getValue();
+                    byte data = (byte) entityData.getValue();
                     if (entityId != getProvidedEntityId() && Via.getConfig().isShieldBlocking()) {
                         if ((data & 0x10) == 0x10) {
                             if (validBlocking.contains(entityId)) {
@@ -196,24 +197,24 @@ public class EntityTracker1_9 extends EntityTrackerBase {
                         }
                     }
                 }
-                if (metadata.id() == 12 && Via.getConfig().isLeftHandedHandling()) { // Player model
-                    metadataList.add(new EntityData(
+                if (entityData.id() == 12 && Via.getConfig().isLeftHandedHandling()) { // Player model
+                    entityDataList.add(new EntityData(
                         13, // Main hand
                         EntityDataTypes1_9.BYTE,
-                        (byte) (((((byte) metadata.getValue()) & 0x80) != 0) ? 0 : 1)
+                        (byte) (((((byte) entityData.getValue()) & 0x80) != 0) ? 0 : 1)
                     ));
                 }
             }
             if (type == EntityType.ARMOR_STAND && Via.getConfig().isHologramPatch()) {
-                if (metadata.id() == 0 && getMetaByIndex(metadataList, 10) != null) {
-                    EntityData meta = getMetaByIndex(metadataList, 10); //Only happens if the armorstand is small
-                    byte data = (byte) metadata.getValue();
+                if (entityData.id() == 0 && getDataByIndex(entityDataList, 10) != null) {
+                    EntityData data = getDataByIndex(entityDataList, 10); //Only happens if the armorstand is small
+                    byte value = (byte) entityData.getValue();
                     // Check invisible | Check small | Check if custom name is empty | Check if custom name visible is true
                     EntityData displayName;
                     EntityData displayNameVisible;
-                    if ((data & 0x20) == 0x20 && ((byte) meta.getValue() & 0x01) == 0x01
-                        && (displayName = getMetaByIndex(metadataList, 2)) != null && !Strings.isNullOrEmpty((String) displayName.getValue())
-                        && (displayNameVisible = getMetaByIndex(metadataList, 3)) != null && displayNameVisible.getValue() == Boolean.TRUE) {
+                    if ((value & 0x20) == 0x20 && ((byte) data.getValue() & 0x01) == 0x01
+                        && (displayName = getDataByIndex(entityDataList, 2)) != null && !((String) displayName.getValue()).isEmpty()
+                        && (displayNameVisible = getDataByIndex(entityDataList, 3)) != null && (boolean) displayNameVisible.getValue()) {
                         if (!knownHolograms.contains(entityId)) {
                             knownHolograms.add(entityId);
                             // Send movement
@@ -231,10 +232,14 @@ public class EntityTracker1_9 extends EntityTrackerBase {
             // Boss bar
             if (Via.getConfig().isBossbarPatch()) {
                 if (type == EntityType.ENDER_DRAGON || type == EntityType.WITHER) {
-                    if (metadata.id() == 2) {
+                    if (entityData.id() == 2) {
                         BossBar bar = bossBarMap.get(entityId);
-                        String title = (String) metadata.getValue();
-                        title = title.isEmpty() ? (type == EntityType.ENDER_DRAGON ? DRAGON_TRANSLATABLE : WITHER_TRANSLATABLE) : title;
+                        String title = (String) entityData.getValue();
+                        if (title.isEmpty()) {
+                            title = type == EntityType.ENDER_DRAGON ? DRAGON_TRANSLATABLE : WITHER_TRANSLATABLE;
+                        } else {
+                            title = ComponentUtil.plainToJson(title).toString();
+                        }
                         if (bar == null) {
                             bar = Via.getAPI().legacyAPI().createLegacyBossBar(title, BossColor.PINK, BossStyle.SOLID);
                             bossBarMap.put(entityId, bar);
@@ -246,11 +251,11 @@ public class EntityTracker1_9 extends EntityTrackerBase {
                         } else {
                             bar.setTitle(title);
                         }
-                    } else if (metadata.id() == 6 && !Via.getConfig().isBossbarAntiflicker()) { // If anti flicker is enabled, don't update health
+                    } else if (entityData.id() == 6 && !Via.getConfig().isBossbarAntiflicker()) { // If anti flicker is enabled, don't update health
                         BossBar bar = bossBarMap.get(entityId);
                         // Make health range between 0 and 1
                         float maxHealth = type == EntityType.ENDER_DRAGON ? 200.0f : 300.0f;
-                        float health = Math.max(0.0f, Math.min(((float) metadata.getValue()) / maxHealth, 1.0f));
+                        float health = Math.max(0.0f, Math.min(((float) entityData.getValue()) / maxHealth, 1.0f));
                         if (bar == null) {
                             String title = type == EntityType.ENDER_DRAGON ? DRAGON_TRANSLATABLE : WITHER_TRANSLATABLE;
                             bar = Via.getAPI().legacyAPI().createLegacyBossBar(title, health, BossColor.PINK, BossStyle.SOLID);
@@ -268,10 +273,10 @@ public class EntityTracker1_9 extends EntityTrackerBase {
         }
     }
 
-    public EntityData getMetaByIndex(List<EntityData> list, int index) {
-        for (EntityData meta : list)
-            if (index == meta.id()) {
-                return meta;
+    public EntityData getDataByIndex(List<EntityData> list, int index) {
+        for (EntityData data : list)
+            if (index == data.id()) {
+                return data;
             }
         return null;
     }

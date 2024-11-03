@@ -17,6 +17,7 @@
  */
 package com.viaversion.viaversion.protocols.v1_20_3to1_20_5.rewriter;
 
+import com.google.common.base.Preconditions;
 import com.viaversion.nbt.tag.ByteTag;
 import com.viaversion.nbt.tag.CompoundTag;
 import com.viaversion.nbt.tag.FloatTag;
@@ -25,7 +26,6 @@ import com.viaversion.nbt.tag.IntTag;
 import com.viaversion.nbt.tag.ListTag;
 import com.viaversion.nbt.tag.StringTag;
 import com.viaversion.nbt.tag.Tag;
-import com.google.common.base.Preconditions;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.minecraft.GameProfile;
@@ -55,9 +55,9 @@ import com.viaversion.viaversion.api.minecraft.item.data.FilterableComponent;
 import com.viaversion.viaversion.api.minecraft.item.data.FilterableString;
 import com.viaversion.viaversion.api.minecraft.item.data.FireworkExplosion;
 import com.viaversion.viaversion.api.minecraft.item.data.Fireworks;
-import com.viaversion.viaversion.api.minecraft.item.data.FoodEffect;
-import com.viaversion.viaversion.api.minecraft.item.data.FoodProperties;
-import com.viaversion.viaversion.api.minecraft.item.data.Instrument;
+import com.viaversion.viaversion.api.minecraft.item.data.FoodProperties1_20_5;
+import com.viaversion.viaversion.api.minecraft.item.data.FoodProperties1_20_5.FoodEffect;
+import com.viaversion.viaversion.api.minecraft.item.data.Instrument1_20_5;
 import com.viaversion.viaversion.api.minecraft.item.data.LodestoneTracker;
 import com.viaversion.viaversion.api.minecraft.item.data.PotDecorations;
 import com.viaversion.viaversion.api.minecraft.item.data.PotionContents;
@@ -83,8 +83,7 @@ import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.data.EquipmentSlots1_
 import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.data.Instruments1_20_3;
 import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.data.PotionEffects1_20_5;
 import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.data.Potions1_20_5;
-import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.data.TrimMaterials1_20_3;
-import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.data.TrimPatterns1_20_3;
+import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.storage.ArmorTrimStorage;
 import com.viaversion.viaversion.rewriter.ComponentRewriter;
 import com.viaversion.viaversion.util.ComponentUtil;
 import com.viaversion.viaversion.util.Either;
@@ -103,8 +102,8 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 
 public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends ComponentRewriter<C> {
 
-    private final Map<StructuredDataKey<?>, ConverterPair<?>> converters = new Reference2ObjectOpenHashMap<>();
-    private final StructuredDataType structuredDataType;
+    protected final Map<StructuredDataKey<?>, ConverterPair<?>> converters = new Reference2ObjectOpenHashMap<>();
+    protected final StructuredDataType structuredDataType;
 
     /**
      * @param protocol           protocol
@@ -132,7 +131,7 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Co
         register(StructuredDataKey.HIDE_TOOLTIP, this::convertHideTooltip);
         register(StructuredDataKey.REPAIR_COST, this::convertRepairCost);
         register(StructuredDataKey.ENCHANTMENT_GLINT_OVERRIDE, this::convertEnchantmentGlintOverride);
-        register(StructuredDataKey.CREATIVE_SLOT_LOCK, null);
+        registerEmpty(StructuredDataKey.CREATIVE_SLOT_LOCK);
         register(StructuredDataKey.INTANGIBLE_PROJECTILE, this::convertIntangibleProjectile);
         register(StructuredDataKey.FOOD1_20_5, this::convertFood);
         register(StructuredDataKey.FIRE_RESISTANT, this::convertFireResistant);
@@ -142,10 +141,10 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Co
         register(StructuredDataKey.MAP_COLOR, this::convertMapColor);
         register(StructuredDataKey.MAP_ID, this::convertMapId);
         register(StructuredDataKey.MAP_DECORATIONS, this::convertMapDecorations);
-        register(StructuredDataKey.MAP_POST_PROCESSING, null);
+        registerEmpty(StructuredDataKey.MAP_POST_PROCESSING);
         register(StructuredDataKey.CHARGED_PROJECTILES1_20_5, this::convertChargedProjectiles);
         register(StructuredDataKey.BUNDLE_CONTENTS1_20_5, this::convertBundleContents);
-        register(StructuredDataKey.POTION_CONTENTS, this::convertPotionContents);
+        register(StructuredDataKey.POTION_CONTENTS1_20_5, this::convertPotionContents);
         register(StructuredDataKey.SUSPICIOUS_STEW_EFFECTS, this::convertSuspiciousStewEffects);
         register(StructuredDataKey.WRITABLE_BOOK_CONTENT, this::convertWritableBookContent);
         register(StructuredDataKey.WRITTEN_BOOK_CONTENT, this::convertWrittenBookContent);
@@ -154,7 +153,7 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Co
         register(StructuredDataKey.ENTITY_DATA, this::convertEntityData);
         register(StructuredDataKey.BUCKET_ENTITY_DATA, this::convertBucketEntityData);
         register(StructuredDataKey.BLOCK_ENTITY_DATA, this::convertBlockEntityData);
-        register(StructuredDataKey.INSTRUMENT, this::convertInstrument);
+        register(StructuredDataKey.INSTRUMENT1_20_5, this::convertInstrument);
         register(StructuredDataKey.OMINOUS_BOTTLE_AMPLIFIER, this::convertOminousBottleAmplifier);
         register(StructuredDataKey.RECIPES, this::convertRecipes);
         register(StructuredDataKey.LODESTONE_TRACKER, this::convertLodestoneTracker);
@@ -247,7 +246,7 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Co
             if (!data.isEmpty()) {
                 final CompoundTag components;
                 try {
-                    components = toTag(data, false);
+                    components = toTag(connection, data, false);
                 } catch (final Exception e) {
                     if (!Via.getConfig().isSuppressConversionWarnings()) {
                         protocol.getLogger().log(Level.WARNING, "Error writing components in show_item!", e);
@@ -278,7 +277,7 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Co
         }
     }
 
-    public CompoundTag toTag(final Map<StructuredDataKey<?>, StructuredData<?>> data, final boolean empty) {
+    public CompoundTag toTag(final UserConnection connection, final Map<StructuredDataKey<?>, StructuredData<?>> data, final boolean empty) {
         final CompoundTag tag = new CompoundTag();
         for (final Map.Entry<StructuredDataKey<?>, StructuredData<?>> entry : data.entrySet()) {
             final StructuredDataKey<?> key = entry.getKey();
@@ -302,7 +301,7 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Co
             }
 
             //noinspection unchecked
-            final Tag valueTag = converter.dataConverter.convert(value.value());
+            final Tag valueTag = converter.dataConverter.convert(connection, value.value());
             if (valueTag == null) {
                 continue;
             }
@@ -328,7 +327,7 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Co
         return readFromTag(key, id, tag);
     }
 
-    private <T> StructuredData<T> readFromTag(final StructuredDataKey<T> key, final int id, final Tag tag) {
+    protected <T> StructuredData<T> readFromTag(final StructuredDataKey<T> key, final int id, final Tag tag) {
         final TagConverter<T> converter = tagConverter(key);
         Preconditions.checkNotNull(converter, "No converter found for: %s", key);
         return StructuredData.of(key, converter.convert(tag), id);
@@ -339,7 +338,6 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Co
     }
 
     // ---------------------------------------------------------------------------------------
-    // Conversion methods, can be overridden in future protocols to handle new changes
 
     protected CompoundTag convertCustomData(final CompoundTag value) {
         return value;
@@ -397,6 +395,14 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Co
     }
 
     protected CompoundTag convertCanPlaceOn(final AdventureModePredicate value) {
+        return convertBlockPredicate(value);
+    }
+
+    protected CompoundTag convertCanBreak(final AdventureModePredicate value) {
+        return convertBlockPredicate(value);
+    }
+
+    protected CompoundTag convertBlockPredicate(final AdventureModePredicate value) {
         final CompoundTag tag = new CompoundTag();
         final ListTag<CompoundTag> predicates = new ListTag<>(CompoundTag.class);
         for (final BlockPredicate predicate : value.predicates()) {
@@ -405,8 +411,7 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Co
                 convertHolderSet(predicateTag, "blocks", predicate.holderSet());
             }
             if (predicate.propertyMatchers() != null) {
-                final CompoundTag state = convertPredicate(predicate);
-                predicateTag.put("state", state);
+                predicateTag.put("state", createState(predicate));
             }
             if (predicate.tag() != null) {
                 predicateTag.put("nbt", predicate.tag());
@@ -421,8 +426,10 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Co
         return tag;
     }
 
-    protected CompoundTag convertPredicate(final BlockPredicate predicate) {
+    // Not an own conversion method, just to avoid high nesting
+    protected CompoundTag createState(BlockPredicate predicate) {
         final CompoundTag state = new CompoundTag();
+
         for (final StatePropertyMatcher matcher : predicate.propertyMatchers()) {
             final Either<String, StatePropertyMatcher.RangedMatcher> match = matcher.matcher();
             if (match.isLeft()) {
@@ -440,10 +447,6 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Co
             }
         }
         return state;
-    }
-
-    protected CompoundTag convertCanBreak(final AdventureModePredicate value) {
-        return convertCanPlaceOn(value);
     }
 
     protected CompoundTag convertAttributeModifiers(final AttributeModifiers1_20_5 value) {
@@ -498,10 +501,10 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Co
         return convertUnit();
     }
 
-    protected CompoundTag convertFood(final FoodProperties value) {
+    protected CompoundTag convertFood(final FoodProperties1_20_5 value) {
         final CompoundTag tag = new CompoundTag();
         tag.put("nutrition", convertNonNegativeInt(value.nutrition()));
-        tag.putFloat("saturation_modifier", value.saturationModifier());
+        tag.putFloat("saturation", value.saturationModifier());
         if (value.canAlwaysEat()) {
             tag.putBoolean("can_always_eat", true);
         }
@@ -578,12 +581,12 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Co
         return value; // String<->id conversion is already done by the item rewriter
     }
 
-    protected ListTag<CompoundTag> convertChargedProjectiles(final Item[] value) {
-        return convertItemArray(value);
+    protected ListTag<CompoundTag> convertChargedProjectiles(final UserConnection connection, final Item[] value) {
+        return convertItemArray(connection, value);
     }
 
-    protected ListTag<CompoundTag> convertBundleContents(final Item[] value) {
-        return convertItemArray(value);
+    protected ListTag<CompoundTag> convertBundleContents(final UserConnection connection, final Item[] value) {
+        return convertItemArray(connection, value);
     }
 
     protected CompoundTag convertPotionContents(final PotionContents value) {
@@ -597,8 +600,15 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Co
         if (value.customColor() != null) {
             tag.putInt("custom_color", value.customColor());
         }
+        final ListTag<CompoundTag> customEffects = new ListTag<>(CompoundTag.class);
         for (final PotionEffect effect : value.customEffects()) {
-            convertPotionEffect(tag, effect);
+            final CompoundTag effectTag = new CompoundTag();
+            convertPotionEffect(effectTag, effect);
+            customEffects.add(effectTag);
+        }
+        tag.put("custom_effects", customEffects);
+        if (value.customName() != null) {
+            tag.putString("custom_name", value.customName());
         }
         return tag;
     }
@@ -641,15 +651,14 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Co
 
     protected CompoundTag convertWrittenBookContent(final WrittenBook value) {
         final CompoundTag tag = new CompoundTag();
-        convertFilterableString(tag, value.title(), 32);
-        tag.putString("author", value.author());
-        if (value.generation() != 0) {
-            tag.put("generation", convertIntRange(value.generation(), 0, 3));
-        }
 
         final CompoundTag title = new CompoundTag();
         convertFilterableString(title, value.title(), 32);
         tag.put("title", title);
+        tag.putString("author", value.author());
+        if (value.generation() != 0) {
+            tag.put("generation", convertIntRange(value.generation(), 0, 3));
+        }
 
         final ListTag<CompoundTag> pagesTag = new ListTag<>(CompoundTag.class);
         for (final FilterableComponent page : value.pages()) {
@@ -668,11 +677,12 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Co
         return tag;
     }
 
-    protected CompoundTag convertTrim(final ArmorTrim value) {
+    protected CompoundTag convertTrim(final UserConnection connection, final ArmorTrim value) {
         final CompoundTag tag = new CompoundTag();
         final Holder<ArmorTrimMaterial> material = value.material();
+        final ArmorTrimStorage trimStorage = connection.get(ArmorTrimStorage.class);
         if (material.hasId()) {
-            final String trimMaterial = TrimMaterials1_20_3.idToKey(material.id());
+            final String trimMaterial = trimStorage.trimMaterials().idToKey(material.id());
             tag.putString("material", trimMaterial);
         } else {
             final ArmorTrimMaterial armorTrimMaterial = material.value();
@@ -700,7 +710,7 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Co
 
         final Holder<ArmorTrimPattern> pattern = value.pattern();
         if (pattern.hasId()) {
-            tag.putString("pattern", TrimPatterns1_20_3.idToKey(pattern.id()));
+            tag.putString("pattern", trimStorage.trimPatterns().idToKey(pattern.id()));
         } else {
             final ArmorTrimPattern armorTrimPattern = pattern.value();
             final CompoundTag patternTag = new CompoundTag();
@@ -740,12 +750,12 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Co
         return convertNbtWithId(value);
     }
 
-    protected Tag convertInstrument(final Holder<Instrument> value) {
+    protected Tag convertInstrument(final Holder<Instrument1_20_5> value) {
         if (value.hasId()) {
             return new StringTag(Instruments1_20_3.idToKey(value.id()));
         }
 
-        final Instrument instrument = value.value();
+        final Instrument1_20_5 instrument = value.value();
         final CompoundTag tag = new CompoundTag();
         final Holder<SoundEvent> sound = instrument.soundEvent();
         if (sound.hasId()) {
@@ -862,9 +872,9 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Co
         return tag;
     }
 
-    protected ListTag<CompoundTag> convertContainer(final Item[] value) {
+    protected ListTag<CompoundTag> convertContainer(final UserConnection connection, final Item[] value) {
         final ListTag<CompoundTag> tag = new ListTag<>(CompoundTag.class);
-        final ListTag<CompoundTag> items = convertItemArray(value);
+        final ListTag<CompoundTag> items = convertItemArray(connection, value);
         for (int i = 0; i < items.size(); i++) {
             final CompoundTag itemTag = new CompoundTag();
             itemTag.putInt("slot", i);
@@ -946,21 +956,31 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Co
         if (set.hasTagKey()) {
             tag.putString(name, set.tagKey());
         } else {
-            tag.put(name, new IntArrayTag(set.ids()));
+            final ListTag<StringTag> identifiers = new ListTag<>(StringTag.class);
+            for (final int id : set.ids()) {
+                // Can use old block list because new ids are only at the end :tm:
+                final String identifier = Protocol1_20_3To1_20_5.MAPPINGS.blockName(id);
+                if (identifier == null) {
+                    continue;
+                }
+
+                identifiers.add(new StringTag(identifier));
+            }
+            tag.put(name, identifiers);
         }
     }
 
-    protected ListTag<CompoundTag> convertItemArray(final Item[] value) {
+    protected ListTag<CompoundTag> convertItemArray(final UserConnection connection, final Item[] value) {
         final ListTag<CompoundTag> tag = new ListTag<>(CompoundTag.class);
         for (final Item item : value) {
             final CompoundTag itemTag = new CompoundTag();
-            convertItem(itemTag, item);
+            convertItem(connection, itemTag, item);
             tag.add(itemTag);
         }
         return tag;
     }
 
-    protected void convertItem(final CompoundTag tag, final Item item) {
+    protected void convertItem(final UserConnection connection, final CompoundTag tag, final Item item) {
         final String identifier = mappedIdentifier(item.identifier());
         if (identifier == null) {
             throw new IllegalArgumentException("Unknown item: " + item.identifier());
@@ -972,7 +992,7 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Co
             tag.putInt("count", 1);
         }
         final Map<StructuredDataKey<?>, StructuredData<?>> components = item.dataContainer().data();
-        tag.put("components", toTag(components, true));
+        tag.put("components", toTag(connection, components, true));
     }
 
     protected void convertFilterableString(final CompoundTag tag, final FilterableString string, final int max) {
@@ -1108,17 +1128,17 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Co
 
     // ---------------------------------------------------------------------------------------
 
-    private int checkIntRange(final int min, final int max, final int value) {
+    protected int checkIntRange(final int min, final int max, final int value) {
         Preconditions.checkArgument(value >= min && value <= max, "Value out of range: " + value);
         return value;
     }
 
-    private float checkFloatRange(final float min, final float max, final float value) {
+    protected float checkFloatRange(final float min, final float max, final float value) {
         Preconditions.checkArgument(value >= min && value <= max, "Value out of range: " + value);
         return value;
     }
 
-    private String checkStringRange(final int min, final int max, final String value) {
+    protected String checkStringRange(final int min, final int max, final String value) {
         final int length = value.length();
         Preconditions.checkArgument(length >= min && length <= max, "Value out of range: " + value);
         return value;
@@ -1126,8 +1146,17 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Co
 
     // ---------------------------------------------------------------------------------------
 
+    protected <T> void registerEmpty(final StructuredDataKey<T> key) {
+        converters.put(key, new ConverterPair<>(null, null));
+    }
+
     protected <T> void register(final StructuredDataKey<T> key, final DataConverter<T> dataConverter) { // TODO Remove this method
         converters.put(key, new ConverterPair<>(dataConverter, null));
+    }
+
+    protected <T> void register(final StructuredDataKey<T> key, final SimpleDataConverter<T> dataConverter) {
+        final DataConverter<T> converter = ($, value) -> dataConverter.convert(value);
+        converters.put(key, new ConverterPair<>(converter, null));
     }
 
     protected <T> void register(final StructuredDataKey<T> key, final DataConverter<T> dataConverter, final TagConverter<T> tagConverter) {
@@ -1151,9 +1180,15 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Co
     }
 
     @FunctionalInterface
-    protected interface DataConverter<T> {
+    protected interface SimpleDataConverter<T> {
 
         Tag convert(T value);
+    }
+
+    @FunctionalInterface
+    protected interface DataConverter<T> {
+
+        Tag convert(UserConnection connection, T value);
     }
 
     @FunctionalInterface

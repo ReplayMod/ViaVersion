@@ -7,6 +7,7 @@ dependencies {
     api(projects.viaversionCommon)
     api(projects.viaversionBukkit)
     api(projects.viaversionVelocity)
+    api(projects.viaversionSponge)
     api(projects.viaversionFabric)
 }
 
@@ -63,7 +64,8 @@ if (!isRelease || isMainBranch) { // Only publish releases from the main branch
         detectLoaders.set(false)
         dependencies {
             optional.project("viafabric")
-            optional.project("viafabricplus")
+            optional.project("viabackwards")
+            optional.project("viarewind")
         }
     }
 
@@ -78,10 +80,26 @@ if (!isRelease || isMainBranch) { // Only publish releases from the main branch
                 paper {
                     jar.set(tasks.shadowJar.flatMap { it.archiveFile })
                     platformVersions.set(listOf(property("mcVersionRange") as String))
+                    dependencies {
+                        hangar("ViaBackwards") {
+                            required = false
+                        }
+                        hangar("ViaRewind") {
+                            required = false
+                        }
+                    }
                 }
                 velocity {
                     jar.set(tasks.shadowJar.flatMap { it.archiveFile })
                     platformVersions.set(listOf(property("velocityVersion") as String))
+                    dependencies {
+                        hangar("ViaBackwards") {
+                            required = false
+                        }
+                        hangar("ViaRewind") {
+                            required = false
+                        }
+                    }
                 }
             }
         }

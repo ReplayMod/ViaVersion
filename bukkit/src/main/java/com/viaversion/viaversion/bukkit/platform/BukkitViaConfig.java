@@ -19,19 +19,20 @@ package com.viaversion.viaversion.bukkit.platform;
 
 import com.viaversion.viaversion.configuration.AbstractViaConfig;
 import java.io.File;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 
 public class BukkitViaConfig extends AbstractViaConfig {
-    private static final List<String> UNSUPPORTED = Arrays.asList("velocity-ping-interval", "velocity-ping-save", "velocity-servers");
     private boolean quickMoveActionFix;
     private boolean hitboxFix1_9;
     private boolean hitboxFix1_14;
     private String blockConnectionMethod;
     private boolean armorToggleFix;
     private boolean registerUserConnectionOnJoin;
+    private boolean useNewDeathMessages;
+    private boolean itemCache;
+    private boolean nmsPlayerTicking;
 
     public BukkitViaConfig(final File folder, final Logger logger) {
         super(new File(folder, "config.yml"), logger);
@@ -46,6 +47,9 @@ public class BukkitViaConfig extends AbstractViaConfig {
         hitboxFix1_14 = getBoolean("change-1_14-hitbox", false);
         blockConnectionMethod = getString("blockconnection-method", "packet");
         armorToggleFix = getBoolean("armor-toggle-fix", true);
+        useNewDeathMessages = getBoolean("use-new-deathmessages", true);
+        itemCache = getBoolean("item-cache", true);
+        nmsPlayerTicking = getBoolean("nms-player-ticking", true);
     }
 
     @Override
@@ -83,7 +87,22 @@ public class BukkitViaConfig extends AbstractViaConfig {
     }
 
     @Override
+    public boolean isShowNewDeathMessages() {
+        return useNewDeathMessages;
+    }
+
+    @Override
+    public boolean isItemCache() {
+        return itemCache;
+    }
+
+    @Override
+    public boolean isNMSPlayerTicking() {
+        return nmsPlayerTicking;
+    }
+
+    @Override
     public List<String> getUnsupportedOptions() {
-        return UNSUPPORTED;
+        return VELOCITY_ONLY_OPTIONS;
     }
 }

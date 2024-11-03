@@ -47,6 +47,7 @@ import com.viaversion.viaversion.protocols.v1_15_2to1_16.rewriter.EntityPacketRe
 import com.viaversion.viaversion.protocols.v1_15_2to1_16.rewriter.ItemPacketRewriter1_16;
 import com.viaversion.viaversion.protocols.v1_15_2to1_16.rewriter.WorldPacketRewriter1_16;
 import com.viaversion.viaversion.protocols.v1_15_2to1_16.storage.InventoryTracker1_16;
+import com.viaversion.viaversion.rewriter.ParticleRewriter;
 import com.viaversion.viaversion.rewriter.SoundRewriter;
 import com.viaversion.viaversion.rewriter.StatisticsRewriter;
 import com.viaversion.viaversion.rewriter.TagRewriter;
@@ -63,6 +64,7 @@ public class Protocol1_15_2To1_16 extends AbstractProtocol<ClientboundPackets1_1
     public static final MappingData MAPPINGS = new MappingDataBase("1.15", "1.16");
     private final EntityPacketRewriter1_16 entityRewriter = new EntityPacketRewriter1_16(this);
     private final ItemPacketRewriter1_16 itemRewriter = new ItemPacketRewriter1_16(this);
+    private final ParticleRewriter<ClientboundPackets1_15> particleRewriter = new ParticleRewriter<>(this);
     private final ComponentRewriter1_16 componentRewriter = new ComponentRewriter1_16(this);
     private final TagRewriter<ClientboundPackets1_15> tagRewriter = new TagRewriter<>(this);
 
@@ -77,18 +79,19 @@ public class Protocol1_15_2To1_16 extends AbstractProtocol<ClientboundPackets1_1
         WorldPacketRewriter1_16.register(this);
 
         tagRewriter.register(ClientboundPackets1_15.UPDATE_TAGS, RegistryType.ENTITY);
+        particleRewriter.registerLevelParticles1_13(ClientboundPackets1_15.LEVEL_PARTICLES, Types.DOUBLE);
 
         new StatisticsRewriter<>(this).register(ClientboundPackets1_15.AWARD_STATS);
 
         // Login Success
-        registerClientbound(State.LOGIN, ClientboundLoginPackets.GAME_PROFILE.getId(), ClientboundLoginPackets.GAME_PROFILE.getId(), wrapper -> {
+        registerClientbound(State.LOGIN, ClientboundLoginPackets.LOGIN_FINISHED, wrapper -> {
             // Transform string to a uuid
             UUID uuid = UUID.fromString(wrapper.read(Types.STRING));
             wrapper.write(Types.UUID, uuid);
         });
 
         // Motd Status - line breaks are no longer allowed for player samples
-        registerClientbound(State.STATUS, ClientboundStatusPackets.STATUS_RESPONSE.getId(), ClientboundStatusPackets.STATUS_RESPONSE.getId(), wrapper -> {
+        registerClientbound(State.STATUS, ClientboundStatusPackets.STATUS_RESPONSE, wrapper -> {
             String original = wrapper.passthrough(Types.STRING);
             JsonObject object = GsonUtil.getGson().fromJson(original, JsonObject.class);
             JsonObject players = object.getAsJsonObject("players");
@@ -253,6 +256,11 @@ public class Protocol1_15_2To1_16 extends AbstractProtocol<ClientboundPackets1_1
     @Override
     public ItemPacketRewriter1_16 getItemRewriter() {
         return itemRewriter;
+    }
+
+    @Override
+    public ParticleRewriter<ClientboundPackets1_15> getParticleRewriter() {
+        return particleRewriter;
     }
 
     public ComponentRewriter1_16 getComponentRewriter() {

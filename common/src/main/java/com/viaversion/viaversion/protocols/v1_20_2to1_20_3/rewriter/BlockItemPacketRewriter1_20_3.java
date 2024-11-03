@@ -17,10 +17,10 @@
  */
 package com.viaversion.viaversion.protocols.v1_20_2to1_20_3.rewriter;
 
+import com.google.gson.JsonElement;
 import com.viaversion.nbt.tag.CompoundTag;
 import com.viaversion.nbt.tag.ListTag;
 import com.viaversion.nbt.tag.StringTag;
-import com.google.gson.JsonElement;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.data.ParticleMappings;
@@ -31,17 +31,18 @@ import com.viaversion.viaversion.api.protocol.remapper.PacketHandlers;
 import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.api.type.types.chunk.ChunkType1_20_2;
 import com.viaversion.viaversion.api.type.types.version.Types1_20_3;
-import com.viaversion.viaversion.protocols.v1_20to1_20_2.packet.ClientboundPacket1_20_2;
-import com.viaversion.viaversion.protocols.v1_20to1_20_2.packet.ClientboundPackets1_20_2;
-import com.viaversion.viaversion.protocols.v1_20to1_20_2.rewriter.RecipeRewriter1_20_2;
 import com.viaversion.viaversion.protocols.v1_20_2to1_20_3.Protocol1_20_2To1_20_3;
 import com.viaversion.viaversion.protocols.v1_20_2to1_20_3.packet.ServerboundPacket1_20_3;
 import com.viaversion.viaversion.protocols.v1_20_2to1_20_3.packet.ServerboundPackets1_20_3;
+import com.viaversion.viaversion.protocols.v1_20to1_20_2.packet.ClientboundPacket1_20_2;
+import com.viaversion.viaversion.protocols.v1_20to1_20_2.packet.ClientboundPackets1_20_2;
+import com.viaversion.viaversion.protocols.v1_20to1_20_2.rewriter.RecipeRewriter1_20_2;
 import com.viaversion.viaversion.rewriter.BlockRewriter;
 import com.viaversion.viaversion.rewriter.ItemRewriter;
 import com.viaversion.viaversion.util.ComponentUtil;
 import com.viaversion.viaversion.util.Key;
 import com.viaversion.viaversion.util.SerializerVersion;
+import java.util.logging.Level;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 public final class BlockItemPacketRewriter1_20_3 extends ItemRewriter<ClientboundPacket1_20_2, ServerboundPacket1_20_3, Protocol1_20_2To1_20_3> {
@@ -90,7 +91,7 @@ public final class BlockItemPacketRewriter1_20_3 extends ItemRewriter<Clientboun
                         wrapper.write(Types.VAR_INT, resourceLocation.equals("block") ? 0 : 1);
                     }
                 });
-                handler(levelParticlesHandler(Types.VAR_INT));
+                handler(protocol.getParticleRewriter().levelParticlesHandler1_13(Types.VAR_INT));
             }
         });
 
@@ -146,24 +147,29 @@ public final class BlockItemPacketRewriter1_20_3 extends ItemRewriter<Clientboun
 
         final CompoundTag tag = item.tag();
         if (tag != null && item.identifier() == 1047) { // Written book
-            updatePages(tag, "pages");
-            updatePages(tag, "filtered_pages"); // TODO This isn't a list
+            final ListTag<StringTag> pages = tag.getListTag("pages", StringTag.class);
+            if (pages != null) {
+                for (final StringTag pageTag : pages) {
+                    updatePageTag(pageTag);
+                }
+            }
+            final CompoundTag filteredPages = tag.getCompoundTag("filtered_pages");
+            if (filteredPages != null) {
+                for (final String string : filteredPages.keySet()) {
+                    updatePageTag(filteredPages.getStringTag(string));
+                }
+            }
         }
         return super.handleItemToClient(connection, item);
     }
 
-    private void updatePages(final CompoundTag tag, final String key) {
-        final ListTag<StringTag> pages = tag.getListTag(key, StringTag.class);
-        if (pages == null) {
-            return;
-        }
-
-        for (final StringTag pageTag : pages) {
-            try {
-                final JsonElement updatedComponent = ComponentUtil.convertJson(pageTag.getValue(), SerializerVersion.V1_19_4, SerializerVersion.V1_20_3);
-                pageTag.setValue(updatedComponent.toString());
-            } catch (final Exception e) {
-                Via.getManager().debugHandler().error("Error during book conversion", e);
+    private void updatePageTag(final StringTag pageTag) {
+        try {
+            final JsonElement updatedComponent = ComponentUtil.convertJson(pageTag.getValue(), SerializerVersion.V1_19_4, SerializerVersion.V1_20_3);
+            pageTag.setValue(updatedComponent.toString());
+        } catch (final Exception e) {
+            if (!Via.getConfig().isSuppressConversionWarnings()) {
+                protocol.getLogger().log(Level.SEVERE, "Error during book conversion: " + pageTag.getValue(), e);
             }
         }
     }

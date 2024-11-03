@@ -29,6 +29,31 @@ import com.viaversion.viaversion.api.platform.providers.Provider;
 public interface VersionProvider extends Provider {
 
     /**
+     * Optionally allows platforms to specify the client version of a user. This is needed when the platform supports
+     * connecting other version types then {@link VersionType#RELEASE} to the server.
+     *
+     * @param connection connection
+     * @return client protocol version, or null if handshake packet should be used
+     */
+    default ProtocolVersion getClientProtocol(UserConnection connection) {
+        return null;
+    }
+
+    /**
+     * Calls {@link #getClosestServerProtocol(UserConnection)} and catches any exceptions by returning null.
+     *
+     * @param connection connection
+     * @return closest server protocol version to the user's protocol version
+     */
+    default ProtocolVersion getServerProtocol(UserConnection connection) {
+        try {
+            return getClosestServerProtocol(connection);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
      * Returns the closest server protocol version to the user's protocol version.
      * On non-proxy servers, this returns the actual server version.
      *

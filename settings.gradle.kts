@@ -16,7 +16,7 @@ pluginManagement {
     plugins {
         id("net.kyori.blossom") version "2.1.0"
         id("org.jetbrains.gradle.plugin.idea-ext") version "1.1.7"
-        id("com.github.johnrengelman.shadow") version "8.1.1"
+        id("com.gradleup.shadow") version "8.3.0"
     }
 }
 
@@ -24,15 +24,13 @@ rootProject.name = "viaversion-parent"
 
 includeBuild("build-logic")
 
-include("compat", "compat:snakeyaml-compat-common", "compat:snakeyaml2-compat", "compat:snakeyaml1-compat")
-
 setupViaSubproject("api")
 setupViaSubproject("common")
 setupViaSubproject("bukkit")
 setupViaSubproject("bukkit-legacy")
 setupViaSubproject("velocity")
+setupViaSubproject("sponge")
 setupViaSubproject("fabric")
-setupViaSubproject("template")
 
 setupSubproject("viaversion") {
     projectDir = file("universal")

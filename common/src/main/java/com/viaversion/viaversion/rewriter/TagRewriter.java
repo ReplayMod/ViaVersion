@@ -31,6 +31,7 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -125,13 +126,13 @@ public class TagRewriter<C extends ClientboundPacketType> implements com.viavers
     }
 
     public void registerGeneric(C packetType) {
-        protocol.registerClientbound(packetType, getGenericHandler());
+        protocol.registerClientbound(packetType, this::handleGeneric);
     }
 
     public PacketHandler getHandler(@Nullable RegistryType readUntilType) {
         return wrapper -> {
             for (RegistryType type : RegistryType.getValues()) {
-                handle(wrapper, getRewriter(type), getNewTags(type), toRename.get(type), toRemove.get(type));
+                handle(wrapper, type);
 
                 // Stop iterating
                 if (type == readUntilType) {
@@ -141,40 +142,71 @@ public class TagRewriter<C extends ClientboundPacketType> implements com.viavers
         };
     }
 
-    public PacketHandler getGenericHandler() {
-        return wrapper -> {
-            final int length = wrapper.passthrough(Types.VAR_INT);
-            int editedLength = length;
-            for (int i = 0; i < length; i++) {
-                String registryKey = wrapper.read(Types.STRING);
-                if (toRemoveRegistries.contains(Key.stripMinecraftNamespace(registryKey))) {
-                    wrapper.set(Types.VAR_INT, 0, --editedLength);
-                    int tagsSize = wrapper.read(Types.VAR_INT);
-                    for (int j = 0; j < tagsSize; j++) {
-                        wrapper.read(Types.STRING);
-                        wrapper.read(Types.VAR_INT_ARRAY_PRIMITIVE);
-                    }
-                    continue;
-                }
+    public void handleGeneric(final PacketWrapper wrapper) {
+        final int length = wrapper.passthrough(Types.VAR_INT);
+        int finalLength = length;
+        final Set<RegistryType> readTypes = EnumSet.noneOf(RegistryType.class);
+        for (int i = 0; i < length; i++) {
+            final String registryKey = wrapper.read(Types.STRING);
+            final String strippedKey = Key.stripMinecraftNamespace(registryKey);
+            if (toRemoveRegistries.contains(strippedKey)) {
+                finalLength--;
 
-                wrapper.write(Types.STRING, registryKey);
-                registryKey = Key.stripMinecraftNamespace(registryKey);
-
-                RegistryType type = RegistryType.getByKey(registryKey);
-                if (type != null) {
-                    handle(wrapper, getRewriter(type), getNewTags(type), toRename.get(type), toRemove.get(type));
-                } else {
-                    handle(wrapper, null, null, null, null);
+                final int tagsSize = wrapper.read(Types.VAR_INT);
+                for (int j = 0; j < tagsSize; j++) {
+                    wrapper.read(Types.STRING);
+                    wrapper.read(Types.VAR_INT_ARRAY_PRIMITIVE);
                 }
+                continue;
             }
-        };
+
+            wrapper.write(Types.STRING, registryKey);
+
+            final RegistryType type = RegistryType.getByKey(strippedKey);
+            if (type != null) {
+                handle(wrapper, type);
+                readTypes.add(type);
+            } else {
+                handle(wrapper, null, null, null, null);
+            }
+        }
+
+        for (final Map.Entry<RegistryType, List<TagData>> entry : toAdd.entrySet()) {
+            if (readTypes.contains(entry.getKey())) {
+                continue;
+            }
+
+            // Registry wasn't present in the packet, add them here
+            wrapper.write(Types.STRING, entry.getKey().resourceLocation());
+            appendNewTags(wrapper, entry.getKey());
+            finalLength++;
+        }
+
+        if (length != finalLength) {
+            wrapper.set(Types.VAR_INT, 0, finalLength);
+        }
     }
 
-    public void handle(PacketWrapper wrapper, @Nullable IdRewriteFunction rewriteFunction, @Nullable List<TagData> newTags) {
-        handle(wrapper, rewriteFunction, newTags, null, null);
+    public void handle(final PacketWrapper wrapper, final String registryKey) {
+        final RegistryType type = RegistryType.getByKey(registryKey);
+        if (type != null) {
+            handle(wrapper, type);
+        } else {
+            handle(wrapper, null, null, null, null);
+        }
     }
 
-    public void handle(PacketWrapper wrapper, @Nullable IdRewriteFunction rewriteFunction, @Nullable List<TagData> newTags, @Nullable Map<String, String> tagsToRename, @Nullable Set<String> tagsToRemove) {
+    public void handle(PacketWrapper wrapper, RegistryType registryType) {
+        handle(wrapper, getRewriter(registryType), getNewTags(registryType), toRename.get(registryType), toRemove.get(registryType));
+    }
+
+    protected void handle(
+        PacketWrapper wrapper,
+        @Nullable IdRewriteFunction rewriteFunction,
+        @Nullable List<TagData> newTags,
+        @Nullable Map<String, String> tagsToRename,
+        @Nullable Set<String> tagsToRemove
+    ) {
         final int tagsSize = wrapper.read(Types.VAR_INT);
         final List<TagData> tags = new ArrayList<>(newTags != null ? tagsSize + newTags.size() : tagsSize);
         final Set<String> currentTags = new HashSet<>(tagsSize);

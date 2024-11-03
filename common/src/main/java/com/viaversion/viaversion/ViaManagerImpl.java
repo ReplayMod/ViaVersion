@@ -67,6 +67,7 @@ public class ViaManagerImpl implements ViaManager {
     private final ViaPlatformLoader loader;
     private final Set<String> subPlatforms = new HashSet<>();
     private List<Runnable> enableListeners = new ArrayList<>();
+    private List<Runnable> postEnableListeners = new ArrayList<>();
     private PlatformTask<?> mappingLoadingTask;
     private boolean initialized;
 
@@ -150,7 +151,7 @@ public class ViaManagerImpl implements ViaManager {
                 platform.getLogger().warning("and if you're still unsure, feel free to join our Discord-Server for further assistance.");
             } else if (protocolVersion.highestSupportedProtocolVersion().olderThan(ProtocolVersion.v1_13)) {
                 platform.getLogger().warning("This version of Minecraft is extremely outdated and support for it has reached its end of life. "
-                    + "You will still be able to run Via on this Minecraft version, but we are unlikely to provide any further fixes or help with problems specific to legacy Minecraft versions. "
+                    + "You will still be able to run Via on this Minecraft version, but we will prioritize issues with legacy Minecraft versions less. "
                     + "Please consider updating to give your players a better experience and to avoid issues that have long been fixed.");
             }
         }
@@ -184,6 +185,11 @@ public class ViaManagerImpl implements ViaManager {
 
         // Refresh Versions
         protocolManager.refreshVersions();
+
+        for (final Runnable listener : postEnableListeners) {
+            listener.run();
+        }
+        postEnableListeners = null;
     }
 
     private void loadServerProtocol() {
@@ -204,8 +210,10 @@ public class ViaManagerImpl implements ViaManager {
     }
 
     public void destroy() {
-        // Uninject
-        platform.getLogger().info("ViaVersion is disabling, if this is a reload and you experience issues consider rebooting.");
+        if (platform.couldBeReloading()) {
+            platform.getLogger().info("ViaVersion is disabling. If this is a reload and you experience issues, please reboot instead.");
+        }
+
         try {
             injector.uninject();
         } catch (Exception e) {
@@ -214,6 +222,8 @@ public class ViaManagerImpl implements ViaManager {
 
         loader.unload();
         scheduler.shutdown();
+
+        platform.getLogger().info("ViaVersion has been disabled; uninjected the platform and shut down the scheduler.");
     }
 
     private void checkJavaVersion() { // Stolen from Paper
@@ -235,7 +245,8 @@ public class ViaManagerImpl implements ViaManager {
 
         if (version < 17) {
             platform.getLogger().warning("You are running an outdated Java version, please update it to at least Java 17 (your version is " + javaVersion + ").");
-            platform.getLogger().warning("Starting with Minecraft 1.21, ViaVersion will no longer officially be compatible with this version of Java, only offering unsupported compatibility builds.");
+            platform.getLogger().warning("ViaVersion no longer officially supports this version of Java, only offering unsupported compatibility builds.");
+            platform.getLogger().warning("See https://github.com/ViaVersion/ViaVersion/releases/tag/5.0.0 for more information.");
         }
     }
 
@@ -316,23 +327,19 @@ public class ViaManagerImpl implements ViaManager {
         return configurationProvider;
     }
 
-    /**
-     * Returns a mutable set of self-added subplatform version strings.
-     * This set is expanded by the subplatform itself (e.g. ViaBackwards), and may not contain all running ones.
-     *
-     * @return mutable set of subplatform versions
-     */
+    @Override
     public Set<String> getSubPlatforms() {
         return subPlatforms;
     }
 
-    /**
-     * Adds a runnable to be executed when ViaVersion has finished its init before the full server load.
-     *
-     * @param runnable runnable to be executed
-     */
+    @Override
     public void addEnableListener(Runnable runnable) {
         enableListeners.add(runnable);
+    }
+
+    @Override
+    public void addPostEnableListener(final Runnable runnable) {
+        postEnableListeners.add(runnable);
     }
 
     @Override

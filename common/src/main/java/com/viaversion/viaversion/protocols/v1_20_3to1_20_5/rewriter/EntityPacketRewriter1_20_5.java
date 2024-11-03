@@ -26,10 +26,12 @@ import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.data.entity.DimensionData;
 import com.viaversion.viaversion.api.minecraft.Particle;
 import com.viaversion.viaversion.api.minecraft.RegistryEntry;
+import com.viaversion.viaversion.api.minecraft.data.StructuredDataContainer;
 import com.viaversion.viaversion.api.minecraft.entities.EntityType;
 import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_20_5;
 import com.viaversion.viaversion.api.minecraft.entitydata.EntityData;
 import com.viaversion.viaversion.api.minecraft.item.Item;
+import com.viaversion.viaversion.api.minecraft.item.StructuredItem;
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.protocol.remapper.PacketHandlers;
 import com.viaversion.viaversion.api.type.Types;
@@ -41,13 +43,13 @@ import com.viaversion.viaversion.protocols.v1_20_2to1_20_3.packet.ClientboundPac
 import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.Protocol1_20_3To1_20_5;
 import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.data.Attributes1_20_5;
 import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.data.BannerPatterns1_20_5;
-import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.data.DamageTypes1_20_3;
 import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.packet.ClientboundConfigurationPackets1_20_5;
 import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.packet.ClientboundPackets1_20_5;
 import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.storage.AcknowledgedMessagesStorage;
+import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.storage.ArmorTrimStorage;
 import com.viaversion.viaversion.rewriter.EntityRewriter;
-import com.viaversion.viaversion.rewriter.entitydata.EntityDataHandler;
 import com.viaversion.viaversion.util.Key;
+import com.viaversion.viaversion.util.KeyMappings;
 import com.viaversion.viaversion.util.TagUtil;
 import it.unimi.dsi.fastutil.ints.IntArraySet;
 import it.unimi.dsi.fastutil.ints.IntSet;
@@ -73,6 +75,25 @@ public final class EntityPacketRewriter1_20_5 extends EntityRewriter<Clientbound
         registerTrackerWithData1_19(ClientboundPackets1_20_3.ADD_ENTITY, EntityTypes1_20_5.FALLING_BLOCK);
         registerSetEntityData(ClientboundPackets1_20_3.SET_ENTITY_DATA, Types1_20_3.ENTITY_DATA_LIST, Types1_20_5.ENTITY_DATA_LIST);
         registerRemoveEntities(ClientboundPackets1_20_3.REMOVE_ENTITIES);
+
+        protocol.registerClientbound(ClientboundPackets1_20_3.SET_EQUIPMENT, wrapper -> {
+            final int entityId = wrapper.passthrough(Types.VAR_INT); // Entity id
+            final EntityType type = tracker(wrapper.user()).entityType(entityId);
+
+            byte slot;
+            do {
+                slot = wrapper.read(Types.BYTE);
+
+                final int rawSlot = slot & 0x7F;
+                if (type != null && type.isOrHasParent(EntityTypes1_20_5.ABSTRACT_HORSE) && rawSlot == 4) {
+                    final boolean lastSlot = (slot & 0xFFFFFF80) == 0;
+                    slot = (byte) (lastSlot ? 6 : 6 | 0xFFFFFF80); // Map chest slot index to body slot index for horses
+                }
+                wrapper.write(Types.BYTE, slot);
+                Item item = protocol.getItemRewriter().handleItemToClient(wrapper.user(), wrapper.read(Types.ITEM1_20_2));
+                wrapper.write(Types1_20_5.ITEM, item);
+            } while ((slot & 0xFFFFFF80) != 0);
+        });
 
         protocol.registerClientbound(ClientboundConfigurationPackets1_20_3.REGISTRY_DATA, wrapper -> {
             final PacketWrapper knownPacksPacket = wrapper.create(ClientboundConfigurationPackets1_20_5.SELECT_KNOWN_PACKS);
@@ -140,7 +161,8 @@ public final class EntityPacketRewriter1_20_5 extends EntityRewriter<Clientbound
                     registryEntries[id] = new RegistryEntry(name, tag.get("element"));
                 }
 
-                if (Key.stripMinecraftNamespace(type).equals("damage_type")) {
+                final String strippedKey = Key.stripMinecraftNamespace(type);
+                if (strippedKey.equals("damage_type")) {
                     // Add spit damage type
                     highestId++;
                     registryEntries = Arrays.copyOf(registryEntries, highestId + 1);
@@ -152,14 +174,14 @@ public final class EntityPacketRewriter1_20_5 extends EntityRewriter<Clientbound
 
                     // Fill in missing damage types with 1.20.3/4 defaults
                     final Set<String> registryEntryKeys = Arrays.stream(registryEntries).map(e -> Key.stripMinecraftNamespace(e.key())).collect(Collectors.toSet());
-                    for (final String key : DamageTypes1_20_3.keys()) {
+                    for (final String key : protocol.getMappingData().damageKeys()) {
                         if (registryEntryKeys.contains(key)) {
                             continue;
                         }
 
                         highestId++;
                         registryEntries = Arrays.copyOf(registryEntries, highestId + 1);
-                        registryEntries[highestId] = new RegistryEntry(Key.namespaced(key), DamageTypes1_20_3.get(key));
+                        registryEntries[highestId] = new RegistryEntry(Key.namespaced(key), protocol.getMappingData().damageType(key));
                     }
                 }
 
@@ -170,6 +192,13 @@ public final class EntityPacketRewriter1_20_5 extends EntityRewriter<Clientbound
                         registryEntries = Arrays.copyOf(registryEntries, finalLength);
                     }
                     replaceNullValues(registryEntries);
+                }
+
+                // Track custom armor trims
+                if (strippedKey.equals("trim_pattern")) {
+                    wrapper.user().get(ArmorTrimStorage.class).setTrimPatterns(toMappings(registryEntries));
+                } else if (strippedKey.equals("trim_material")) {
+                    wrapper.user().get(ArmorTrimStorage.class).setTrimMaterials(toMappings(registryEntries));
                 }
 
                 final PacketWrapper registryPacket = wrapper.create(ClientboundConfigurationPackets1_20_5.REGISTRY_DATA);
@@ -312,6 +341,14 @@ public final class EntityPacketRewriter1_20_5 extends EntityRewriter<Clientbound
         });
     }
 
+    private KeyMappings toMappings(final RegistryEntry[] entries) {
+        final String[] keys = new String[entries.length];
+        for (int i = 0; i < entries.length; i++) {
+            keys[i] = Key.stripMinecraftNamespace(entries[i].key());
+        }
+        return new KeyMappings(keys);
+    }
+
     private void updateParticleFormat(final CompoundTag options, final String particleType) {
         if ("block".equals(particleType) || "block_marker".equals(particleType) || "falling_dust".equals(particleType) || "dust_pillar".equals(particleType)) {
             moveTag(options, "value", "block_state");
@@ -418,27 +455,43 @@ public final class EntityPacketRewriter1_20_5 extends EntityRewriter<Clientbound
         );
         registerBlockStateHandler(EntityTypes1_20_5.ABSTRACT_MINECART, 11);
 
-        filter().type(EntityTypes1_20_5.LIVING_ENTITY).index(10).handler((event, meta) -> {
-            final int effectColor = meta.value();
+        filter().type(EntityTypes1_20_5.LIVING_ENTITY).index(10).handler((event, data) -> {
+            final int effectColor = data.value();
             if (effectColor == 0) {
                 // No effect
-                meta.setTypeAndValue(Types1_20_5.ENTITY_DATA_TYPES.particlesType, new Particle[0]);
+                data.setTypeAndValue(Types1_20_5.ENTITY_DATA_TYPES.particlesType, new Particle[0]);
                 return;
             }
 
             final Particle particle = new Particle(protocol.getMappingData().getParticleMappings().mappedId("entity_effect"));
             particle.add(Types.INT, withAlpha(effectColor));
-            meta.setTypeAndValue(Types1_20_5.ENTITY_DATA_TYPES.particlesType, new Particle[]{particle});
+            data.setTypeAndValue(Types1_20_5.ENTITY_DATA_TYPES.particlesType, new Particle[]{particle});
         });
 
-        filter().type(EntityTypes1_20_5.LLAMA).removeIndex(20); // Carpet color
-        filter().type(EntityTypes1_20_5.AREA_EFFECT_CLOUD).handler((event, meta) -> {
+        filter().type(EntityTypes1_20_5.LLAMA).handler((event, data) -> {
+            // Carpet color removed - now set via the set equipment packet
+            final int dataIndex = event.index();
+            if (dataIndex == 20) {
+                event.cancel();
+                final int color = data.value();
+
+                // Convert dyed color id to carpet item id
+                final PacketWrapper setEquipment = PacketWrapper.create(ClientboundPackets1_20_5.SET_EQUIPMENT, event.user());
+                setEquipment.write(Types.VAR_INT, event.entityId());
+                setEquipment.write(Types.BYTE, (byte) 6);
+                setEquipment.write(Types1_20_5.ITEM, new StructuredItem(color + 446, 1, new StructuredDataContainer()));
+                setEquipment.scheduleSend(Protocol1_20_3To1_20_5.class);
+            } else if (dataIndex > 20) {
+                event.setIndex(dataIndex - 1);
+            }
+        });
+        filter().type(EntityTypes1_20_5.AREA_EFFECT_CLOUD).handler((event, data) -> {
             // Color removed - Now put into the actual particle
-            final int metaIndex = event.index();
-            if (metaIndex == 9) {
+            final int dataIndex = event.index();
+            if (dataIndex == 9) {
                 // If the color is found first
                 final EntityData particleData = event.dataAtIndex(11);
-                final int color = meta.value();
+                final int color = data.value();
                 if (particleData == null) {
                     if (color != 0) {
                         // Add default particle with data
@@ -454,37 +507,33 @@ public final class EntityPacketRewriter1_20_5 extends EntityRewriter<Clientbound
                 return;
             }
 
-            if (metaIndex > 9) {
-                event.setIndex(metaIndex - 1);
-            }
-
-            if (metaIndex == 11) {
+            if (dataIndex == 11) {
                 // If the particle is found first
                 final EntityData colorData = event.dataAtIndex(9);
                 if (colorData != null && colorData.dataType() == Types1_20_5.ENTITY_DATA_TYPES.varIntType) {
-                    addColor(meta, colorData.value());
+                    addColor(data, colorData.value());
                 }
             }
-        });
 
-        filter().type(EntityTypes1_20_5.ARROW).index(10).handler((event, meta) -> {
-            final int color = meta.value();
-            if (color != -1) {
-                meta.setValue(withAlpha(color));
+            if (dataIndex > 9) {
+                event.setIndex(dataIndex - 1);
             }
         });
 
-        final EntityDataHandler emptyItemHandler = (event, data) -> {
+        filter().type(EntityTypes1_20_5.ARROW).index(10).handler((event, data) -> {
+            final int color = data.value();
+            if (color != -1) {
+                data.setValue(withAlpha(color));
+            }
+        });
+
+        filter().type(EntityTypes1_20_5.ITEM_PROJECTILE).index(8).handler((event, data) -> {
             final Item item = data.value();
             if (item == null || item.isEmpty()) {
                 // The item is used for particles or projectile display and can no longer be empty
                 event.cancel();
             }
-        };
-        filter().type(EntityTypes1_20_5.EGG).index(8).handler(emptyItemHandler);
-        filter().type(EntityTypes1_20_5.SNOWBALL).index(8).handler(emptyItemHandler);
-        filter().type(EntityTypes1_20_5.ENDER_PEARL).index(8).handler(emptyItemHandler);
-        filter().type(EntityTypes1_20_5.EXPERIENCE_BOTTLE).index(8).handler(emptyItemHandler);
+        });
     }
 
     private void addColor(@Nullable final EntityData particleMeta, final int color) {
@@ -495,14 +544,6 @@ public final class EntityPacketRewriter1_20_5 extends EntityRewriter<Clientbound
         final Particle particle = particleMeta.value();
         if (particle.id() == protocol.getMappingData().getParticleMappings().mappedId("entity_effect")) {
             particle.getArgument(0).setValue(withAlpha(color));
-        }
-    }
-
-    @Override
-    public void rewriteParticle(final UserConnection connection, final Particle particle) {
-        super.rewriteParticle(connection, particle);
-        if (particle.id() == protocol.getMappingData().getParticleMappings().mappedId("entity_effect")) {
-            particle.add(Types.INT, 0); // Default color, changed in the area effect handler
         }
     }
 

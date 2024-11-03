@@ -17,7 +17,6 @@
  */
 package com.viaversion.viaversion.protocols.v1_20_3to1_20_5.rewriter;
 
-import com.viaversion.nbt.stringified.SNBT;
 import com.viaversion.nbt.tag.ByteTag;
 import com.viaversion.nbt.tag.CompoundTag;
 import com.viaversion.nbt.tag.IntArrayTag;
@@ -61,9 +60,9 @@ import com.viaversion.viaversion.api.minecraft.item.data.FilterableComponent;
 import com.viaversion.viaversion.api.minecraft.item.data.FilterableString;
 import com.viaversion.viaversion.api.minecraft.item.data.FireworkExplosion;
 import com.viaversion.viaversion.api.minecraft.item.data.Fireworks;
-import com.viaversion.viaversion.api.minecraft.item.data.FoodEffect;
-import com.viaversion.viaversion.api.minecraft.item.data.FoodProperties;
-import com.viaversion.viaversion.api.minecraft.item.data.Instrument;
+import com.viaversion.viaversion.api.minecraft.item.data.FoodProperties1_20_5;
+import com.viaversion.viaversion.api.minecraft.item.data.FoodProperties1_20_5.FoodEffect;
+import com.viaversion.viaversion.api.minecraft.item.data.Instrument1_20_5;
 import com.viaversion.viaversion.api.minecraft.item.data.LodestoneTracker;
 import com.viaversion.viaversion.api.minecraft.item.data.PotDecorations;
 import com.viaversion.viaversion.api.minecraft.item.data.PotionContents;
@@ -75,6 +74,7 @@ import com.viaversion.viaversion.api.minecraft.item.data.ToolProperties;
 import com.viaversion.viaversion.api.minecraft.item.data.ToolRule;
 import com.viaversion.viaversion.api.minecraft.item.data.Unbreakable;
 import com.viaversion.viaversion.api.minecraft.item.data.WrittenBook;
+import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.api.type.types.chunk.ChunkType1_20_2;
 import com.viaversion.viaversion.api.type.types.version.Types1_20_3;
@@ -93,10 +93,9 @@ import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.data.MapDecorations1_
 import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.data.MaxStackSize1_20_3;
 import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.data.PotionEffects1_20_5;
 import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.data.Potions1_20_5;
-import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.data.TrimMaterials1_20_3;
-import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.data.TrimPatterns1_20_3;
 import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.packet.ServerboundPacket1_20_5;
 import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.packet.ServerboundPackets1_20_5;
+import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.storage.ArmorTrimStorage;
 import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.storage.BannerPatternStorage;
 import com.viaversion.viaversion.rewriter.BlockRewriter;
 import com.viaversion.viaversion.rewriter.ItemRewriter;
@@ -174,10 +173,10 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
         registerCooldown(ClientboundPackets1_20_3.COOLDOWN);
         registerSetContent1_17_1(ClientboundPackets1_20_3.CONTAINER_SET_CONTENT);
         registerSetSlot1_17_1(ClientboundPackets1_20_3.CONTAINER_SET_SLOT);
-        registerSetEquipment(ClientboundPackets1_20_3.SET_EQUIPMENT);
         registerContainerClick1_17_1(ServerboundPackets1_20_5.CONTAINER_CLICK);
         registerContainerSetData(ClientboundPackets1_20_3.CONTAINER_SET_DATA);
         registerSetCreativeModeSlot(ServerboundPackets1_20_5.SET_CREATIVE_MODE_SLOT);
+
         protocol.registerServerbound(ServerboundPackets1_20_5.CONTAINER_BUTTON_CLICK, wrapper -> {
             final byte containerId = wrapper.read(Types.VAR_INT).byteValue();
             final byte buttonId = wrapper.read(Types.VAR_INT).byteValue();
@@ -305,8 +304,10 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
             wrapper.passthrough(Types.FLOAT); // Knockback Z
             wrapper.passthrough(Types.VAR_INT); // Block interaction type
 
-            protocol.getEntityRewriter().rewriteParticle(wrapper, Types1_20_3.PARTICLE, Types1_20_5.PARTICLE); // Small explosion particle
-            protocol.getEntityRewriter().rewriteParticle(wrapper, Types1_20_3.PARTICLE, Types1_20_5.PARTICLE); // Large explosion particle
+            final Particle smallExplosionParticle = wrapper.passthroughAndMap(Types1_20_3.PARTICLE, Types1_20_5.PARTICLE);
+            final Particle largeExplosionParticle = wrapper.passthroughAndMap(Types1_20_3.PARTICLE, Types1_20_5.PARTICLE);
+            protocol.getParticleRewriter().rewriteParticle(wrapper.user(), smallExplosionParticle);
+            protocol.getParticleRewriter().rewriteParticle(wrapper.user(), largeExplosionParticle);
 
             final String sound = wrapper.read(Types.STRING);
             final Float range = wrapper.read(Types.OPTIONAL_FLOAT);
@@ -377,13 +378,17 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
             return StructuredItem.empty();
         }
 
-        // Add the original as custom data, to be re-used for creative clients as well
         final CompoundTag tag = item.tag();
+        final Item structuredItem = toStructuredItem(connection, item);
+
+        // Add the original as custom data, to be re-used for creative clients as well
         if (tag != null) {
             tag.putBoolean(nbtTagName(), true);
+            structuredItem.dataContainer().set(StructuredDataKey.CUSTOM_DATA, tag);
         }
 
-        final Item structuredItem = toStructuredItem(connection, item);
+        // Add data components to fix issues in older protocols
+        appendItemDataFixComponents(connection, structuredItem);
 
         if (Via.getConfig().handleInvalidItemCount()) {
             // Server can send amounts which are higher than vanilla's default, and 1.20.4 will still accept them,
@@ -407,14 +412,15 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
     }
 
     public Item toOldItem(final UserConnection connection, final Item item, final StructuredDataConverter dataConverter) {
-        // Start out with custom data and add the rest on top, or short-curcuit with the original item
+        // Start out with custom data and add the rest on top, or short-circuit with the original item
         final StructuredDataContainer data = item.dataContainer();
         data.setIdLookup(protocol, true);
 
-        final StructuredData<CompoundTag> customData = data.getNonEmpty(StructuredDataKey.CUSTOM_DATA);
+        final StructuredData<CompoundTag> customData = data.getNonEmptyData(StructuredDataKey.CUSTOM_DATA);
         final CompoundTag tag = customData != null ? customData.value() : new CompoundTag();
         final DataItem dataItem = new DataItem(item.identifier(), (byte) item.amount(), tag);
-        if (customData != null && tag.remove(nbtTagName()) != null) {
+        if (!dataConverter.backupInconvertibleData() && customData != null && tag.remove(nbtTagName()) != null) {
+            // Skip for VB since it's used for incoming item data
             return dataItem;
         }
 
@@ -482,7 +488,11 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
         if (blockEntityTag != null) {
             final CompoundTag clonedTag = blockEntityTag.copy();
             updateBlockEntityTag(connection, data, clonedTag);
-            item.dataContainer().set(StructuredDataKey.BLOCK_ENTITY_DATA, clonedTag);
+
+            // Not always needed, e.g. shields that had the base color in a block entity tag before
+            if (blockEntityTag.contains("id")) {
+                item.dataContainer().set(StructuredDataKey.BLOCK_ENTITY_DATA, clonedTag);
+            }
         }
 
         final CompoundTag debugProperty = tag.getCompoundTag("DebugProperty");
@@ -497,7 +507,7 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
 
         final CompoundTag trimTag = tag.getCompoundTag("Trim");
         if (trimTag != null) {
-            updateArmorTrim(data, trimTag, (hideFlagsValue & StructuredDataConverter.HIDE_ARMOR_TRIM) == 0);
+            updateArmorTrim(connection, data, trimTag, (hideFlagsValue & StructuredDataConverter.HIDE_ARMOR_TRIM) == 0);
         }
 
         final CompoundTag explosionTag = tag.getCompoundTag("Explosion");
@@ -526,7 +536,7 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
         if (instrument != null) {
             final int id = Instruments1_20_3.keyToId(instrument);
             if (id != -1) {
-                data.set(StructuredDataKey.INSTRUMENT, Holder.of(id));
+                data.set(StructuredDataKey.INSTRUMENT1_20_5, Holder.of(id));
             }
         }
 
@@ -604,9 +614,23 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
             // Restore original data components
             restoreFromBackupTag(backupTag, data);
         }
-
-        data.set(StructuredDataKey.CUSTOM_DATA, tag);
         return item;
+    }
+
+    private void appendItemDataFixComponents(final UserConnection connection, final Item item) {
+        final ProtocolVersion serverVersion = connection.getProtocolInfo().serverProtocolVersion();
+        if (serverVersion.olderThanOrEqualTo(ProtocolVersion.v1_17_1)) {
+            if (item.identifier() == 1182) { // crossbow
+                // Change crossbow damage to value used in 1.17.1 and lower
+                item.dataContainer().set(StructuredDataKey.MAX_DAMAGE, 326);
+            }
+        }
+        if (serverVersion.olderThanOrEqualTo(ProtocolVersion.v1_8)) {
+            if (item.identifier() == 814 || item.identifier() == 819 || item.identifier() == 824 || item.identifier() == 829 || item.identifier() == 834) { // swords
+                // Make sword "eatable" to enable clientside instant blocking on 1.8. Consume time is set really high, so the eating animation doesn't play
+                item.dataContainer().set(StructuredDataKey.FOOD1_20_5, new FoodProperties1_20_5(0, 0F, true, 3600, null, new FoodEffect[0]));
+            }
+        }
     }
 
     private int unmappedItemId(final String name) {
@@ -703,7 +727,7 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
             soundEvent = Holder.of(instrument.getInt("sound_event"));
         }
 
-        data.set(StructuredDataKey.INSTRUMENT, Holder.of(new Instrument(soundEvent, useDuration, range)));
+        data.set(StructuredDataKey.INSTRUMENT1_20_5, Holder.of(new Instrument1_20_5(soundEvent, useDuration, range)));
     }
 
     private void restoreFoodFromBackup(final CompoundTag food, final StructuredDataContainer data) {
@@ -732,7 +756,7 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
                 effect.getFloat("probability")
             ));
         }
-        data.set(StructuredDataKey.FOOD1_20_5, new FoodProperties(nutrition, saturation, canAlwaysEat, eatSeconds, null, possibleEffects.toArray(new FoodEffect[0])));
+        data.set(StructuredDataKey.FOOD1_20_5, new FoodProperties1_20_5(nutrition, saturation, canAlwaysEat, eatSeconds, null, possibleEffects.toArray(new FoodEffect[0])));
     }
 
     private void restoreToolFromBackup(final CompoundTag tool, final StructuredDataContainer data) {
@@ -840,7 +864,7 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
         CompoundTag tag = null;
         if (tagStartIndex != -1 && tagEndIndex != -1) {
             try {
-                tag = SNBT.deserializeCompoundTag(rawPredicate.substring(tagStartIndex, tagEndIndex + 1));
+                tag = (CompoundTag) SerializerVersion.V1_20_3.toTag(rawPredicate.substring(tagStartIndex, tagEndIndex + 1));
             } catch (final Exception e) {
                 if (Via.getManager().isDebug()) {
                     Protocol1_20_3To1_20_5.LOGGER.log(Level.SEVERE, "Failed to parse block predicate tag: " + rawPredicate.substring(tagStartIndex, tagEndIndex + 1), e);
@@ -941,7 +965,7 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
         }
 
         if (potionId != null || customPotionColorTag != null || potionEffects != null) {
-            data.set(StructuredDataKey.POTION_CONTENTS, new PotionContents(
+            data.set(StructuredDataKey.POTION_CONTENTS1_20_5, new PotionContents(
                 potionId,
                 customPotionColorTag != null ? customPotionColorTag.asInt() : null,
                 potionEffects != null ? potionEffects : new PotionEffect[0]
@@ -949,12 +973,12 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
         }
     }
 
-    private void updateArmorTrim(final StructuredDataContainer data, final CompoundTag trimTag, final boolean showInTooltip) {
+    private void updateArmorTrim(final UserConnection connection, final StructuredDataContainer data, final CompoundTag trimTag, final boolean showInTooltip) {
         final Tag materialTag = trimTag.get("material");
         final Holder<ArmorTrimMaterial> materialHolder;
+        final ArmorTrimStorage trimStorage = connection.get(ArmorTrimStorage.class);
         if (materialTag instanceof StringTag materialStringTag) {
-            // Would technically have to be stored and retrieved from registry data, but that'd mean a lot of work
-            final int id = TrimMaterials1_20_3.keyToId(materialStringTag.getValue());
+            final int id = trimStorage.trimMaterials().keyToId(materialStringTag.getValue());
             if (id == -1) {
                 return;
             }
@@ -1002,11 +1026,11 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
         final Tag patternTag = trimTag.get("pattern");
         final Holder<ArmorTrimPattern> patternHolder;
         if (patternTag instanceof StringTag patternStringTag) {
-            // Would technically have to be stored and retrieved from registry data, but that'd mean a lot of work
-            final int id = TrimPatterns1_20_3.keyToId(patternStringTag.getValue());
+            final int id = trimStorage.trimPatterns().keyToId(patternStringTag.getValue());
             if (id == -1) {
                 return;
             }
+
             patternHolder = Holder.of(id);
         } else if (patternTag instanceof CompoundTag patternCompoundTag) {
             final String assetId = patternCompoundTag.getString("assetId");
@@ -1143,47 +1167,63 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
     }
 
     private void updateWrittenBookPages(final UserConnection connection, final StructuredDataContainer data, final CompoundTag tag) {
+        final String title = tag.getString("title");
+        final String author = tag.getString("author");
         final ListTag<StringTag> pagesTag = tag.getListTag("pages", StringTag.class);
-        final CompoundTag filteredPagesTag = tag.getCompoundTag("filtered_pages");
-        if (pagesTag == null) {
-            return;
+
+        boolean valid = author != null && title != null && title.length() <= 32 && pagesTag != null;
+        if (valid) {
+            for (final StringTag page : pagesTag) {
+                if (page.getValue().length() > Short.MAX_VALUE) {
+                    valid = false;
+                    break;
+                }
+            }
         }
 
         final List<FilterableComponent> pages = new ArrayList<>();
-        for (int i = 0; i < pagesTag.size(); i++) {
-            final StringTag page = pagesTag.get(i);
-            Tag filtered = null;
-            if (filteredPagesTag != null) {
-                final StringTag filteredPage = filteredPagesTag.getStringTag(String.valueOf(i));
-                if (filteredPage != null) {
-                    try {
-                        filtered = jsonToTag(connection, filteredPage);
-                    } catch (final Exception e) {
-                        // A 1.20.4 client would display the broken json raw, but a 1.20.5 client would die
-                        continue;
+        if (valid) {
+            final CompoundTag filteredPagesTag = tag.getCompoundTag("filtered_pages");
+
+            for (int i = 0; i < pagesTag.size(); i++) {
+                final StringTag page = pagesTag.get(i);
+                Tag filtered = null;
+                if (filteredPagesTag != null) {
+                    final StringTag filteredPage = filteredPagesTag.getStringTag(String.valueOf(i));
+                    if (filteredPage != null) {
+                        try {
+                            filtered = jsonToTag(connection, filteredPage);
+                        } catch (final Exception e) {
+                            // A 1.20.4 client would display the broken json raw, but a 1.20.5 client would die
+                            continue;
+                        }
                     }
                 }
-            }
 
-            final Tag parsedPage;
-            try {
-                parsedPage = jsonToTag(connection, page);
-            } catch (final Exception e) {
-                // Same as above
-                continue;
-            }
+                final Tag parsedPage;
+                try {
+                    parsedPage = jsonToTag(connection, page);
+                } catch (final Exception e) {
+                    // Same as above
+                    continue;
+                }
 
-            pages.add(new FilterableComponent(parsedPage, filtered));
+                pages.add(new FilterableComponent(parsedPage, filtered));
+            }
+        } else {
+            final CompoundTag invalidPage = new CompoundTag();
+            invalidPage.putString("text", "* Invalid book tag *");
+            invalidPage.putString("color", "#AA0000"); // dark red
+
+            pages.add(new FilterableComponent(invalidPage, null));
         }
 
-        final String title = tag.getString("title", "");
         final String filteredTitle = tag.getString("filtered_title"); // Nullable
-        final String author = tag.getString("author", "");
         final int generation = tag.getInt("generation");
         final boolean resolved = tag.getBoolean("resolved");
         final WrittenBook writtenBook = new WrittenBook(
-            new FilterableString(limit(title, 32), limit(filteredTitle, 32)),
-            author,
+            new FilterableString(limit(title == null ? "" : title, 32), limit(filteredTitle, 32)),
+            author == null ? "" : author,
             clamp(generation, 0, 3),
             pages.toArray(new FilterableComponent[0]),
             resolved
@@ -1461,7 +1501,10 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
                 data.set(StructuredDataKey.BASE_COLOR, baseColorIntTag.asInt());
             }
 
-            updateItemList(connection, data, tag, "Items", StructuredDataKey.CONTAINER1_20_5, true);
+            if (tag.contains("Items")) {
+                updateItemList(connection, data, tag, "Items", StructuredDataKey.CONTAINER1_20_5, true);
+                addBlockEntityId(tag, "shulker_box"); // Won't happen to the others and doesn't actually have to be correct otherwise
+            }
         }
 
         final Tag skullOwnerTag = tag.remove("SkullOwner");
