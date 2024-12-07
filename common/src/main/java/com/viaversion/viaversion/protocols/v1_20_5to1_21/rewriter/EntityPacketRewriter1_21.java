@@ -38,7 +38,7 @@ import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.packet.ServerboundPac
 import com.viaversion.viaversion.protocols.v1_20_5to1_21.Protocol1_20_5To1_21;
 import com.viaversion.viaversion.protocols.v1_20_5to1_21.data.Paintings1_20_5;
 import com.viaversion.viaversion.protocols.v1_20_5to1_21.storage.EfficiencyAttributeStorage;
-import com.viaversion.viaversion.protocols.v1_20_5to1_21.storage.OnGroundTracker;
+import com.viaversion.viaversion.protocols.v1_20_5to1_21.storage.PlayerPositionStorage;
 import com.viaversion.viaversion.rewriter.EntityRewriter;
 import com.viaversion.viaversion.rewriter.RegistryDataRewriter;
 
@@ -111,7 +111,8 @@ public final class EntityPacketRewriter1_21 extends EntityRewriter<ClientboundPa
                 map(Types.STRING); // World
                 handler(worldDataTrackerHandlerByKey1_20_5(3));
                 handler(playerTrackerHandler());
-                handler(wrapper -> wrapper.user().get(EfficiencyAttributeStorage.class).onLoginSent(wrapper.user()));
+                handler(wrapper -> wrapper.user().get(EfficiencyAttributeStorage.class)
+                    .onLoginSent(wrapper.get(Types.INT, 0), wrapper.user()));
             }
         });
 
@@ -122,37 +123,49 @@ public final class EntityPacketRewriter1_21 extends EntityRewriter<ClientboundPa
 
             // Resend attribute modifiers from items
             wrapper.user().get(EfficiencyAttributeStorage.class).onRespawn(wrapper.user());
+
+            wrapper.user().put(new PlayerPositionStorage());
         });
 
-        // Tracks on ground state for block interactions
-        if (!Via.getConfig().fix1_21PlacementRotation()) {
-            return;
-        }
+        // Tracking player position and on ground for block interactions, rotations is kept from the interaction packet
         protocol.registerServerbound(ServerboundPackets1_20_5.MOVE_PLAYER_POS, wrapper -> {
-            wrapper.passthrough(Types.DOUBLE); // X
-            wrapper.passthrough(Types.DOUBLE); // Y
-            wrapper.passthrough(Types.DOUBLE); // Z
-
-            wrapper.user().get(OnGroundTracker.class).setOnGround(wrapper.passthrough(Types.BOOLEAN));
+            if (Via.getConfig().fix1_21PlacementRotation()) {
+                storePosition(wrapper);
+                storeOnGround(wrapper);
+            }
         });
         protocol.registerServerbound(ServerboundPackets1_20_5.MOVE_PLAYER_ROT, wrapper -> {
-            wrapper.passthrough(Types.FLOAT); // Yaw
-            wrapper.passthrough(Types.FLOAT); // Pitch
-
-            wrapper.user().get(OnGroundTracker.class).setOnGround(wrapper.passthrough(Types.BOOLEAN));
+            if (Via.getConfig().fix1_21PlacementRotation()) {
+                wrapper.passthrough(Types.FLOAT); // Yaw
+                wrapper.passthrough(Types.FLOAT); // Pitch
+                storeOnGround(wrapper);
+            }
         });
         protocol.registerServerbound(ServerboundPackets1_20_5.MOVE_PLAYER_POS_ROT, wrapper -> {
-            wrapper.passthrough(Types.DOUBLE); // X
-            wrapper.passthrough(Types.DOUBLE); // Y
-            wrapper.passthrough(Types.DOUBLE); // Z
-            wrapper.passthrough(Types.FLOAT); // Yaw
-            wrapper.passthrough(Types.FLOAT); // Pitch
-
-            wrapper.user().get(OnGroundTracker.class).setOnGround(wrapper.passthrough(Types.BOOLEAN));
+            if (Via.getConfig().fix1_21PlacementRotation()) {
+                storePosition(wrapper);
+                wrapper.passthrough(Types.FLOAT); // Yaw
+                wrapper.passthrough(Types.FLOAT); // Pitch
+                storeOnGround(wrapper);
+            }
         });
         protocol.registerServerbound(ServerboundPackets1_20_5.MOVE_PLAYER_STATUS_ONLY, wrapper -> {
-            wrapper.user().get(OnGroundTracker.class).setOnGround(wrapper.passthrough(Types.BOOLEAN));
+            if (Via.getConfig().fix1_21PlacementRotation()) {
+                storeOnGround(wrapper);
+            }
         });
+    }
+
+    private void storePosition(final PacketWrapper wrapper) {
+        final double x = wrapper.passthrough(Types.DOUBLE);
+        final double y = wrapper.passthrough(Types.DOUBLE);
+        final double z = wrapper.passthrough(Types.DOUBLE);
+        wrapper.user().get(PlayerPositionStorage.class).setPosition(x, y, z);
+    }
+
+    private void storeOnGround(final PacketWrapper wrapper) {
+        final boolean onGround = wrapper.passthrough(Types.BOOLEAN);
+        wrapper.user().get(PlayerPositionStorage.class).setOnGround(onGround);
     }
 
     @Override

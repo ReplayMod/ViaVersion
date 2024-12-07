@@ -15,19 +15,14 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.viaversion.viaversion.protocols.v1_20_5to1_21.storage;
+package com.viaversion.viaversion.util;
 
-import com.viaversion.viaversion.api.connection.StorableObject;
+public final class Limit {
 
-public final class OnGroundTracker implements StorableObject {
-
-    private boolean onGround;
-
-    public boolean onGround() {
-        return onGround;
-    }
-
-    public void setOnGround(final boolean onGround) {
-        this.onGround = onGround;
+    public static int max(final int value, final int max) {
+        if (value > max) {
+            throw new IllegalArgumentException("Value " + value + " is higher than the maximum " + max);
+        }
+        return value;
     }
 }

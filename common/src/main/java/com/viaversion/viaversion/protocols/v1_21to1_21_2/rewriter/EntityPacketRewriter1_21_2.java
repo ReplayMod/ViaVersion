@@ -159,7 +159,10 @@ public final class EntityPacketRewriter1_21_2 extends EntityRewriter<Clientbound
 
             final EntityTracker entityTracker = tracker(wrapper.user());
             if (entityTracker.currentWorld() != null && !entityTracker.currentWorld().equals(world)) {
-                wrapper.user().get(ChunkLoadTracker.class).clear();
+                final ChunkLoadTracker chunkLoadTracker = wrapper.user().get(ChunkLoadTracker.class);
+                if (chunkLoadTracker != null) {
+                    chunkLoadTracker.clear();
+                }
             }
 
             trackWorldDataByKey1_20_5(wrapper.user(), dimensionId, world);
@@ -197,6 +200,11 @@ public final class EntityPacketRewriter1_21_2 extends EntityRewriter<Clientbound
             final int teleportId = wrapper.read(Types.VAR_INT);
             wrapper.set(Types.VAR_INT, 0, teleportId);
 
+            final PlayerPositionStorage positionStorage = wrapper.user().get(PlayerPositionStorage.class);
+            if (positionStorage == null) {
+                return;
+            }
+
             // Accept teleportation and player position were swapped.
             // Send a ping first to then capture and send the player position the accept teleportation
             final boolean isBundling = wrapper.user().get(BundleStateTracker.class).isBundling();
@@ -206,7 +214,7 @@ public final class EntityPacketRewriter1_21_2 extends EntityRewriter<Clientbound
             }
 
             final int pingId = ThreadLocalRandom.current().nextInt();
-            wrapper.user().get(PlayerPositionStorage.class).addPendingPong(pingId);
+            positionStorage.addPendingPong(pingId);
             final PacketWrapper ping = wrapper.create(ClientboundPackets1_21_2.PING);
             ping.write(Types.INT, pingId); // id
             ping.send(Protocol1_21To1_21_2.class);
@@ -327,7 +335,7 @@ public final class EntityPacketRewriter1_21_2 extends EntityRewriter<Clientbound
             handleOnGround(wrapper);
 
             final PlayerPositionStorage playerPositionStorage = wrapper.user().get(PlayerPositionStorage.class);
-            if (playerPositionStorage.checkCaptureNextPlayerPositionPacket()) {
+            if (playerPositionStorage != null && playerPositionStorage.checkCaptureNextPlayerPositionPacket()) {
                 // Capture this packet and send it after accept teleportation
                 final boolean onGround = wrapper.get(Types.BOOLEAN, 0);
                 playerPositionStorage.setPlayerPosition(new PlayerPositionStorage.PlayerPosition(x, y, z, yaw, pitch, onGround));
@@ -352,7 +360,7 @@ public final class EntityPacketRewriter1_21_2 extends EntityRewriter<Clientbound
         });
         protocol.registerServerbound(ServerboundPackets1_21_2.ACCEPT_TELEPORTATION, wrapper -> {
             final PlayerPositionStorage playerPositionStorage = wrapper.user().get(PlayerPositionStorage.class);
-            if (playerPositionStorage.checkHasPlayerPosition()) {
+            if (playerPositionStorage != null && playerPositionStorage.checkHasPlayerPosition()) {
                 // Send move player after accept teleportation
                 wrapper.sendToServer(Protocol1_21To1_21_2.class);
                 wrapper.cancel();
@@ -453,7 +461,7 @@ public final class EntityPacketRewriter1_21_2 extends EntityRewriter<Clientbound
 
             // Remove old entity
             final PacketWrapper removeEntityPacket = PacketWrapper.create(ClientboundPackets1_21_2.REMOVE_ENTITIES, event.user());
-            removeEntityPacket.write(Types.VAR_INT_ARRAY_PRIMITIVE, new int[] { event.entityId() });
+            removeEntityPacket.write(Types.VAR_INT_ARRAY_PRIMITIVE, new int[]{event.entityId()});
             removeEntityPacket.send(Protocol1_21To1_21_2.class);
 
             // Detect correct boat entity type from entity data

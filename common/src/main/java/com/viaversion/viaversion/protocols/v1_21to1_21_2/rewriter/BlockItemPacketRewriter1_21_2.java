@@ -65,6 +65,7 @@ import com.viaversion.viaversion.rewriter.SoundRewriter;
 import com.viaversion.viaversion.rewriter.StructuredItemRewriter;
 import com.viaversion.viaversion.util.ComponentUtil;
 import com.viaversion.viaversion.util.Key;
+import com.viaversion.viaversion.util.Limit;
 import com.viaversion.viaversion.util.SerializerVersion;
 import com.viaversion.viaversion.util.TagUtil;
 import com.viaversion.viaversion.util.Unit;
@@ -154,7 +155,7 @@ public final class BlockItemPacketRewriter1_21_2 extends StructuredItemRewriter<
             wrapper.passthrough(Types.SHORT); // Slot
             wrapper.passthrough(Types.BYTE); // Button
             wrapper.passthrough(Types.VAR_INT); // Mode
-            final int length = wrapper.passthrough(Types.VAR_INT);
+            final int length = Limit.max(wrapper.passthrough(Types.VAR_INT), 128);
             for (int i = 0; i < length; i++) {
                 wrapper.passthrough(Types.SHORT); // Slot
                 passthroughServerboundItem(wrapper);
@@ -375,6 +376,10 @@ public final class BlockItemPacketRewriter1_21_2 extends StructuredItemRewriter<
             }
 
             final ChunkLoadTracker chunkLoadTracker = wrapper.user().get(ChunkLoadTracker.class);
+            if (chunkLoadTracker == null) {
+                return;
+            }
+
             if (chunkLoadTracker.isChunkLoaded(chunk.getX(), chunk.getZ())) {
                 // Unload the old chunk, so the new one can be loaded without graphical glitches
                 // Bundling it prevents the client from falling through the world during the chunk swap
@@ -400,7 +405,11 @@ public final class BlockItemPacketRewriter1_21_2 extends StructuredItemRewriter<
         });
         protocol.registerClientbound(ClientboundPackets1_21.FORGET_LEVEL_CHUNK, wrapper -> {
             final ChunkPosition chunkPosition = wrapper.passthrough(Types.CHUNK_POSITION);
-            wrapper.user().get(ChunkLoadTracker.class).removeChunk(chunkPosition.chunkX(), chunkPosition.chunkZ());
+
+            final ChunkLoadTracker chunkLoadTracker = wrapper.user().get(ChunkLoadTracker.class);
+            if (chunkLoadTracker != null) {
+                chunkLoadTracker.removeChunk(chunkPosition.chunkX(), chunkPosition.chunkZ());
+            }
         });
     }
 
@@ -422,12 +431,20 @@ public final class BlockItemPacketRewriter1_21_2 extends StructuredItemRewriter<
         }
 
         super.handleItemToClient(connection, item);
+
+        // Handle food properties item manually here - the only protocol that has it
+        // The other way around it's handled by the super handleItemToServer method
+        final StructuredDataContainer data = item.dataContainer();
+        final FoodProperties1_20_5 food = data.get(StructuredDataKey.FOOD1_21);
+        if (food != null && food.usingConvertsTo() != null) {
+            this.handleItemToClient(connection, food.usingConvertsTo());
+        }
+
         updateItemData(item);
 
         // Add data components to fix issues in older protocols
         appendItemDataFixComponents(connection, item);
 
-        final StructuredDataContainer data = item.dataContainer();
         final Enchantments enchantments = data.get(StructuredDataKey.ENCHANTMENTS);
         if (enchantments != null && enchantments.size() != 0) {
             // Level 0 is no longer allowed
@@ -552,7 +569,7 @@ public final class BlockItemPacketRewriter1_21_2 extends StructuredItemRewriter<
 
             dataContainer.set(StructuredDataKey.CONSUMABLE1_21_2, new Consumable1_21_2(food.eatSeconds(), 1 /* eat */, sound, true, consumeEffects));
             if (food.usingConvertsTo() != null) {
-                dataContainer.set(StructuredDataKey.USE_REMAINDER, food.usingConvertsTo());
+                dataContainer.set(StructuredDataKey.USE_REMAINDER1_21_2, food.usingConvertsTo());
             }
             return new FoodProperties1_21_2(food.nutrition(), food.saturationModifier(), food.canAlwaysEat());
         });
@@ -569,6 +586,13 @@ public final class BlockItemPacketRewriter1_21_2 extends StructuredItemRewriter<
             // As json here...
             itemComponentsTag.putString("custom_name", ComponentUtil.plainToJson(lock).toString());
             return predicateTag;
+        });
+        dataContainer.replace(StructuredDataKey.TRIM1_20_5, StructuredDataKey.TRIM1_21_2, trim -> {
+            // TODO Rewrite from int to string id via sent registry
+            if (trim.material().isDirect()) {
+                trim.material().value().overrideArmorMaterials().clear();
+            }
+            return trim;
         });
     }
 
@@ -593,7 +617,7 @@ public final class BlockItemPacketRewriter1_21_2 extends StructuredItemRewriter<
         });
         dataContainer.replace(StructuredDataKey.FOOD1_21_2, StructuredDataKey.FOOD1_21, food -> {
             final Consumable1_21_2 consumableData = dataContainer.get(StructuredDataKey.CONSUMABLE1_21_2);
-            final Item useRemainderData = dataContainer.get(StructuredDataKey.USE_REMAINDER);
+            final Item useRemainderData = dataContainer.get(StructuredDataKey.USE_REMAINDER1_21_2);
             final float eatSeconds = consumableData != null ? consumableData.consumeSeconds() : 1.6F;
             final List<FoodProperties1_20_5.FoodEffect> foodEffects = new ArrayList<>();
             if (consumableData != null) {
@@ -606,6 +630,13 @@ public final class BlockItemPacketRewriter1_21_2 extends StructuredItemRewriter<
                 }
             }
             return new FoodProperties1_20_5(food.nutrition(), food.saturationModifier(), food.canAlwaysEat(), eatSeconds, useRemainderData, foodEffects.toArray(new FoodProperties1_20_5.FoodEffect[0]));
+        });
+        dataContainer.replace(StructuredDataKey.TRIM1_21_2, StructuredDataKey.TRIM1_20_5, trim -> {
+            // TODO
+            if (trim.material().isDirect()) {
+                trim.material().value().overrideArmorMaterials().clear();
+            }
+            return trim;
         });
         dataContainer.replaceKey(StructuredDataKey.CONTAINER1_21_2, StructuredDataKey.CONTAINER1_21);
         dataContainer.replaceKey(StructuredDataKey.CHARGED_PROJECTILES1_21_2, StructuredDataKey.CHARGED_PROJECTILES1_21);
@@ -620,7 +651,7 @@ public final class BlockItemPacketRewriter1_21_2 extends StructuredItemRewriter<
         dataContainer.remove(StructuredDataKey.REPAIRABLE);
         dataContainer.remove(StructuredDataKey.ENCHANTABLE);
         dataContainer.remove(StructuredDataKey.CONSUMABLE1_21_2);
-        dataContainer.remove(StructuredDataKey.USE_REMAINDER);
+        dataContainer.remove(StructuredDataKey.USE_REMAINDER1_21_2);
         dataContainer.remove(StructuredDataKey.USE_COOLDOWN);
         dataContainer.remove(StructuredDataKey.ITEM_MODEL);
         dataContainer.remove(StructuredDataKey.EQUIPPABLE);

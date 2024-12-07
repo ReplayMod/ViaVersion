@@ -32,6 +32,7 @@ import com.viaversion.viaversion.api.rewriter.ComponentRewriter;
 import com.viaversion.viaversion.api.rewriter.RewriterBase;
 import com.viaversion.viaversion.api.type.Type;
 import com.viaversion.viaversion.api.type.Types;
+import com.viaversion.viaversion.util.Limit;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 public class ItemRewriter<C extends ClientboundPacketType, S extends ServerboundPacketType,
@@ -219,7 +220,7 @@ public class ItemRewriter<C extends ClientboundPacketType, S extends Serverbound
             wrapper.passthrough(Types.VAR_INT); // Mode
 
             // Affected items
-            final int length = wrapper.passthrough(Types.VAR_INT);
+            final int length = Limit.max(wrapper.passthrough(Types.VAR_INT), 128);
             for (int i = 0; i < length; i++) {
                 wrapper.passthrough(Types.SHORT); // Slot
                 passthroughServerboundItem(wrapper);
@@ -227,6 +228,13 @@ public class ItemRewriter<C extends ClientboundPacketType, S extends Serverbound
 
             // Carried item
             passthroughServerboundItem(wrapper);
+        });
+    }
+
+    public void registerSetPlayerInventory(C packetType) {
+        protocol.registerClientbound(packetType, wrapper -> {
+            wrapper.passthrough(Types.VAR_INT); // Slot
+            passthroughClientboundItem(wrapper);
         });
     }
 
@@ -239,11 +247,11 @@ public class ItemRewriter<C extends ClientboundPacketType, S extends Serverbound
 
     public void registerCooldown1_21_2(C packetType) {
         protocol.registerClientbound(packetType, wrapper -> {
-            String itemIdentifier = wrapper.read(Types.OPTIONAL_STRING);
+            String itemIdentifier = wrapper.read(Types.STRING);
             if (itemIdentifier != null) {
                 itemIdentifier = mappedIdentifier(protocol.getMappingData().getFullItemMappings(), itemIdentifier);
             }
-            wrapper.write(Types.OPTIONAL_STRING, itemIdentifier);
+            wrapper.write(Types.STRING, itemIdentifier);
         });
     }
 

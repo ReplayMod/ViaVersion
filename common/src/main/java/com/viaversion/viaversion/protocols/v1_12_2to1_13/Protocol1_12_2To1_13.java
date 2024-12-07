@@ -166,8 +166,8 @@ public class Protocol1_12_2To1_13 extends AbstractProtocol<ClientboundPackets1_1
                     wrapper.write(Types.VAR_INT_ARRAY_PRIMITIVE, tag.getValue().clone());
                 }
             });
-            if (w.user().getProtocolInfo().protocolVersion().newerThanOrEqualTo(ProtocolVersion.v1_20_2)) {
-                // Make sure it's included in the configuration packets
+            if (w.user().getProtocolInfo().protocolVersion().newerThanOrEqualTo(ProtocolVersion.v1_20_5)) {
+                // Make sure it's included in the configuration packets as it may already be required for registry data
                 tagsPacket.send(Protocol1_12_2To1_13.class);
             } else {
                 tagsPacket.scheduleSend(Protocol1_12_2To1_13.class);
@@ -775,7 +775,10 @@ public class Protocol1_12_2To1_13 extends AbstractProtocol<ClientboundPackets1_1
                     for (Item[] ingredient : recipe.ingredients()) {
                         Item[] clone = new Item[ingredient.length];
                         for (int i = 0; i < ingredient.length; i++) {
-                            if (clone[i] == null) continue;
+                            if (ingredient[i] == null) {
+                                continue;
+                            }
+
                             clone[i] = ingredient[i].copy();
                         }
                         recipesPacket.write(Types.ITEM1_13_ARRAY, clone);
@@ -789,7 +792,10 @@ public class Protocol1_12_2To1_13 extends AbstractProtocol<ClientboundPackets1_1
                     for (Item[] ingredient : recipe.ingredients()) {
                         Item[] clone = new Item[ingredient.length];
                         for (int i = 0; i < ingredient.length; i++) {
-                            if (clone[i] == null) continue;
+                            if (ingredient[i] == null) {
+                                continue;
+                            }
+
                             clone[i] = ingredient[i].copy();
                         }
                         recipesPacket.write(Types.ITEM1_13_ARRAY, clone);
@@ -800,7 +806,10 @@ public class Protocol1_12_2To1_13 extends AbstractProtocol<ClientboundPackets1_1
                     recipesPacket.write(Types.STRING, recipe.group());
                     Item[] ingredient = new Item[recipe.ingredient().length];
                     for (int i = 0; i < ingredient.length; i++) {
-                        if (recipe.ingredient()[i] == null) continue;
+                        if (recipe.ingredient()[i] == null) {
+                            continue;
+                        }
+
                         ingredient[i] = recipe.ingredient()[i].copy();
                     }
                     recipesPacket.write(Types.ITEM1_13_ARRAY, ingredient);

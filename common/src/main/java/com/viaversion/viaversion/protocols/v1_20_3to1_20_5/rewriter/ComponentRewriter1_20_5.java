@@ -92,7 +92,6 @@ import com.viaversion.viaversion.util.SerializerVersion;
 import com.viaversion.viaversion.util.UUIDUtil;
 import com.viaversion.viaversion.util.Unit;
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.List;
@@ -126,7 +125,7 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Co
         register(StructuredDataKey.CAN_PLACE_ON, this::convertCanPlaceOn);
         register(StructuredDataKey.CAN_BREAK, this::convertCanBreak);
         register(StructuredDataKey.ATTRIBUTE_MODIFIERS1_20_5, this::convertAttributeModifiers);
-        register(StructuredDataKey.CUSTOM_MODEL_DATA, this::convertCustomModelData);
+        register(StructuredDataKey.CUSTOM_MODEL_DATA1_20_5, this::convertCustomModelData);
         register(StructuredDataKey.HIDE_ADDITIONAL_TOOLTIP, this::convertHideAdditionalTooltip);
         register(StructuredDataKey.HIDE_TOOLTIP, this::convertHideTooltip);
         register(StructuredDataKey.REPAIR_COST, this::convertRepairCost);
@@ -148,7 +147,7 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Co
         register(StructuredDataKey.SUSPICIOUS_STEW_EFFECTS, this::convertSuspiciousStewEffects);
         register(StructuredDataKey.WRITABLE_BOOK_CONTENT, this::convertWritableBookContent);
         register(StructuredDataKey.WRITTEN_BOOK_CONTENT, this::convertWrittenBookContent);
-        register(StructuredDataKey.TRIM, this::convertTrim);
+        register(StructuredDataKey.TRIM1_20_5, this::convertTrim);
         register(StructuredDataKey.DEBUG_STICK_STATE, this::convertDebugStickRate);
         register(StructuredDataKey.ENTITY_DATA, this::convertEntityData);
         register(StructuredDataKey.BUCKET_ENTITY_DATA, this::convertBucketEntityData);
@@ -693,8 +692,8 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Co
             }
 
             final CompoundTag overrideArmorMaterialsTag = new CompoundTag();
-            for (final Int2ObjectMap.Entry<String> entry : armorTrimMaterial.overrideArmorMaterials().int2ObjectEntrySet()) {
-                final String materialKey = ArmorMaterials1_20_5.idToKey(entry.getIntKey());
+            for (final Map.Entry<String, String> entry : armorTrimMaterial.overrideArmorMaterials().entrySet()) {
+                final String materialKey = ArmorMaterials1_20_5.idToKey(Integer.parseInt(entry.getKey()));
                 if (materialKey != null) {
                     overrideArmorMaterialsTag.putString(materialKey, entry.getValue());
                 }

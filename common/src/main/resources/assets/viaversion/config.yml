@@ -168,7 +168,7 @@ handle-invalid-item-count: false
 hide-scoreboard-numbers: false
 #
 # Fixes 1.21+ clients on 1.20.5 servers placing water/lava buckets at the wrong location when moving fast, NOTE: This may cause issues with anti-cheat plugins.
-fix-1_21-placement-rotation: false
+fix-1_21-placement-rotation: true
 #
 #----------------------------------------------------------#
 #             1.9+ CLIENTS ON 1.8 SERVERS OPTIONS          #
@@ -215,3 +215,6 @@ chunk-border-fix: false
 left-handed-handling: true
 # Tries to cancel block break/place sounds sent by 1.8 servers to 1.9+ clients to prevent them from playing twice
 cancel-block-sounds: true
+# If enabled, 1.20.5+ clients will have sword blocking mechanics on 1.8 servers using the consumable item component.
+# Note that you won't be able to see the blocking in first person if the client is older than 1.21.4.
+sword-blocking-via-consumable: true
