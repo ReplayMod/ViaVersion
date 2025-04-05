@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -39,5 +39,12 @@ public final class SoundEventType extends HolderType<SoundEvent> {
     public void writeDirect(final ByteBuf buffer, final SoundEvent value) {
         Types.STRING.write(buffer, value.identifier());
         Types.OPTIONAL_FLOAT.write(buffer, value.fixedRange());
+    }
+
+    public static final class OptionalSoundEventType extends OptionalHolderType<SoundEvent> {
+
+        public OptionalSoundEventType() {
+            super(Types.SOUND_EVENT);
+        }
     }
 }

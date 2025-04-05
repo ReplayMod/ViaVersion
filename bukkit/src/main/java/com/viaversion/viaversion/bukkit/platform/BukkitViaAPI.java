@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -40,7 +40,7 @@ public class BukkitViaAPI extends ViaAPIBase<Player> {
 
     @Override
     public ProtocolVersion getPlayerProtocolVersion(UUID uuid) {
-        UserConnection connection = Via.getManager().getConnectionManager().getConnectedClient(uuid);
+        UserConnection connection = Via.getManager().getConnectionManager().getServerConnection(uuid);
         if (connection != null) {
             return connection.getProtocolInfo().protocolVersion();
         }

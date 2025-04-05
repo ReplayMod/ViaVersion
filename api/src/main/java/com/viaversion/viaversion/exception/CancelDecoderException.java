@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -56,7 +56,7 @@ public class CancelDecoderException extends DecoderException implements CancelCo
     /**
      * Returns a cached CancelDecoderException or a new instance when {@link ViaManager#isDebug()} is true.
      *
-     * @param cause cause for being used when a new instance is creeated
+     * @param cause cause for being used when a new instance is created
      * @return a CancelDecoderException instance
      */
     public static CancelDecoderException generate(Throwable cause) {

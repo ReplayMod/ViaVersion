@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -319,23 +319,35 @@ public interface UserConnection {
     void setPendingDisconnect(boolean pendingDisconnect);
 
     /**
-     * Returns whether this is a client-side connection.
-     * This is a mod integrated into the client itself, or for example a backend Velocity connection.
+     * Returns whether this is a backend connection.
+     * This is a mod integrated into the client, or for example a backend Velocity connection.
      *
-     * @return whether this is a client-side connection
+     * @return whether this is a backend connection
      */
     boolean isClientSide();
+
+    /**
+     * Returns whether this is a frontend connection.
+     * This is a plugin integrated into the server, or for example a frontend Velocity connection.
+     *
+     * @return whether this is a frontend connection
+     */
+    default boolean isServerSide() {
+        return !isClientSide();
+    }
 
     /**
      * Returns whether {@link ViaVersionConfig#blockedProtocolVersions()} should be checked for this connection.
      *
      * @return whether blocked protocols should be applied
      */
-    boolean shouldApplyBlockProtocol();
+    default boolean shouldApplyBlockProtocol() {
+        return isServerSide();
+    }
 
     /**
      * Returns a newly generated uuid that will let a packet be passed through without
-     * transformig its contents if used together with {@link PacketWrapper#PASSTHROUGH_ID}.
+     * transforming its contents if used together with {@link PacketWrapper#PASSTHROUGH_ID}.
      *
      * @return generated passthrough token
      */

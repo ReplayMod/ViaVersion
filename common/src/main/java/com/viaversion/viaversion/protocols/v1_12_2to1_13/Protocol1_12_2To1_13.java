@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -353,7 +353,7 @@ public class Protocol1_12_2To1_13 extends AbstractProtocol<ClientboundPackets1_1
         registerClientbound(ClientboundPackets1_12_1.PLACE_GHOST_RECIPE, new PacketHandlers() {
             @Override
             public void register() {
-                map(Types.UNSIGNED_BYTE);
+                map(Types.BYTE);
                 handler(wrapper -> wrapper.write(Types.STRING, "viaversion:legacy/" + wrapper.read(Types.VAR_INT)));
             }
         });
@@ -594,7 +594,7 @@ public class Protocol1_12_2To1_13 extends AbstractProtocol<ClientboundPackets1_1
         registerServerbound(ServerboundPackets1_13.PLACE_RECIPE, new PacketHandlers() {
             @Override
             public void register() {
-                map(Types.UNSIGNED_BYTE); // Window id
+                map(Types.BYTE); // Window id
 
                 handler(wrapper -> {
                     String s = wrapper.read(Types.STRING);

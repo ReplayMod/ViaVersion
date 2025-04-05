@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -50,6 +50,11 @@ public class ListSubCmd implements ViaSubCommand {
         for (UserConnection p : Via.getManager().getConnectionManager().getConnections()) {
             ProtocolVersion version = p.getProtocolInfo().protocolVersion();
             playerVersions.computeIfAbsent(version, s -> new HashSet<>()).add(p.getProtocolInfo().getUsername());
+        }
+
+        if (playerVersions.isEmpty()) {
+            sendMessage(sender, "&cNo players found!");
+            return true;
         }
 
         for (Map.Entry<ProtocolVersion, Set<String>> entry : playerVersions.entrySet()) {

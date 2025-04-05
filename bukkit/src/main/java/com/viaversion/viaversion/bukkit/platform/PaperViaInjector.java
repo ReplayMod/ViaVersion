@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -98,9 +98,9 @@ public final class PaperViaInjector {
         }
     }
 
-    public static boolean hasMethod(final Class<?> clazz, final String method) {
+    public static boolean hasMethod(final Class<?> clazz, final String method, final Class<?>... params) {
         try {
-            clazz.getDeclaredMethod(method);
+            clazz.getDeclaredMethod(method, params);
             return true;
         } catch (final NoSuchMethodException e) {
             return false;

@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -43,6 +43,7 @@ public class EntityTrackerBase implements EntityTracker, ClientEntityIdChangeLis
     private String currentWorld;
     private int biomesSent = -1;
     private Map<String, DimensionData> dimensions = Collections.emptyMap();
+    private boolean instaBuild;
 
     public EntityTrackerBase(UserConnection connection, @Nullable EntityType playerType) {
         this.connection = connection;
@@ -129,6 +130,16 @@ public class EntityTrackerBase implements EntityTracker, ClientEntityIdChangeLis
         }
 
         this.clientEntityId = clientEntityId;
+    }
+
+    @Override
+    public boolean canInstaBuild() {
+        return instaBuild;
+    }
+
+    @Override
+    public void setInstaBuild(final boolean instaBuild) {
+        this.instaBuild = instaBuild;
     }
 
     @Override

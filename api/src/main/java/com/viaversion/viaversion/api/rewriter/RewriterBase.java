@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -38,13 +38,13 @@ public abstract class RewriterBase<T extends Protocol<?, ?, ?, ?>> implements Re
     }
 
     /**
-     * To be overriden. Called when registering the rewriter.
+     * To be overridden. Called when registering the rewriter.
      */
     protected void registerPackets() {
     }
 
     /**
-     * To be overriden. Called when registering the rewriter.
+     * To be overridden. Called when registering the rewriter.
      */
     protected void registerRewrites() {
     }

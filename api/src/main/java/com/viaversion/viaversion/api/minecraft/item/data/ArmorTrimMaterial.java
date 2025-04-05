@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,16 +25,21 @@ package com.viaversion.viaversion.api.minecraft.item.data;
 import com.viaversion.nbt.tag.Tag;
 import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.api.type.types.misc.HolderType;
+import com.viaversion.viaversion.util.Copyable;
 import io.netty.buffer.ByteBuf;
 import it.unimi.dsi.fastutil.ints.Int2IntFunction;
 import it.unimi.dsi.fastutil.objects.Object2ObjectArrayMap;
 import java.util.Map;
 
 public record ArmorTrimMaterial(String assetName, int itemId, float itemModelIndex,
-                                Map<String, String> overrideArmorMaterials, Tag description) {
+                                Map<String, String> overrideArmorMaterials, Tag description) implements Copyable {
 
     public ArmorTrimMaterial(final String assetName, final int itemId, final Map<String, String> overrideArmorMaterials, final Tag description) {
         this(assetName, itemId, 0F, overrideArmorMaterials, description);
+    }
+
+    public ArmorTrimMaterial(final String assetName, final Map<String, String> overrideArmorMaterials, final Tag description) {
+        this(assetName, 0, 0F, overrideArmorMaterials, description);
     }
 
     public static final HolderType<ArmorTrimMaterial> TYPE1_20_5 = new HolderType<>() {
@@ -47,7 +52,7 @@ public record ArmorTrimMaterial(String assetName, int itemId, float itemModelInd
             final float itemModelIndex = buffer.readFloat();
 
             final int overrideArmorMaterialsSize = Types.VAR_INT.readPrimitive(buffer);
-            final Map<String, String> overrideArmorMaterials = new Object2ObjectArrayMap<>(overrideArmorMaterialsSize);
+            final Map<String, String> overrideArmorMaterials = new Object2ObjectArrayMap<>();
             for (int i = 0; i < overrideArmorMaterialsSize; i++) {
                 final int key = Types.VAR_INT.readPrimitive(buffer);
                 final String value = Types.STRING.read(buffer);
@@ -73,7 +78,6 @@ public record ArmorTrimMaterial(String assetName, int itemId, float itemModelInd
             Types.TAG.write(buffer, value.description());
         }
     };
-
     public static final HolderType<ArmorTrimMaterial> TYPE1_21_2 = new HolderType<>() {
         @Override
         public ArmorTrimMaterial readDirect(final ByteBuf buffer) {
@@ -82,7 +86,7 @@ public record ArmorTrimMaterial(String assetName, int itemId, float itemModelInd
             final float itemModelIndex = buffer.readFloat();
 
             final int overrideArmorMaterialsSize = Types.VAR_INT.readPrimitive(buffer);
-            final Map<String, String> overrideArmorMaterials = new Object2ObjectArrayMap<>(overrideArmorMaterialsSize);
+            final Map<String, String> overrideArmorMaterials = new Object2ObjectArrayMap<>();
             for (int i = 0; i < overrideArmorMaterialsSize; i++) {
                 final String key = Types.STRING.read(buffer);
                 final String value = Types.STRING.read(buffer);
@@ -108,7 +112,6 @@ public record ArmorTrimMaterial(String assetName, int itemId, float itemModelInd
             Types.TAG.write(buffer, value.description());
         }
     };
-
     public static final HolderType<ArmorTrimMaterial> TYPE1_21_4 = new HolderType<>() {
         @Override
         public ArmorTrimMaterial readDirect(final ByteBuf buffer) {
@@ -116,7 +119,7 @@ public record ArmorTrimMaterial(String assetName, int itemId, float itemModelInd
             final int item = Types.VAR_INT.readPrimitive(buffer);
 
             final int overrideArmorMaterialsSize = Types.VAR_INT.readPrimitive(buffer);
-            final Map<String, String> overrideArmorMaterials = new Object2ObjectArrayMap<>(overrideArmorMaterialsSize);
+            final Map<String, String> overrideArmorMaterials = new Object2ObjectArrayMap<>();
             for (int i = 0; i < overrideArmorMaterialsSize; i++) {
                 final String key = Types.STRING.read(buffer);
                 final String value = Types.STRING.read(buffer);
@@ -141,8 +144,43 @@ public record ArmorTrimMaterial(String assetName, int itemId, float itemModelInd
             Types.TAG.write(buffer, value.description());
         }
     };
+    public static final HolderType<ArmorTrimMaterial> TYPE1_21_5 = new HolderType<>() {
+        @Override
+        public ArmorTrimMaterial readDirect(final ByteBuf buffer) {
+            final String assetName = Types.STRING.read(buffer);
+
+            final int overrideArmorMaterialsSize = Types.VAR_INT.readPrimitive(buffer);
+            final Map<String, String> overrideArmorMaterials = new Object2ObjectArrayMap<>();
+            for (int i = 0; i < overrideArmorMaterialsSize; i++) {
+                final String key = Types.STRING.read(buffer);
+                final String value = Types.STRING.read(buffer);
+                overrideArmorMaterials.put(key, value);
+            }
+
+            final Tag description = Types.TAG.read(buffer);
+            return new ArmorTrimMaterial(assetName, overrideArmorMaterials, description);
+        }
+
+        @Override
+        public void writeDirect(final ByteBuf buffer, final ArmorTrimMaterial value) {
+            Types.STRING.write(buffer, value.assetName());
+
+            Types.VAR_INT.writePrimitive(buffer, value.overrideArmorMaterials().size());
+            for (final Map.Entry<String, String> entry : value.overrideArmorMaterials().entrySet()) {
+                Types.STRING.write(buffer, entry.getKey());
+                Types.STRING.write(buffer, entry.getValue());
+            }
+
+            Types.TAG.write(buffer, value.description());
+        }
+    };
 
     public ArmorTrimMaterial rewrite(final Int2IntFunction idRewriteFunction) {
         return new ArmorTrimMaterial(assetName, idRewriteFunction.applyAsInt(itemId), itemModelIndex, overrideArmorMaterials, description);
+    }
+
+    @Override
+    public ArmorTrimMaterial copy() {
+        return new ArmorTrimMaterial(assetName, itemId, itemModelIndex, new Object2ObjectArrayMap<>(overrideArmorMaterials), description);
     }
 }

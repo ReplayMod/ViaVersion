@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,12 +25,16 @@ import com.viaversion.nbt.tag.Tag;
 import com.viaversion.viaversion.api.Via;
 import java.nio.charset.StandardCharsets;
 import java.util.logging.Level;
-import net.lenni0451.mcstructs.text.ATextComponent;
 import net.lenni0451.mcstructs.text.Style;
-import net.lenni0451.mcstructs.text.events.hover.AHoverEvent;
-import net.lenni0451.mcstructs.text.events.hover.impl.TextHoverEvent;
-import net.lenni0451.mcstructs.text.serializer.LegacyStringDeserializer;
+import net.lenni0451.mcstructs.text.TextComponent;
+import net.lenni0451.mcstructs.text.components.StringComponent;
+import net.lenni0451.mcstructs.text.events.hover.HoverEvent;
+import net.lenni0451.mcstructs.text.events.hover.impl.EntityHoverEvent;
+import net.lenni0451.mcstructs.text.events.hover.impl.ItemHoverEvent;
 import net.lenni0451.mcstructs.text.serializer.TextComponentSerializer;
+import net.lenni0451.mcstructs.text.stringformat.StringFormat;
+import net.lenni0451.mcstructs.text.stringformat.handling.ColorHandling;
+import net.lenni0451.mcstructs.text.stringformat.handling.DeserializerUnknownHandling;
 import net.lenni0451.mcstructs.text.utils.TextUtils;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
@@ -57,7 +61,7 @@ public final class ComponentUtil {
 
     public static @Nullable JsonElement tagToJson(@Nullable final Tag tag) {
         try {
-            final ATextComponent component = SerializerVersion.V1_20_3.toComponent(tag);
+            final TextComponent component = SerializerVersion.V1_20_3.toComponent(tag);
             return component != null ? SerializerVersion.V1_19_4.toJson(component) : null;
         } catch (final Exception e) {
             if (!Via.getConfig().isSuppressConversionWarnings()) {
@@ -73,7 +77,7 @@ public final class ComponentUtil {
         }
 
         try {
-            final ATextComponent component = SerializerVersion.V1_19_4.toComponent(element);
+            final TextComponent component = SerializerVersion.V1_19_4.toComponent(element);
             return trimStrings(SerializerVersion.V1_20_3.toTag(component));
         } catch (final Exception e) {
             if (!Via.getConfig().isSuppressConversionWarnings()) {
@@ -102,7 +106,7 @@ public final class ComponentUtil {
 
     public static @Nullable String tagToJsonString(@Nullable final Tag tag) {
         try {
-            final ATextComponent component = SerializerVersion.V1_20_5.toComponent(tag);
+            final TextComponent component = SerializerVersion.V1_20_5.toComponent(tag);
             return component != null ? SerializerVersion.V1_20_3.toString(component) : null;
         } catch (final Exception e) {
             if (!Via.getConfig().isSuppressConversionWarnings()) {
@@ -132,27 +136,41 @@ public final class ComponentUtil {
     }
 
     public static @Nullable JsonElement convertJsonOrEmpty(@Nullable final String json, final SerializerVersion from, final SerializerVersion to) {
-        final ATextComponent component = from.toComponent(json);
+        final TextComponent component = from.toComponent(json);
         if (component == null) {
             return emptyJsonComponent();
         }
         return to.toJson(component);
     }
 
-    private static JsonElement convert(final SerializerVersion from, final SerializerVersion to, final ATextComponent component) {
+    private static JsonElement convert(final SerializerVersion from, final SerializerVersion to, final TextComponent component) {
         if (from.ordinal() >= SerializerVersion.V1_16.ordinal() && to.ordinal() < SerializerVersion.V1_16.ordinal()) {
             // Convert hover event to legacy format
             final Style style = component.getStyle();
-            final AHoverEvent hoverEvent = style.getHoverEvent();
-            if (hoverEvent != null && !(hoverEvent instanceof TextHoverEvent)) {
-                style.setHoverEvent(hoverEvent.toLegacy(to.jsonSerializer, to.snbtSerializer));
+            final HoverEvent hoverEvent = style.getHoverEvent();
+            if (hoverEvent instanceof EntityHoverEvent entityHoverEvent && entityHoverEvent.isModern()) {
+                final EntityHoverEvent.ModernHolder entityData = entityHoverEvent.asModern();
+                final CompoundTag tag = new CompoundTag();
+                tag.putString("type", entityData.getType().get());
+                tag.putString("id", entityData.getUuid().toString());
+                tag.putString("name", to.toString(entityData.getName() != null ? entityData.getName() : new StringComponent("")));
+                entityHoverEvent.setLegacyData(new StringComponent(to.toSNBT(tag)));
+            } else if (hoverEvent instanceof ItemHoverEvent itemHoverEvent && itemHoverEvent.isModern()) {
+                final ItemHoverEvent.ModernHolder itemData = itemHoverEvent.asModern();
+                final CompoundTag tag = new CompoundTag();
+                tag.putString("id", itemData.getId().get());
+                tag.putByte("Count", (byte) itemData.getCount());
+                if (itemData.getTag() != null) {
+                    tag.put("tag", itemData.getTag());
+                }
+                itemHoverEvent.setLegacyData(to.toSNBT(tag));
             }
         }
         return to.toJson(component);
     }
 
     public static JsonElement legacyToJson(final String message) {
-        return SerializerVersion.V1_12.toJson(LegacyStringDeserializer.parse(message, true));
+        return SerializerVersion.V1_12.toJson(StringFormat.vanilla().fromString(message, ColorHandling.RESET, DeserializerUnknownHandling.WHITE));
     }
 
     public static String legacyToJsonString(final String message) {
@@ -160,7 +178,7 @@ public final class ComponentUtil {
     }
 
     public static String legacyToJsonString(final String message, final boolean itemData) {
-        final ATextComponent component = LegacyStringDeserializer.parse(message, true);
+        final TextComponent component = StringFormat.vanilla().fromString(message, ColorHandling.RESET, DeserializerUnknownHandling.WHITE);
         if (itemData) {
             TextUtils.iterateAll(component, c -> {
                 if (!c.getStyle().isEmpty()) {

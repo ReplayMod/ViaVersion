@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -478,12 +478,4 @@ public interface ViaVersionConfig extends Config {
      * @return true if enabled
      */
     boolean fix1_21PlacementRotation();
-
-    /**
-     * If enabled, 1.20.5+ clients will have sword blocking mechanics on 1.8 servers using the consumable item component.
-     * Note that you won't be able to see the blocking in first person if the client is older than 1.21.4.
-     *
-     * @return true if enabled
-     */
-    boolean swordBlockingViaConsumable();
 }

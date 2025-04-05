@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,8 +27,9 @@ import com.velocitypowered.api.plugin.PluginContainer;
 import com.velocitypowered.api.plugin.annotation.DataDirectory;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
+import com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier;
 import com.viaversion.viaversion.api.Via;
-import com.viaversion.viaversion.api.command.ViaCommandSender;
+import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.platform.PlatformTask;
 import com.viaversion.viaversion.api.platform.ViaServerProxyPlatform;
 import com.viaversion.viaversion.dump.PluginInfo;
@@ -36,7 +37,6 @@ import com.viaversion.viaversion.util.ChatColorUtil;
 import com.viaversion.viaversion.util.GsonUtil;
 import com.viaversion.viaversion.util.VersionInfo;
 import com.viaversion.viaversion.velocity.command.VelocityCommandHandler;
-import com.viaversion.viaversion.velocity.command.VelocityCommandSender;
 import com.viaversion.viaversion.velocity.platform.VelocityViaAPI;
 import com.viaversion.viaversion.velocity.platform.VelocityViaConfig;
 import com.viaversion.viaversion.velocity.platform.VelocityViaInjector;
@@ -169,28 +169,24 @@ public class VelocityPlugin implements ViaServerProxyPlatform<Player> {
     }
 
     @Override
-    public ViaCommandSender[] getOnlinePlayers() {
-        return PROXY.getAllPlayers().stream()
-            .map(VelocityCommandSender::new)
-            .toArray(ViaCommandSender[]::new);
-    }
-
-    @Override
-    public void sendMessage(UUID uuid, String message) {
+    public void sendMessage(UserConnection connection, String message) {
+        final UUID uuid = connection.getProtocolInfo().getUuid();
         PROXY.getPlayer(uuid).ifPresent(player -> player.sendMessage(COMPONENT_SERIALIZER.deserialize(message)));
     }
 
     @Override
-    public boolean kickPlayer(UUID uuid, String message) {
+    public void sendCustomPayload(final UserConnection connection, final String channel, final byte[] message) {
+        final UUID uuid = connection.getProtocolInfo().getUuid();
+        PROXY.getPlayer(uuid).flatMap(Player::getCurrentServer).ifPresent(server -> server.sendPluginMessage(MinecraftChannelIdentifier.from(channel), message));
+    }
+
+    @Override
+    public boolean kickPlayer(UserConnection connection, String message) {
+        final UUID uuid = connection.getProtocolInfo().getUuid();
         return PROXY.getPlayer(uuid).map(it -> {
             it.disconnect(LegacyComponentSerializer.legacySection().deserialize(message));
             return true;
         }).orElse(false);
-    }
-
-    @Override
-    public boolean isPluginEnabled() {
-        return true;
     }
 
     @Override
@@ -206,11 +202,6 @@ public class VelocityPlugin implements ViaServerProxyPlatform<Player> {
     @Override
     public VelocityViaConfig getConf() {
         return conf;
-    }
-
-    @Override
-    public void onReload() {
-
     }
 
     @Override

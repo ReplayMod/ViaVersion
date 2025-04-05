@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -50,7 +50,7 @@ public final class Protocol1_17To1_17_1 extends AbstractProtocol<ClientboundPack
         registerClientbound(ClientboundPackets1_17.CONTAINER_SET_SLOT, new PacketHandlers() {
             @Override
             public void register() {
-                map(Types.UNSIGNED_BYTE); // Container id
+                map(Types.BYTE); // Container id
                 create(Types.VAR_INT, 0); // Add arbitrary state id
             }
         });
@@ -73,7 +73,7 @@ public final class Protocol1_17To1_17_1 extends AbstractProtocol<ClientboundPack
         registerServerbound(ServerboundPackets1_17.CONTAINER_CLICK, new PacketHandlers() {
             @Override
             public void register() {
-                map(Types.UNSIGNED_BYTE); // Container id
+                map(Types.BYTE); // Container id
                 read(Types.VAR_INT); // Remove state id
             }
         });

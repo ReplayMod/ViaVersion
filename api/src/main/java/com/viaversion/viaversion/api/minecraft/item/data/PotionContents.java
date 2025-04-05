@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,11 +24,12 @@ package com.viaversion.viaversion.api.minecraft.item.data;
 
 import com.viaversion.viaversion.api.type.Type;
 import com.viaversion.viaversion.api.type.Types;
+import com.viaversion.viaversion.util.Copyable;
 import io.netty.buffer.ByteBuf;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 public record PotionContents(@Nullable Integer potion, @Nullable Integer customColor, PotionEffect[] customEffects,
-                             @Nullable String customName) {
+                             @Nullable String customName) implements Copyable {
 
     public PotionContents(final @Nullable Integer potion, final @Nullable Integer customColor, final PotionEffect[] customEffects) {
         this(potion, customColor, customEffects, null);
@@ -85,4 +86,9 @@ public record PotionContents(@Nullable Integer potion, @Nullable Integer customC
             Types.OPTIONAL_STRING.write(buffer, value.customName);
         }
     };
+
+    @Override
+    public PotionContents copy() {
+        return new PotionContents(potion, customColor, copy(customEffects), customName);
+    }
 }

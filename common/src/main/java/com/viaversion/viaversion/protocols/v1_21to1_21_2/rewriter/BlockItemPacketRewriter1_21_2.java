@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -47,7 +47,6 @@ import com.viaversion.viaversion.api.minecraft.item.data.Instrument1_20_5;
 import com.viaversion.viaversion.api.minecraft.item.data.Instrument1_21_2;
 import com.viaversion.viaversion.api.minecraft.item.data.PotionEffect;
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
-import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.api.type.types.chunk.ChunkType1_20_2;
 import com.viaversion.viaversion.api.type.types.version.Types1_21;
@@ -61,7 +60,6 @@ import com.viaversion.viaversion.protocols.v1_21to1_21_2.packet.ServerboundPacke
 import com.viaversion.viaversion.protocols.v1_21to1_21_2.storage.BundleStateTracker;
 import com.viaversion.viaversion.protocols.v1_21to1_21_2.storage.ChunkLoadTracker;
 import com.viaversion.viaversion.rewriter.BlockRewriter;
-import com.viaversion.viaversion.rewriter.SoundRewriter;
 import com.viaversion.viaversion.rewriter.StructuredItemRewriter;
 import com.viaversion.viaversion.util.ComponentUtil;
 import com.viaversion.viaversion.util.Key;
@@ -79,6 +77,12 @@ import java.util.Set;
 
 public final class BlockItemPacketRewriter1_21_2 extends StructuredItemRewriter<ClientboundPacket1_21, ServerboundPacket1_21_2, Protocol1_21To1_21_2> {
 
+    public static final List<StructuredDataKey<?>> NEW_DATA_TO_REMOVE = List.of(
+        StructuredDataKey.REPAIRABLE, StructuredDataKey.ENCHANTABLE, StructuredDataKey.CONSUMABLE1_21_2,
+        StructuredDataKey.USE_REMAINDER1_21_2, StructuredDataKey.USE_COOLDOWN, StructuredDataKey.ITEM_MODEL,
+        StructuredDataKey.EQUIPPABLE1_21_2, StructuredDataKey.GLIDER, StructuredDataKey.TOOLTIP_STYLE,
+        StructuredDataKey.DEATH_PROTECTION
+    );
     private static final int RECIPE_NOTIFICATION_FLAG = 1 << 0;
     private static final int RECIPE_HIGHLIGHT_FLAG = 1 << 1;
     private static final int RECIPE_INIT = 0;
@@ -114,7 +118,7 @@ public final class BlockItemPacketRewriter1_21_2 extends StructuredItemRewriter<
         });
 
         protocol.registerClientbound(ClientboundPackets1_21.CONTAINER_SET_CONTENT, wrapper -> {
-            updateContainerId(wrapper);
+            unsignedByteToVarInt(wrapper);
             wrapper.passthrough(Types.VAR_INT); // State id
             final Item[] items = wrapper.read(itemArrayType());
             wrapper.write(mappedItemArrayType(), items);
@@ -124,7 +128,7 @@ public final class BlockItemPacketRewriter1_21_2 extends StructuredItemRewriter<
             passthroughClientboundItem(wrapper);
         });
         protocol.registerClientbound(ClientboundPackets1_21.CONTAINER_SET_SLOT, wrapper -> {
-            updateContainerId(wrapper);
+            byteToVarInt(wrapper);
             final int containerId = wrapper.get(Types.VAR_INT, 0);
             if (containerId == -1) { // cursor item
                 wrapper.setPacketType(ClientboundPackets1_21_2.SET_CURSOR_ITEM);
@@ -144,13 +148,13 @@ public final class BlockItemPacketRewriter1_21_2 extends StructuredItemRewriter<
             }
             passthroughClientboundItem(wrapper);
         });
-        protocol.registerClientbound(ClientboundPackets1_21.CONTAINER_CLOSE, this::updateContainerId);
-        protocol.registerClientbound(ClientboundPackets1_21.CONTAINER_SET_DATA, this::updateContainerId);
-        protocol.registerClientbound(ClientboundPackets1_21.HORSE_SCREEN_OPEN, this::updateContainerId);
+        protocol.registerClientbound(ClientboundPackets1_21.CONTAINER_CLOSE, this::unsignedByteToVarInt);
+        protocol.registerClientbound(ClientboundPackets1_21.CONTAINER_SET_DATA, this::unsignedByteToVarInt);
+        protocol.registerClientbound(ClientboundPackets1_21.HORSE_SCREEN_OPEN, this::unsignedByteToVarInt);
         protocol.registerClientbound(ClientboundPackets1_21.SET_CARRIED_ITEM, ClientboundPackets1_21_2.SET_HELD_SLOT);
-        protocol.registerServerbound(ServerboundPackets1_21_2.CONTAINER_CLOSE, this::updateContainerIdServerbound);
+        protocol.registerServerbound(ServerboundPackets1_21_2.CONTAINER_CLOSE, this::varIntToByte);
         protocol.registerServerbound(ServerboundPackets1_21_2.CONTAINER_CLICK, wrapper -> {
-            updateContainerIdServerbound(wrapper);
+            varIntToByte(wrapper);
             wrapper.passthrough(Types.VAR_INT); // State id
             wrapper.passthrough(Types.SHORT); // Slot
             wrapper.passthrough(Types.BYTE); // Button
@@ -158,12 +162,12 @@ public final class BlockItemPacketRewriter1_21_2 extends StructuredItemRewriter<
             final int length = Limit.max(wrapper.passthrough(Types.VAR_INT), 128);
             for (int i = 0; i < length; i++) {
                 wrapper.passthrough(Types.SHORT); // Slot
-                passthroughServerboundItem(wrapper);
+                wrapper.write(itemType(), handleItemToServer(wrapper.user(), wrapper.read(mappedItemType())));
             }
-            passthroughServerboundItem(wrapper);
+            wrapper.write(itemType(), handleItemToServer(wrapper.user(), wrapper.read(mappedItemType())));
         });
         protocol.registerClientbound(ClientboundPackets1_21.PLACE_GHOST_RECIPE, wrapper -> {
-            this.updateContainerId(wrapper);
+            this.byteToVarInt(wrapper);
 
             final String recipeKey = wrapper.read(Types.STRING);
             final RecipeRewriter1_21_2.Recipe recipe = wrapper.user().get(RecipeRewriter1_21_2.class).recipe(recipeKey);
@@ -176,7 +180,7 @@ public final class BlockItemPacketRewriter1_21_2 extends StructuredItemRewriter<
             recipe.writeRecipeDisplay(wrapper);
         });
         protocol.registerServerbound(ServerboundPackets1_21_2.PLACE_RECIPE, wrapper -> {
-            this.updateContainerIdServerbound(wrapper);
+            this.varIntToByte(wrapper);
             convertServerboundRecipeDisplayId(wrapper);
         });
         protocol.registerServerbound(ServerboundPackets1_21_2.RECIPE_BOOK_SEEN_RECIPE, this::convertServerboundRecipeDisplayId);
@@ -239,7 +243,7 @@ public final class BlockItemPacketRewriter1_21_2 extends StructuredItemRewriter<
                 wrapper.write(Types1_21_2.PARTICLE, smallExplosionParticle);
             }
 
-            new SoundRewriter<>(protocol).soundHolderHandler().handle(wrapper);
+            protocol.getSoundRewriter().soundHolderHandler().handle(wrapper);
         });
 
         protocol.registerClientbound(ClientboundPackets1_21.UPDATE_RECIPES, wrapper -> {
@@ -442,10 +446,7 @@ public final class BlockItemPacketRewriter1_21_2 extends StructuredItemRewriter<
 
         updateItemData(item);
 
-        // Add data components to fix issues in older protocols
-        appendItemDataFixComponents(connection, item);
-
-        final Enchantments enchantments = data.get(StructuredDataKey.ENCHANTMENTS);
+        final Enchantments enchantments = data.get(StructuredDataKey.ENCHANTMENTS1_20_5);
         if (enchantments != null && enchantments.size() != 0) {
             // Level 0 is no longer allowed
             final IntList enchantmentIds = new IntArrayList();
@@ -506,10 +507,10 @@ public final class BlockItemPacketRewriter1_21_2 extends StructuredItemRewriter<
 
         final IntArrayTag emptyEnchantments = customData.getIntArrayTag(nbtTagName("0_enchants"));
         if (emptyEnchantments != null) {
-            Enchantments enchantments = dataContainer.get(StructuredDataKey.ENCHANTMENTS);
+            Enchantments enchantments = dataContainer.get(StructuredDataKey.ENCHANTMENTS1_20_5);
             if (enchantments == null) {
                 enchantments = new Enchantments(true);
-                dataContainer.set(StructuredDataKey.ENCHANTMENTS, enchantments);
+                dataContainer.set(StructuredDataKey.ENCHANTMENTS1_20_5, enchantments);
             }
             for (final int enchantmentId : emptyEnchantments.getValue()) {
                 enchantments.enchantments().put(enchantmentId, 0);
@@ -524,29 +525,19 @@ public final class BlockItemPacketRewriter1_21_2 extends StructuredItemRewriter<
         return item;
     }
 
-    private void updateContainerId(final PacketWrapper wrapper) {
-        // Container id handling was always a bit whack with most reading them as unsigned bytes, some as bytes, some already as var ints.
-        // In VV they're generally read as unsigned bytes to not have to look the type up every time, but we need to make sure they're
-        // properly converted to ints when used
+    private void unsignedByteToVarInt(final PacketWrapper wrapper) {
         final short containerId = wrapper.read(Types.UNSIGNED_BYTE);
-        final int intId = (byte) containerId;
-        wrapper.write(Types.VAR_INT, intId);
+        wrapper.write(Types.VAR_INT, (int) containerId);
     }
 
-    private void updateContainerIdServerbound(final PacketWrapper wrapper) {
+    private void byteToVarInt(final PacketWrapper wrapper) {
+        final byte containerId = wrapper.read(Types.BYTE);
+        wrapper.write(Types.VAR_INT, (int) containerId);
+    }
+
+    private void varIntToByte(final PacketWrapper wrapper) {
         final int containerId = wrapper.read(Types.VAR_INT);
-        wrapper.write(Types.UNSIGNED_BYTE, (short) containerId);
-    }
-
-    private void appendItemDataFixComponents(final UserConnection connection, final Item item) {
-        final ProtocolVersion serverVersion = connection.getProtocolInfo().serverProtocolVersion();
-        if (serverVersion.olderThanOrEqualTo(ProtocolVersion.v1_8) && item.dataContainer().hasValue(StructuredDataKey.CONSUMABLE1_21_2)) {
-            if (item.identifier() == 840 || item.identifier() == 845 || item.identifier() == 850 || item.identifier() == 855 || item.identifier() == 860) { // swords
-                // Change the consume animation of swords to block
-                final Consumable1_21_2 consumable = item.dataContainer().get(StructuredDataKey.CONSUMABLE1_21_2);
-                item.dataContainer().set(StructuredDataKey.CONSUMABLE1_21_2, new Consumable1_21_2(consumable.consumeSeconds(), 3, consumable.sound(), consumable.hasConsumeParticles(), consumable.consumeEffects()));
-            }
-        }
+        wrapper.write(Types.BYTE, (byte) containerId);
     }
 
     public static void updateItemData(final Item item) {
@@ -648,15 +639,6 @@ public final class BlockItemPacketRewriter1_21_2 extends StructuredItemRewriter<
             }
             return null;
         });
-        dataContainer.remove(StructuredDataKey.REPAIRABLE);
-        dataContainer.remove(StructuredDataKey.ENCHANTABLE);
-        dataContainer.remove(StructuredDataKey.CONSUMABLE1_21_2);
-        dataContainer.remove(StructuredDataKey.USE_REMAINDER1_21_2);
-        dataContainer.remove(StructuredDataKey.USE_COOLDOWN);
-        dataContainer.remove(StructuredDataKey.ITEM_MODEL);
-        dataContainer.remove(StructuredDataKey.EQUIPPABLE);
-        dataContainer.remove(StructuredDataKey.GLIDER);
-        dataContainer.remove(StructuredDataKey.TOOLTIP_STYLE);
-        dataContainer.remove(StructuredDataKey.DEATH_PROTECTION);
+        dataContainer.remove(NEW_DATA_TO_REMOVE);
     }
 }

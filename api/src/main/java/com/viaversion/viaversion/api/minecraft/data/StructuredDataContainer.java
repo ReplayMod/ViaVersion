@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -26,9 +26,11 @@ import com.google.common.base.Preconditions;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.data.FullMappings;
 import com.viaversion.viaversion.api.protocol.Protocol;
+import com.viaversion.viaversion.util.Copyable;
 import com.viaversion.viaversion.util.Unit;
 import it.unimi.dsi.fastutil.ints.Int2IntFunction;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
+import java.util.Collection;
 import java.util.Map;
 import java.util.function.Function;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -53,7 +55,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
  * </ul>
  * Other methods (e.g. {@link #getData(StructuredDataKey)} and {@link #has(StructuredDataKey)}) will handle both empty and non-empty data.
  */
-public final class StructuredDataContainer {
+public final class StructuredDataContainer implements Copyable {
 
     private final Map<StructuredDataKey<?>, StructuredData<?>> data;
     private FullMappings lookup;
@@ -71,7 +73,7 @@ public final class StructuredDataContainer {
     }
 
     public StructuredDataContainer() {
-        this(new Reference2ObjectOpenHashMap<>());
+        this(new Reference2ObjectOpenHashMap<>(0));
     }
 
     /**
@@ -189,6 +191,20 @@ public final class StructuredDataContainer {
     }
 
     /**
+     * Removes data by the given keys.
+     *
+     * @param keys data keys
+     * @see #replace(StructuredDataKey, Function)
+     * @see #replace(StructuredDataKey, StructuredDataKey, Function)
+     * @see #replaceKey(StructuredDataKey, StructuredDataKey)
+     */
+    public void remove(final Collection<StructuredDataKey<?>> keys) {
+        for (final StructuredDataKey<?> key : keys) {
+            this.data.remove(key);
+        }
+    }
+
+    /**
      * Returns whether there is data for the given key, either empty or non-empty.
      *
      * @param key data key
@@ -245,8 +261,13 @@ public final class StructuredDataContainer {
         }
     }
 
+    @Override
     public StructuredDataContainer copy() {
-        final StructuredDataContainer copy = new StructuredDataContainer(new Reference2ObjectOpenHashMap<>(data));
+        final Reference2ObjectOpenHashMap<StructuredDataKey<?>, StructuredData<?>> map = new Reference2ObjectOpenHashMap<>();
+        for (final StructuredData<?> value : data.values()) {
+            map.put(value.key(), value.copy());
+        }
+        final StructuredDataContainer copy = new StructuredDataContainer(map);
         copy.lookup = this.lookup;
         return copy;
     }

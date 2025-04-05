@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,13 +24,18 @@ package com.viaversion.viaversion.api.minecraft.item.data;
 
 import com.viaversion.viaversion.api.type.Type;
 import com.viaversion.viaversion.api.type.Types;
+import com.viaversion.viaversion.util.Copyable;
 import io.netty.buffer.ByteBuf;
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 
-public record Enchantments(Int2IntMap enchantments, boolean showInTooltip) {
+public record Enchantments(Int2IntMap enchantments, boolean showInTooltip) implements Copyable {
 
-    public static final Type<Enchantments> TYPE = new Type<>(Enchantments.class) {
+    public Enchantments(final Int2IntMap enchantments) {
+        this(enchantments, true);
+    }
+
+    public static final Type<Enchantments> TYPE1_20_5 = new Type<>(Enchantments.class) {
         @Override
         public Enchantments read(final ByteBuf buffer) {
             final Int2IntMap enchantments = new Int2IntOpenHashMap();
@@ -52,6 +57,29 @@ public record Enchantments(Int2IntMap enchantments, boolean showInTooltip) {
                 Types.VAR_INT.writePrimitive(buffer, entry.getIntValue());
             }
             buffer.writeBoolean(value.showInTooltip());
+        }
+    };
+    public static final Type<Enchantments> TYPE1_21_5 = new Type<>(Enchantments.class) {
+        @Override
+        public Enchantments read(final ByteBuf buffer) {
+            final Int2IntMap enchantments = new Int2IntOpenHashMap();
+            final int size = Types.VAR_INT.readPrimitive(buffer);
+            for (int i = 0; i < size; i++) {
+                final int id = Types.VAR_INT.readPrimitive(buffer);
+                final int level = Types.VAR_INT.readPrimitive(buffer);
+                enchantments.put(id, level);
+            }
+
+            return new Enchantments(enchantments);
+        }
+
+        @Override
+        public void write(final ByteBuf buffer, final Enchantments value) {
+            Types.VAR_INT.writePrimitive(buffer, value.enchantments.size());
+            for (final Int2IntMap.Entry entry : value.enchantments.int2IntEntrySet()) {
+                Types.VAR_INT.writePrimitive(buffer, entry.getIntKey());
+                Types.VAR_INT.writePrimitive(buffer, entry.getIntValue());
+            }
         }
     };
 
@@ -77,5 +105,10 @@ public record Enchantments(Int2IntMap enchantments, boolean showInTooltip) {
 
     public int getLevel(final int id) {
         return enchantments.getOrDefault(id, -1);
+    }
+
+    @Override
+    public Enchantments copy() {
+        return new Enchantments(new Int2IntOpenHashMap(enchantments), showInTooltip);
     }
 }

@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,12 +20,11 @@ package com.viaversion.viaversion;
 import com.google.gson.JsonObject;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.ViaAPI;
-import com.viaversion.viaversion.api.command.ViaCommandSender;
+import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.platform.PlatformTask;
 import com.viaversion.viaversion.api.platform.UnsupportedSoftware;
 import com.viaversion.viaversion.api.platform.ViaPlatform;
 import com.viaversion.viaversion.bukkit.commands.BukkitCommandHandler;
-import com.viaversion.viaversion.bukkit.commands.BukkitCommandSender;
 import com.viaversion.viaversion.bukkit.listeners.JoinListener;
 import com.viaversion.viaversion.bukkit.platform.BukkitViaAPI;
 import com.viaversion.viaversion.bukkit.platform.BukkitViaConfig;
@@ -47,6 +46,7 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
 import org.bukkit.event.EventPriority;
@@ -56,6 +56,8 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 public class ViaVersionPlugin extends JavaPlugin implements ViaPlatform<Player> {
     private static final boolean FOLIA = PaperViaInjector.hasClass("io.papermc.paper.threadedregions.RegionizedServer");
+    private static final Runnable DUMMY_RUNNABLE = () -> {
+    };
     private static ViaVersionPlugin instance;
     private final BukkitCommandHandler commandHandler = new BukkitCommandHandler();
     private final BukkitViaConfig conf;
@@ -179,6 +181,24 @@ public class ViaVersionPlugin extends JavaPlugin implements ViaPlatform<Player> 
         return new BukkitViaTask(getServer().getScheduler().runTaskLater(this, runnable, delay));
     }
 
+    public PlatformTask<?> runSyncAt(Runnable runnable, Block block) {
+        if (FOLIA) {
+            return new FoliaViaTask(getServer().getRegionScheduler().run(this, block.getLocation(), (e) -> runnable.run()));
+        }
+        return runSync(runnable);
+    }
+
+    public PlatformTask<?> runSyncFor(Runnable runnable, Player player) {
+        if (FOLIA) {
+            return new FoliaViaTask(player.getScheduler().run(this, (e) -> runnable.run(), DUMMY_RUNNABLE));
+        }
+        return runSync(() -> {
+            if (player.isOnline()) {
+                runnable.run();
+            }
+        });
+    }
+
     @Override
     public PlatformTask runRepeatingSync(Runnable runnable, long period) {
         if (FOLIA) {
@@ -188,17 +208,8 @@ public class ViaVersionPlugin extends JavaPlugin implements ViaPlatform<Player> 
     }
 
     @Override
-    public ViaCommandSender[] getOnlinePlayers() {
-        ViaCommandSender[] array = new ViaCommandSender[Bukkit.getOnlinePlayers().size()];
-        int i = 0;
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            array[i++] = new BukkitCommandSender(player);
-        }
-        return array;
-    }
-
-    @Override
-    public void sendMessage(UUID uuid, String message) {
+    public void sendMessage(UserConnection connection, String message) {
+        UUID uuid = connection.getProtocolInfo().getUuid();
         Player player = Bukkit.getPlayer(uuid);
         if (player != null) {
             player.sendMessage(message);
@@ -206,7 +217,8 @@ public class ViaVersionPlugin extends JavaPlugin implements ViaPlatform<Player> 
     }
 
     @Override
-    public boolean kickPlayer(UUID uuid, String message) {
+    public boolean kickPlayer(UserConnection connection, String message) {
+        UUID uuid = connection.getProtocolInfo().getUuid();
         Player player = Bukkit.getPlayer(uuid);
         if (player != null) {
             player.kickPlayer(message);
@@ -214,11 +226,6 @@ public class ViaVersionPlugin extends JavaPlugin implements ViaPlatform<Player> 
         } else {
             return false;
         }
-    }
-
-    @Override
-    public boolean isPluginEnabled() {
-        return Bukkit.getPluginManager().getPlugin("ViaVersion").isEnabled();
     }
 
     @Override

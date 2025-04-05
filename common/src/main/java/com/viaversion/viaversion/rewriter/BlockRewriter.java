@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -38,6 +38,8 @@ import com.viaversion.viaversion.api.protocol.remapper.PacketHandler;
 import com.viaversion.viaversion.api.type.Type;
 import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.util.MathUtil;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -194,25 +196,43 @@ public class BlockRewriter<C extends ClientboundPacketType> {
     public PacketHandler chunkHandler1_19(ChunkTypeSupplier chunkTypeSupplier, @Nullable BiConsumer<UserConnection, BlockEntity> blockEntityHandler) {
         return wrapper -> {
             final Chunk chunk = handleChunk1_19(wrapper, chunkTypeSupplier);
-            final Mappings blockEntityMappings = protocol.getMappingData().getBlockEntityMappings();
-            if (blockEntityMappings != null || blockEntityHandler != null) {
-                final List<BlockEntity> blockEntities = chunk.blockEntities();
-                for (int i = 0; i < blockEntities.size(); i++) {
-                    final BlockEntity blockEntity = blockEntities.get(i);
-                    if (blockEntityMappings != null) {
-                        final int id = blockEntity.typeId();
-                        final int mappedId = blockEntityMappings.getNewIdOrDefault(id, id);
-                        if (id != mappedId) {
-                            blockEntities.set(i, blockEntity.withTypeId(mappedId));
-                        }
-                    }
+            handleBlockEntities(blockEntityHandler, chunk, wrapper.user());
+        };
+    }
 
-                    if (blockEntityHandler != null && blockEntity.tag() != null) {
-                        blockEntityHandler.accept(wrapper.user(), blockEntity);
-                    }
+    public void handleBlockEntities(BiConsumer<UserConnection, BlockEntity> blockEntityHandler, Chunk chunk, UserConnection connection) {
+        final Mappings blockEntityMappings = protocol.getMappingData().getBlockEntityMappings();
+        if (blockEntityMappings == null && blockEntityHandler == null) {
+            return;
+        }
+
+        final List<BlockEntity> blockEntities = chunk.blockEntities();
+        final IntList toRemove = new IntArrayList(0);
+        for (int i = 0; i < blockEntities.size(); i++) {
+            final BlockEntity blockEntity = blockEntities.get(i);
+            if (blockEntityMappings != null) {
+                final int id = blockEntity.typeId();
+                final int mappedId = blockEntityMappings.getNewId(id);
+                if (mappedId == -1) {
+                    toRemove.add(i);
+                    continue;
+                }
+
+                if (id != mappedId) {
+                    blockEntities.set(i, blockEntity.withTypeId(mappedId));
                 }
             }
-        };
+
+            if (blockEntityHandler != null && blockEntity.tag() != null) {
+                blockEntityHandler.accept(connection, blockEntity);
+            }
+        }
+
+        if (!toRemove.isEmpty()) {
+            for (int i = toRemove.size() - 1; i >= 0; i--) {
+                blockEntities.remove(toRemove.getInt(i));
+            }
+        }
     }
 
     public Chunk handleChunk1_19(PacketWrapper wrapper, ChunkTypeSupplier chunkTypeSupplier) {
@@ -234,10 +254,14 @@ public class BlockRewriter<C extends ClientboundPacketType> {
     }
 
     public void registerBlockEntityData(C packetType) {
-        registerBlockEntityData(packetType, null);
+        registerBlockEntityData(packetType, (BiConsumer<UserConnection, BlockEntity>) null);
     }
 
     public void registerBlockEntityData(C packetType, @Nullable Consumer<BlockEntity> blockEntityHandler) {
+        registerBlockEntityData(packetType, blockEntityHandler != null ? (connection, blockEntity) -> blockEntityHandler.accept(blockEntity) : null);
+    }
+
+    public void registerBlockEntityData(C packetType, @Nullable BiConsumer<UserConnection, BlockEntity> blockEntityHandler) {
         protocol.registerClientbound(packetType, wrapper -> {
             final BlockPosition position = wrapper.passthrough(positionType);
 
@@ -252,7 +276,7 @@ public class BlockRewriter<C extends ClientboundPacketType> {
             final CompoundTag tag;
             if (blockEntityHandler != null && (tag = wrapper.passthrough(compoundTagType)) != null) {
                 final BlockEntity blockEntity = new BlockEntityImpl(BlockEntity.pack(position.x(), position.z()), (short) position.y(), blockEntityId, tag);
-                blockEntityHandler.accept(blockEntity);
+                blockEntityHandler.accept(wrapper.user(), blockEntity);
             }
         });
     }

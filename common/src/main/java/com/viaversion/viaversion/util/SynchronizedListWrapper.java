@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -71,7 +71,7 @@ public final class SynchronizedListWrapper<E> implements List<E> {
 
     @Override
     public @NonNull Iterator<E> iterator() {
-        // Has to be manually synched
+        // Has to be manually synced
         return listIterator();
     }
 
@@ -168,13 +168,13 @@ public final class SynchronizedListWrapper<E> implements List<E> {
 
     @Override
     public @NonNull ListIterator<E> listIterator() {
-        // Has to be manually synched
+        // Has to be manually synced
         return this.list.listIterator();
     }
 
     @Override
     public @NonNull ListIterator<E> listIterator(final int index) {
-        // Has to be manually synched
+        // Has to be manually synced
         return this.list.listIterator(index);
     }
 

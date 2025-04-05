@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,17 +24,18 @@ package com.viaversion.viaversion.api.minecraft.item.data;
 
 import com.viaversion.viaversion.api.type.Type;
 import com.viaversion.viaversion.api.type.Types;
+import com.viaversion.viaversion.util.Copyable;
 import io.netty.buffer.ByteBuf;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import java.util.Map;
 
-public record BlockStateProperties(Map<String, String> properties) {
+public record BlockStateProperties(Map<String, String> properties) implements Copyable {
 
     public static final Type<BlockStateProperties> TYPE = new Type<>(BlockStateProperties.class) {
         @Override
         public BlockStateProperties read(final ByteBuf buffer) {
             final int size = Types.VAR_INT.readPrimitive(buffer);
-            final Map<String, String> properties = new Object2ObjectOpenHashMap<>(size);
+            final Map<String, String> properties = new Object2ObjectOpenHashMap<>();
             for (int i = 0; i < size; i++) {
                 properties.put(Types.STRING.read(buffer), Types.STRING.read(buffer));
             }
@@ -51,4 +52,8 @@ public record BlockStateProperties(Map<String, String> properties) {
         }
     };
 
+    @Override
+    public BlockStateProperties copy() {
+        return new BlockStateProperties(new Object2ObjectOpenHashMap<>(properties));
+    }
 }

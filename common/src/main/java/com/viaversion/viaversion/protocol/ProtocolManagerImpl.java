@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -40,6 +40,7 @@ import com.viaversion.viaversion.api.protocol.version.VersionType;
 import com.viaversion.viaversion.protocol.packet.PacketWrapperImpl;
 import com.viaversion.viaversion.protocol.packet.VersionedPacketTransformerImpl;
 import com.viaversion.viaversion.protocols.base.InitialBaseProtocol;
+import com.viaversion.viaversion.protocols.base.v1_16.ClientboundBaseProtocol1_16;
 import com.viaversion.viaversion.protocols.base.v1_7.ClientboundBaseProtocol1_7;
 import com.viaversion.viaversion.protocols.base.v1_7.ServerboundBaseProtocol1_7;
 import com.viaversion.viaversion.protocols.v1_10to1_11.Protocol1_10To1_11;
@@ -77,6 +78,7 @@ import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.Protocol1_20_3To1_20_
 import com.viaversion.viaversion.protocols.v1_20_5to1_21.Protocol1_20_5To1_21;
 import com.viaversion.viaversion.protocols.v1_20to1_20_2.Protocol1_20To1_20_2;
 import com.viaversion.viaversion.protocols.v1_21_2to1_21_4.Protocol1_21_2To1_21_4;
+import com.viaversion.viaversion.protocols.v1_21_4to1_21_5.Protocol1_21_4To1_21_5;
 import com.viaversion.viaversion.protocols.v1_21to1_21_2.Protocol1_21To1_21_2;
 import com.viaversion.viaversion.protocols.v1_8to1_9.Protocol1_8To1_9;
 import com.viaversion.viaversion.protocols.v1_9_1to1_9_3.Protocol1_9_1To1_9_3;
@@ -141,7 +143,8 @@ public class ProtocolManagerImpl implements ProtocolManager {
         // Base Protocol
         BASE_PROTOCOL.initialize();
         BASE_PROTOCOL.register(Via.getManager().getProviders());
-        registerBaseProtocol(Direction.CLIENTBOUND, new ClientboundBaseProtocol1_7(), Range.atLeast(ProtocolVersion.v1_7_2));
+        registerBaseProtocol(Direction.CLIENTBOUND, new ClientboundBaseProtocol1_7(), Range.closedOpen(ProtocolVersion.v1_7_2, ProtocolVersion.v1_16));
+        registerBaseProtocol(Direction.CLIENTBOUND, new ClientboundBaseProtocol1_16(), Range.atLeast(ProtocolVersion.v1_16));
         registerBaseProtocol(Direction.SERVERBOUND, new ServerboundBaseProtocol1_7(), Range.atLeast(ProtocolVersion.v1_7_2));
 
         registerProtocol(new Protocol1_8To1_9(), ProtocolVersion.v1_9, ProtocolVersion.v1_8);
@@ -196,6 +199,7 @@ public class ProtocolManagerImpl implements ProtocolManager {
         registerProtocol(new Protocol1_20_5To1_21(), ProtocolVersion.v1_21, ProtocolVersion.v1_20_5);
         registerProtocol(new Protocol1_21To1_21_2(), ProtocolVersion.v1_21_2, ProtocolVersion.v1_21);
         registerProtocol(new Protocol1_21_2To1_21_4(), ProtocolVersion.v1_21_4, ProtocolVersion.v1_21_2);
+        registerProtocol(new Protocol1_21_4To1_21_5(), ProtocolVersion.v1_21_5, ProtocolVersion.v1_21_4);
     }
 
     @Override

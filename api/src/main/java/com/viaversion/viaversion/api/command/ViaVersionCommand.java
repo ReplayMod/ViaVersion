@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -30,7 +30,7 @@ public interface ViaVersionCommand {
      * Register your own subcommand inside ViaVersion
      *
      * @param command Your own SubCommand instance to handle it.
-     * @throws IllegalArgumentException throws an exception when the subcommand already exists or if it's not valid, example: spacee
+     * @throws IllegalArgumentException throws an exception when the subcommand already exists or if it's not valid, example: space
      */
     void registerSubCommand(ViaSubCommand command);
 

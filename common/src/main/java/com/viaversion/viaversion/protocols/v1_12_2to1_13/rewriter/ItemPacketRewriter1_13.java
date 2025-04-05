@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -59,7 +59,7 @@ public class ItemPacketRewriter1_13 extends ItemRewriter<ClientboundPackets1_12_
         protocol.registerClientbound(ClientboundPackets1_12_1.CONTAINER_SET_SLOT, new PacketHandlers() {
             @Override
             public void register() {
-                map(Types.UNSIGNED_BYTE); // 0 - Window ID
+                map(Types.BYTE); // 0 - Window ID
                 map(Types.SHORT); // 1 - Slot ID
                 map(Types.ITEM1_8, Types.ITEM1_13); // 2 - Slot Value
 
@@ -185,7 +185,7 @@ public class ItemPacketRewriter1_13 extends ItemRewriter<ClientboundPackets1_12_
         protocol.registerServerbound(ServerboundPackets1_13.CONTAINER_CLICK, new PacketHandlers() {
             @Override
             public void register() {
-                map(Types.UNSIGNED_BYTE); // 0 - Window ID
+                map(Types.BYTE); // 0 - Window ID
                 map(Types.SHORT); // 1 - Slot
                 map(Types.BYTE); // 2 - Button
                 map(Types.SHORT); // 3 - Action number

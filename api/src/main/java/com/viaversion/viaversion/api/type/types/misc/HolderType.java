@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -26,6 +26,7 @@ import com.viaversion.viaversion.api.minecraft.Holder;
 import com.viaversion.viaversion.api.type.Type;
 import com.viaversion.viaversion.api.type.Types;
 import io.netty.buffer.ByteBuf;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 public abstract class HolderType<T> extends Type<Holder<T>> {
 
@@ -55,4 +56,37 @@ public abstract class HolderType<T> extends Type<Holder<T>> {
     public abstract T readDirect(final ByteBuf buffer);
 
     public abstract void writeDirect(final ByteBuf buffer, final T object);
+
+    public abstract static class OptionalHolderType<T> extends HolderType<T> {
+        private final HolderType<T> type;
+
+        protected OptionalHolderType(final HolderType<T> type) {
+            this.type = type;
+        }
+
+        @Override
+        public Holder<T> read(final ByteBuf buffer) {
+            return buffer.readBoolean() ? super.read(buffer) : null;
+        }
+
+        @Override
+        public void write(final ByteBuf buffer, final Holder<T> object) {
+            if (object != null) {
+                buffer.writeBoolean(true);
+                super.write(buffer, object);
+            } else {
+                buffer.writeBoolean(false);
+            }
+        }
+
+        @Override
+        public @Nullable T readDirect(ByteBuf buffer) {
+            return this.type.readDirect(buffer);
+        }
+
+        @Override
+        public void writeDirect(final ByteBuf buffer, @Nullable final T value) {
+            this.type.writeDirect(buffer, value);
+        }
+    }
 }

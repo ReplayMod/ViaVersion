@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,12 +25,17 @@ package com.viaversion.viaversion.api.minecraft.item.data;
 import com.viaversion.viaversion.api.type.Type;
 import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.api.type.types.ArrayType;
+import com.viaversion.viaversion.util.Copyable;
 import io.netty.buffer.ByteBuf;
 import it.unimi.dsi.fastutil.ints.Int2IntFunction;
 
-public record AttributeModifiers1_21(AttributeModifier[] modifiers, boolean showInTooltip) {
+public record AttributeModifiers1_21(AttributeModifier[] modifiers, boolean showInTooltip) implements Copyable {
 
-    public static final Type<AttributeModifiers1_21> TYPE = new Type<>(AttributeModifiers1_21.class) {
+    public AttributeModifiers1_21(final AttributeModifier[] modifiers) {
+        this(modifiers, true);
+    }
+
+    public static final Type<AttributeModifiers1_21> TYPE1_21 = new Type<>(AttributeModifiers1_21.class) {
         @Override
         public AttributeModifiers1_21 read(final ByteBuf buffer) {
             final AttributeModifier[] modifiers = AttributeModifier.ARRAY_TYPE.read(buffer);
@@ -44,6 +49,18 @@ public record AttributeModifiers1_21(AttributeModifier[] modifiers, boolean show
             buffer.writeBoolean(value.showInTooltip());
         }
     };
+    public static final Type<AttributeModifiers1_21> TYPE1_21_5 = new Type<>(AttributeModifiers1_21.class) {
+        @Override
+        public AttributeModifiers1_21 read(final ByteBuf buffer) {
+            final AttributeModifier[] modifiers = AttributeModifier.ARRAY_TYPE.read(buffer);
+            return new AttributeModifiers1_21(modifiers);
+        }
+
+        @Override
+        public void write(final ByteBuf buffer, final AttributeModifiers1_21 value) {
+            AttributeModifier.ARRAY_TYPE.write(buffer, value.modifiers());
+        }
+    };
 
     public AttributeModifiers1_21 rewrite(final Int2IntFunction rewriteFunction) {
         final AttributeModifier[] modifiers = new AttributeModifier[this.modifiers.length];
@@ -52,6 +69,11 @@ public record AttributeModifiers1_21(AttributeModifier[] modifiers, boolean show
             modifiers[i] = new AttributeModifier(rewriteFunction.applyAsInt(modifier.attribute()), modifier.modifier(), modifier.slotType());
         }
         return new AttributeModifiers1_21(modifiers, showInTooltip);
+    }
+
+    @Override
+    public AttributeModifiers1_21 copy() {
+        return new AttributeModifiers1_21(copy(modifiers), showInTooltip);
     }
 
     public record AttributeModifier(int attribute, ModifierData modifier, int slotType) {

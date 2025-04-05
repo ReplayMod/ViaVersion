@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -78,9 +78,9 @@ public final class BlockItemPacketRewriter1_21 extends StructuredItemRewriter<Cl
         registerCooldown(ClientboundPackets1_20_5.COOLDOWN);
         registerSetContent1_17_1(ClientboundPackets1_20_5.CONTAINER_SET_CONTENT);
         protocol.registerClientbound(ClientboundPackets1_20_5.CONTAINER_SET_SLOT, wrapper -> {
-            final short containerId = wrapper.passthrough(Types.UNSIGNED_BYTE); // Container id
+            final byte containerId = wrapper.passthrough(Types.BYTE);
             wrapper.passthrough(Types.VAR_INT); // State id
-            final short slotId = wrapper.passthrough(Types.SHORT); // Slot id
+            final short slotId = wrapper.passthrough(Types.SHORT);
             final Item item = handleItemToClient(wrapper.user(), wrapper.read(itemType()));
             wrapper.write(mappedItemType(), item);
 
@@ -90,7 +90,7 @@ public final class BlockItemPacketRewriter1_21 extends StructuredItemRewriter<Cl
             }
 
             final EfficiencyAttributeStorage storage = wrapper.user().get(EfficiencyAttributeStorage.class);
-            Enchantments enchants = item.dataContainer().get(StructuredDataKey.ENCHANTMENTS);
+            Enchantments enchants = item.dataContainer().get(StructuredDataKey.ENCHANTMENTS1_20_5);
             EfficiencyAttributeStorage.ActiveEnchants active = storage.activeEnchants();
             active = switch (slotId) {
                 case HELMET_SLOT -> active.aquaAffinity(enchants == null ? 0 : enchants.getLevel(AQUA_AFFINITY_ID));
@@ -227,7 +227,7 @@ public final class BlockItemPacketRewriter1_21 extends StructuredItemRewriter<Cl
         dataContainer.replaceKey(StructuredDataKey.CONTAINER1_21, StructuredDataKey.CONTAINER1_20_5);
         dataContainer.replaceKey(StructuredDataKey.CHARGED_PROJECTILES1_21, StructuredDataKey.CHARGED_PROJECTILES1_20_5);
         dataContainer.replaceKey(StructuredDataKey.BUNDLE_CONTENTS1_21, StructuredDataKey.BUNDLE_CONTENTS1_20_5);
-        dataContainer.remove(StructuredDataKey.JUKEBOX_PLAYABLE);
+        dataContainer.remove(StructuredDataKey.JUKEBOX_PLAYABLE1_21);
         dataContainer.replace(StructuredDataKey.ATTRIBUTE_MODIFIERS1_21, StructuredDataKey.ATTRIBUTE_MODIFIERS1_20_5, attributeModifiers -> {
             final AttributeModifiers1_20_5.AttributeModifier[] modifiers = Arrays.stream(attributeModifiers.modifiers()).map(modifier -> {
                 final int mappedAttributeId = Protocol1_20_5To1_21.MAPPINGS.getAttributeMappings().inverse().getNewId(modifier.attribute());

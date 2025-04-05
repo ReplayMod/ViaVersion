@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -47,7 +47,7 @@ import com.viaversion.viaversion.protocols.v1_20_5to1_21.rewriter.ComponentRewri
 import com.viaversion.viaversion.protocols.v1_20_5to1_21.rewriter.EntityPacketRewriter1_21;
 import com.viaversion.viaversion.protocols.v1_20_5to1_21.storage.EfficiencyAttributeStorage;
 import com.viaversion.viaversion.protocols.v1_20_5to1_21.storage.PlayerPositionStorage;
-import com.viaversion.viaversion.rewriter.ComponentRewriter;
+import com.viaversion.viaversion.rewriter.text.JsonNBTComponentRewriter;
 import com.viaversion.viaversion.rewriter.ParticleRewriter;
 import com.viaversion.viaversion.rewriter.SoundRewriter;
 import com.viaversion.viaversion.rewriter.StatisticsRewriter;
@@ -66,7 +66,7 @@ public final class Protocol1_20_5To1_21 extends AbstractProtocol<ClientboundPack
     private final BlockItemPacketRewriter1_21 itemRewriter = new BlockItemPacketRewriter1_21(this);
     private final ParticleRewriter<ClientboundPacket1_20_5> particleRewriter = new ParticleRewriter<>(this, Types1_20_5.PARTICLE, Types1_21.PARTICLE);
     private final TagRewriter<ClientboundPacket1_20_5> tagRewriter = new TagRewriter<>(this);
-    private final ComponentRewriter<ClientboundPacket1_20_5> componentRewriter = new ComponentRewriter1_21(this);
+    private final JsonNBTComponentRewriter<ClientboundPacket1_20_5> componentRewriter = new ComponentRewriter1_21(this);
 
     public Protocol1_20_5To1_21() {
         super(ClientboundPacket1_20_5.class, ClientboundPacket1_21.class, ServerboundPacket1_20_5.class, ServerboundPacket1_20_5.class);
@@ -85,7 +85,7 @@ public final class Protocol1_20_5To1_21 extends AbstractProtocol<ClientboundPack
 
         new StatisticsRewriter<>(this).register(ClientboundPackets1_20_5.AWARD_STATS);
 
-        componentRewriter.registerOpenScreen(ClientboundPackets1_20_5.OPEN_SCREEN);
+        componentRewriter.registerOpenScreen1_14(ClientboundPackets1_20_5.OPEN_SCREEN);
         componentRewriter.registerComponentPacket(ClientboundPackets1_20_5.SET_ACTION_BAR_TEXT);
         componentRewriter.registerComponentPacket(ClientboundPackets1_20_5.SET_TITLE_TEXT);
         componentRewriter.registerComponentPacket(ClientboundPackets1_20_5.SET_SUBTITLE_TEXT);
@@ -199,13 +199,13 @@ public final class Protocol1_20_5To1_21 extends AbstractProtocol<ClientboundPack
             .reader("entity_effect", ParticleType.Readers.COLOR);
         Types1_21.STRUCTURED_DATA.filler(this)
             .add(StructuredDataKey.CUSTOM_DATA).add(StructuredDataKey.MAX_STACK_SIZE).add(StructuredDataKey.MAX_DAMAGE)
-            .add(StructuredDataKey.DAMAGE).add(StructuredDataKey.UNBREAKABLE).add(StructuredDataKey.RARITY)
+            .add(StructuredDataKey.DAMAGE).add(StructuredDataKey.UNBREAKABLE1_20_5).add(StructuredDataKey.RARITY)
             .add(StructuredDataKey.HIDE_TOOLTIP).add(StructuredDataKey.FIRE_RESISTANT)
-            .add(StructuredDataKey.CUSTOM_NAME).add(StructuredDataKey.LORE).add(StructuredDataKey.ENCHANTMENTS)
-            .add(StructuredDataKey.CAN_PLACE_ON).add(StructuredDataKey.CAN_BREAK)
+            .add(StructuredDataKey.CUSTOM_NAME).add(StructuredDataKey.LORE).add(StructuredDataKey.ENCHANTMENTS1_20_5)
+            .add(StructuredDataKey.CAN_PLACE_ON1_20_5).add(StructuredDataKey.CAN_BREAK1_20_5)
             .add(StructuredDataKey.CUSTOM_MODEL_DATA1_20_5).add(StructuredDataKey.HIDE_ADDITIONAL_TOOLTIP).add(StructuredDataKey.REPAIR_COST)
             .add(StructuredDataKey.CREATIVE_SLOT_LOCK).add(StructuredDataKey.ENCHANTMENT_GLINT_OVERRIDE).add(StructuredDataKey.INTANGIBLE_PROJECTILE)
-            .add(StructuredDataKey.STORED_ENCHANTMENTS).add(StructuredDataKey.DYED_COLOR).add(StructuredDataKey.MAP_COLOR)
+            .add(StructuredDataKey.STORED_ENCHANTMENTS1_20_5).add(StructuredDataKey.DYED_COLOR1_20_5).add(StructuredDataKey.MAP_COLOR)
             .add(StructuredDataKey.MAP_ID).add(StructuredDataKey.MAP_DECORATIONS).add(StructuredDataKey.MAP_POST_PROCESSING)
             .add(StructuredDataKey.CHARGED_PROJECTILES1_21).add(StructuredDataKey.BUNDLE_CONTENTS1_21).add(StructuredDataKey.POTION_CONTENTS1_20_5)
             .add(StructuredDataKey.SUSPICIOUS_STEW_EFFECTS).add(StructuredDataKey.WRITABLE_BOOK_CONTENT).add(StructuredDataKey.WRITTEN_BOOK_CONTENT)
@@ -215,9 +215,9 @@ public final class Protocol1_20_5To1_21 extends AbstractProtocol<ClientboundPack
             .add(StructuredDataKey.FIREWORKS).add(StructuredDataKey.PROFILE).add(StructuredDataKey.NOTE_BLOCK_SOUND)
             .add(StructuredDataKey.BANNER_PATTERNS).add(StructuredDataKey.BASE_COLOR).add(StructuredDataKey.POT_DECORATIONS)
             .add(StructuredDataKey.CONTAINER1_21).add(StructuredDataKey.BLOCK_STATE).add(StructuredDataKey.BEES)
-            .add(StructuredDataKey.LOCK).add(StructuredDataKey.CONTAINER_LOOT).add(StructuredDataKey.TOOL)
+            .add(StructuredDataKey.LOCK).add(StructuredDataKey.CONTAINER_LOOT).add(StructuredDataKey.TOOL1_20_5)
             .add(StructuredDataKey.ITEM_NAME).add(StructuredDataKey.OMINOUS_BOTTLE_AMPLIFIER)
-            .add(StructuredDataKey.FOOD1_21).add(StructuredDataKey.JUKEBOX_PLAYABLE).add(StructuredDataKey.ATTRIBUTE_MODIFIERS1_21);
+            .add(StructuredDataKey.FOOD1_21).add(StructuredDataKey.JUKEBOX_PLAYABLE1_21).add(StructuredDataKey.ATTRIBUTE_MODIFIERS1_21);
 
         tagRewriter.addEmptyTags(RegistryType.BLOCK, "minecraft:blocks_wind_charge_explosions");
         tagRewriter.addEmptyTags(RegistryType.ENTITY, "minecraft:can_turn_in_boats", "minecraft:deflects_projectiles", "minecraft:immune_to_infested",
@@ -263,7 +263,7 @@ public final class Protocol1_20_5To1_21 extends AbstractProtocol<ClientboundPack
     }
 
     @Override
-    public ComponentRewriter<ClientboundPacket1_20_5> getComponentRewriter() {
+    public JsonNBTComponentRewriter<ClientboundPacket1_20_5> getComponentRewriter() {
         return componentRewriter;
     }
 

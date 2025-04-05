@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,37 +24,10 @@ package com.viaversion.viaversion.api.minecraft.item;
 
 import com.viaversion.nbt.tag.CompoundTag;
 import com.viaversion.viaversion.api.minecraft.data.StructuredDataContainer;
+import com.viaversion.viaversion.util.Copyable;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
-public interface Item {
-
-    /**
-     * Returns the item identifier.
-     *
-     * @return item identifier
-     */
-    int identifier();
-
-    /**
-     * Sets the item identifier.
-     *
-     * @param identifier item identifier
-     */
-    void setIdentifier(int identifier);
-
-    /**
-     * Returns the item amount.
-     *
-     * @return item amount
-     */
-    int amount();
-
-    /**
-     * Returns the item amount.
-     *
-     * @param amount item amount
-     */
-    void setAmount(int amount);
+public interface Item extends ItemBase, Copyable {
 
     /**
      * Returns the item data. Always 0 for 1.13+ items.
@@ -102,14 +75,6 @@ public interface Item {
      *
      * @return copy of the item
      */
+    @Override
     Item copy();
-
-    /**
-     * Returns true if the item is empty.
-     *
-     * @return true if the item is empty
-     */
-    default boolean isEmpty() {
-        return identifier() == 0 || amount() <= 0;
-    }
 }

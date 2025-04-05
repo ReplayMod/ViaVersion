@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,15 +19,18 @@ package com.viaversion.viaversion.velocity.listeners;
 
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.PostLoginEvent;
+import com.velocitypowered.api.proxy.Player;
 import com.viaversion.viaversion.api.Via;
+import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.update.UpdateUtil;
 
 public class UpdateListener {
     @Subscribe
     public void onJoin(PostLoginEvent e) {
-        if (e.getPlayer().hasPermission("viaversion.update")
-            && Via.getConfig().isCheckForUpdates()) {
-            UpdateUtil.sendUpdateMessage(e.getPlayer().getUniqueId());
+        final Player player = e.getPlayer();
+        if (player.hasPermission("viaversion.update") && Via.getConfig().isCheckForUpdates()) {
+            UserConnection connection = Via.getManager().getConnectionManager().getServerConnection(player.getUniqueId());
+            UpdateUtil.sendUpdateMessage(connection);
         }
     }
 }

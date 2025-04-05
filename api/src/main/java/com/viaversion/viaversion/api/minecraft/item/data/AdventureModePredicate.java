@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,26 +22,53 @@
  */
 package com.viaversion.viaversion.api.minecraft.item.data;
 
+import com.viaversion.viaversion.api.minecraft.data.StructuredData;
 import com.viaversion.viaversion.api.type.Type;
+import com.viaversion.viaversion.api.type.types.ArrayType;
+import com.viaversion.viaversion.util.Copyable;
 import io.netty.buffer.ByteBuf;
 import it.unimi.dsi.fastutil.ints.Int2IntFunction;
 
-public record AdventureModePredicate(BlockPredicate[] predicates, boolean showInTooltip) {
+public record AdventureModePredicate(BlockPredicate[] predicates, boolean showInTooltip) implements Copyable {
 
-    public static final Type<AdventureModePredicate> TYPE = new Type<>(AdventureModePredicate.class) {
+    public AdventureModePredicate(final BlockPredicate[] predicates) {
+        this(predicates, true);
+    }
+
+    public static final Type<AdventureModePredicate> TYPE1_20_5 = new Type<>(AdventureModePredicate.class) {
         @Override
         public AdventureModePredicate read(final ByteBuf buffer) {
-            final BlockPredicate[] predicates = BlockPredicate.ARRAY_TYPE.read(buffer);
+            final BlockPredicate[] predicates = BlockPredicate.ARRAY_TYPE1_20_5.read(buffer);
             final boolean showInTooltip = buffer.readBoolean();
             return new AdventureModePredicate(predicates, showInTooltip);
         }
 
         @Override
         public void write(final ByteBuf buffer, final AdventureModePredicate value) {
-            BlockPredicate.ARRAY_TYPE.write(buffer, value.predicates);
+            BlockPredicate.ARRAY_TYPE1_20_5.write(buffer, value.predicates);
             buffer.writeBoolean(value.showInTooltip);
         }
     };
+
+    public static final class AdventureModePredicateType1_21_5 extends Type<AdventureModePredicate> {
+        private final Type<BlockPredicate[]> blockPredicateType;
+
+        public AdventureModePredicateType1_21_5(final Type<StructuredData<?>[]> dataArrayType) {
+            super(AdventureModePredicate.class);
+            this.blockPredicateType = new ArrayType<>(new BlockPredicate.BlockPredicateType1_21_5(dataArrayType));
+        }
+
+        @Override
+        public AdventureModePredicate read(final ByteBuf buffer) {
+            final BlockPredicate[] predicates = blockPredicateType.read(buffer);
+            return new AdventureModePredicate(predicates);
+        }
+
+        @Override
+        public void write(final ByteBuf buffer, final AdventureModePredicate value) {
+            blockPredicateType.write(buffer, value.predicates);
+        }
+    }
 
     public AdventureModePredicate rewrite(final Int2IntFunction blockIdRewriter) {
         final BlockPredicate[] predicates = new BlockPredicate[this.predicates.length];
@@ -49,5 +76,10 @@ public record AdventureModePredicate(BlockPredicate[] predicates, boolean showIn
             predicates[i] = this.predicates[i].rewrite(blockIdRewriter);
         }
         return new AdventureModePredicate(predicates, showInTooltip);
+    }
+
+    @Override
+    public AdventureModePredicate copy() {
+        return new AdventureModePredicate(copy(predicates), showInTooltip);
     }
 }

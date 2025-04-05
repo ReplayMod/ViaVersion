@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -48,6 +48,10 @@ public class DebugSubCmd implements ViaSubCommand {
             if (args[0].equalsIgnoreCase("clear")) {
                 debug.clearPacketTypesToLog();
                 sendMessage(sender, "&6Cleared packet types to log");
+                return true;
+            } else if (args[0].equalsIgnoreCase("logpretransform")) {
+                debug.setLogPrePacketTransform(!debug.logPrePacketTransform());
+                sendMessage(sender, "&6Pre transform packet logging is now %s", (debug.logPrePacketTransform() ? "&aenabled" : "&cdisabled"));
                 return true;
             } else if (args[0].equalsIgnoreCase("logposttransform")) {
                 debug.setLogPostPacketTransform(!debug.logPostPacketTransform());

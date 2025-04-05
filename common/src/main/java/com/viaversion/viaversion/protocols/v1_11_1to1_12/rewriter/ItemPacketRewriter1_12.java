@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -45,7 +45,7 @@ public class ItemPacketRewriter1_12 extends ItemRewriter<ClientboundPackets1_9_3
         protocol.registerServerbound(ServerboundPackets1_12.CONTAINER_CLICK, new PacketHandlers() {
                 @Override
                 public void register() {
-                    map(Types.UNSIGNED_BYTE); // 0 - Window ID
+                    map(Types.BYTE); // 0 - Window ID
                     map(Types.SHORT); // 1 - Slot
                     map(Types.BYTE); // 2 - Button
                     map(Types.SHORT); // 3 - Action number
@@ -58,11 +58,11 @@ public class ItemPacketRewriter1_12 extends ItemRewriter<ClientboundPackets1_9_3
                             handleItemToServer(wrapper.user(), item);
                             return;
                         }
-                        byte button = wrapper.get(Types.BYTE, 0);
+                        byte button = wrapper.get(Types.BYTE, 1);
                         int mode = wrapper.get(Types.VAR_INT, 0);
                         // QUICK_MOVE PATCH (Shift + (click/double click))
                         if (mode == 1 && button == 0 && item == null) {
-                            short windowId = wrapper.get(Types.UNSIGNED_BYTE, 0);
+                            short windowId = wrapper.get(Types.BYTE, 0);
                             short slotId = wrapper.get(Types.SHORT, 0);
                             short actionId = wrapper.get(Types.SHORT, 1);
                             InventoryQuickMoveProvider provider = Via.getManager().getProviders().get(InventoryQuickMoveProvider.class);

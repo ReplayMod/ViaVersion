@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -26,11 +26,13 @@ import com.viaversion.nbt.tag.Tag;
 import com.viaversion.viaversion.api.minecraft.Holder;
 import com.viaversion.viaversion.api.minecraft.SoundEvent;
 import com.viaversion.viaversion.api.type.Types;
+import com.viaversion.viaversion.api.type.types.misc.EitherHolderType;
 import com.viaversion.viaversion.api.type.types.misc.HolderType;
+import com.viaversion.viaversion.util.Copyable;
 import io.netty.buffer.ByteBuf;
 import it.unimi.dsi.fastutil.ints.Int2IntFunction;
 
-public record Instrument1_21_2(Holder<SoundEvent> soundEvent, float useDuration, float range, Tag description) {
+public record Instrument1_21_2(Holder<SoundEvent> soundEvent, float useDuration, float range, Tag description) implements Copyable {
 
     public static final HolderType<Instrument1_21_2> TYPE = new HolderType<>() {
         @Override
@@ -50,9 +52,15 @@ public record Instrument1_21_2(Holder<SoundEvent> soundEvent, float useDuration,
             Types.TAG.write(buffer, value.description());
         }
     };
+    public static final EitherHolderType<Instrument1_21_2> EITHER_HOLDER_TYPE = new EitherHolderType<>(TYPE);
 
     public Instrument1_21_2 rewrite(final Int2IntFunction soundIdRewriteFunction) {
         final Holder<SoundEvent> soundEvent = this.soundEvent.updateId(soundIdRewriteFunction);
         return soundEvent == this.soundEvent ? this : new Instrument1_21_2(soundEvent, useDuration, range, description);
+    }
+
+    @Override
+    public Instrument1_21_2 copy() {
+        return new Instrument1_21_2(soundEvent, useDuration, range, description.copy());
     }
 }

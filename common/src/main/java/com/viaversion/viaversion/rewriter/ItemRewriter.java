@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,7 +21,9 @@ import com.google.gson.JsonElement;
 import com.viaversion.nbt.tag.Tag;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.data.FullMappings;
+import com.viaversion.viaversion.api.data.MappingData;
 import com.viaversion.viaversion.api.data.Mappings;
+import com.viaversion.viaversion.api.minecraft.item.HashedItem;
 import com.viaversion.viaversion.api.minecraft.item.Item;
 import com.viaversion.viaversion.api.protocol.Protocol;
 import com.viaversion.viaversion.api.protocol.packet.ClientboundPacketType;
@@ -33,6 +35,8 @@ import com.viaversion.viaversion.api.rewriter.RewriterBase;
 import com.viaversion.viaversion.api.type.Type;
 import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.util.Limit;
+import it.unimi.dsi.fastutil.ints.Int2IntMap;
+import it.unimi.dsi.fastutil.ints.IntSet;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 public class ItemRewriter<C extends ClientboundPacketType, S extends ServerboundPacketType,
@@ -139,14 +143,14 @@ public class ItemRewriter<C extends ClientboundPacketType, S extends Serverbound
 
     public void registerSetSlot(C packetType) {
         protocol.registerClientbound(packetType, wrapper -> {
-            wrapper.passthrough(Types.UNSIGNED_BYTE); // Container id
+            wrapper.passthrough(Types.BYTE); // Container id
             wrapper.passthrough(Types.SHORT); // Slot id
             passthroughClientboundItem(wrapper);
         });
     }
 
     public void registerSetSlot1_17_1(C packetType) {
-        registerSetSlot1_17_1(packetType, Types.UNSIGNED_BYTE);
+        registerSetSlot1_17_1(packetType, Types.BYTE);
     }
 
     public void registerSetSlot1_21_2(C packetType) {
@@ -188,23 +192,36 @@ public class ItemRewriter<C extends ClientboundPacketType, S extends Serverbound
     public void registerSetCreativeModeSlot(S packetType) {
         protocol.registerServerbound(packetType, wrapper -> {
             wrapper.passthrough(Types.SHORT); // Slot
-            passthroughServerboundItem(wrapper);
+            wrapper.write(itemType, handleItemToServer(wrapper.user(), wrapper.read(mappedItemType)));
+        });
+    }
+
+    public void registerSetCreativeModeSlot1_21_5(S packetType, Type<Item> lengthPrefixedItemType, Type<Item> mappedLengthPrefixedItemType) {
+        protocol.registerServerbound(packetType, wrapper -> {
+            if (!protocol.getEntityRewriter().tracker(wrapper.user()).canInstaBuild()) {
+                // Mimic server/client behavior
+                wrapper.cancel();
+                return;
+            }
+
+            wrapper.passthrough(Types.SHORT); // Slot
+            passthroughLengthPrefixedItem(wrapper, lengthPrefixedItemType, mappedLengthPrefixedItemType);
         });
     }
 
     public void registerContainerClick(S packetType) {
         protocol.registerServerbound(packetType, wrapper -> {
-            wrapper.passthrough(Types.UNSIGNED_BYTE); // Container ID
+            wrapper.passthrough(Types.BYTE); // Container ID
             wrapper.passthrough(Types.SHORT); // Slot
             wrapper.passthrough(Types.BYTE); // Button
             wrapper.passthrough(Types.SHORT); // Action number
             wrapper.passthrough(Types.VAR_INT); // Mode
-            passthroughServerboundItem(wrapper);
+            wrapper.write(itemType, handleItemToServer(wrapper.user(), wrapper.read(mappedItemType)));
         });
     }
 
     public void registerContainerClick1_17_1(S packetType) {
-        registerContainerClick1_17_1(packetType, Types.UNSIGNED_BYTE);
+        registerContainerClick1_17_1(packetType, Types.BYTE);
     }
 
     public void registerContainerClick1_21_2(S packetType) {
@@ -223,11 +240,27 @@ public class ItemRewriter<C extends ClientboundPacketType, S extends Serverbound
             final int length = Limit.max(wrapper.passthrough(Types.VAR_INT), 128);
             for (int i = 0; i < length; i++) {
                 wrapper.passthrough(Types.SHORT); // Slot
-                passthroughServerboundItem(wrapper);
+                wrapper.write(itemType, handleItemToServer(wrapper.user(), wrapper.read(mappedItemType)));
             }
 
             // Carried item
-            passthroughServerboundItem(wrapper);
+            wrapper.write(itemType, handleItemToServer(wrapper.user(), wrapper.read(mappedItemType)));
+        });
+    }
+
+    public void registerContainerClick1_21_5(S packetType) {
+        protocol.registerServerbound(packetType, wrapper -> {
+            wrapper.passthrough(Types.VAR_INT); // Container id
+            wrapper.passthrough(Types.VAR_INT); // State id
+            wrapper.passthrough(Types.SHORT); // Slot
+            wrapper.passthrough(Types.BYTE); // Button
+            wrapper.passthrough(Types.VAR_INT); // Mode
+            final int affectedItems = Limit.max(wrapper.passthrough(Types.VAR_INT), 128);
+            for (int i = 0; i < affectedItems; i++) {
+                wrapper.passthrough(Types.SHORT); // Slot
+                passthroughHashedItem(wrapper);
+            }
+            passthroughHashedItem(wrapper); // Carried item
         });
     }
 
@@ -464,9 +497,55 @@ public class ItemRewriter<C extends ClientboundPacketType, S extends Serverbound
         wrapper.write(mappedItemType, item);
     }
 
-    protected void passthroughServerboundItem(final PacketWrapper wrapper) {
-        final Item item = handleItemToServer(wrapper.user(), wrapper.read(mappedItemType));
-        wrapper.write(itemType, item);
+    protected void passthroughHashedItem(final PacketWrapper wrapper) {
+        final HashedItem item = wrapper.passthrough(Types.HASHED_ITEM);
+        final MappingData mappingData = protocol.getMappingData();
+        if (mappingData == null) {
+            return;
+        }
+
+        if (mappingData.getItemMappings() != null) {
+            item.setIdentifier(mappingData.getOldItemId(item.identifier()));
+        }
+
+        final FullMappings dataComponentMappings = protocol.getMappingData().getDataComponentSerializerMappings();
+        if (dataComponentMappings != null) {
+            updateHashedItemDataComponentIds(item, dataComponentMappings.inverse());
+        }
+    }
+
+    protected void updateHashedItemDataComponentIds(final HashedItem item, final FullMappings mappings) {
+        final Int2IntMap addedData = item.dataHashesById();
+        if (!addedData.isEmpty()) {
+            for (final int id : addedData.keySet().toIntArray()) {
+                final int mappedId = mappings.getNewId(id);
+                if (mappedId == id) {
+                    continue;
+                }
+
+                // Let's hope the hash didn't change...
+                final int hash = addedData.remove(id);
+                addedData.put(mappedId, hash);
+            }
+        }
+
+        final IntSet removedData = item.removedDataIds();
+        if (!removedData.isEmpty()) {
+            for (final int id : removedData.toIntArray()) {
+                final int mappedId = mappings.getNewId(id);
+                if (mappedId == id) {
+                    continue;
+                }
+
+                removedData.remove(id);
+                removedData.add(mappedId);
+            }
+        }
+    }
+
+    protected void passthroughLengthPrefixedItem(final PacketWrapper wrapper, final Type<Item> lengthPrefixedItemType, final Type<Item> mappedLengthPrefixedItemType) {
+        final Item item = handleItemToServer(wrapper.user(), wrapper.read(mappedLengthPrefixedItemType));
+        wrapper.write(lengthPrefixedItemType, item);
     }
 
     protected @Nullable String mappedIdentifier(final FullMappings mappings, final String identifier) {

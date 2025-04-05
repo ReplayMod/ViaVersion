@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,9 +21,6 @@
  * SOFTWARE.
  */
 package com.viaversion.viaversion.api.type;
-
-import com.viaversion.viaversion.util.Either;
-import io.netty.buffer.ByteBuf;
 
 /**
  * Type for buffer reading and writing.
@@ -61,7 +58,7 @@ public abstract class Type<T> implements ByteBufReader<T>, ByteBufWriter<T> {
      * @return type name
      */
     public String getTypeName() {
-        return typeName != null ? typeName : this.getClass().getSimpleName();
+        return typeName != null && !typeName.isEmpty() ? typeName : this.getClass().getSimpleName();
     }
 
     /**
@@ -77,23 +74,5 @@ public abstract class Type<T> implements ByteBufReader<T>, ByteBufWriter<T> {
     @Override
     public String toString() {
         return getTypeName();
-    }
-
-    public static <X, Y> Either<X, Y> readEither(final ByteBuf buf, final Type<X> leftType, final Type<Y> rightType) {
-        if (buf.readBoolean()) {
-            return Either.left(leftType.read(buf));
-        } else {
-            return Either.right(rightType.read(buf));
-        }
-    }
-
-    public static <X, Y> void writeEither(final ByteBuf buf, final Either<X, Y> value, final Type<X> leftType, final Type<Y> rightType) {
-        if (value.isLeft()) {
-            buf.writeBoolean(true);
-            leftType.write(buf, value.left());
-        } else {
-            buf.writeBoolean(false);
-            rightType.write(buf, value.right());
-        }
     }
 }

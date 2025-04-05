@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -121,6 +121,16 @@ public class Chunk1_18 implements Chunk {
     @Override
     public void setHeightMap(final CompoundTag heightMap) {
         this.heightMap = heightMap;
+    }
+
+    @Override
+    public Heightmap[] heightmaps() {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void setHeightmaps(final Heightmap[] heightmaps) {
+        throw new UnsupportedOperationException();
     }
 
     @Override

@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,13 +20,12 @@ package com.viaversion.viaversion.protocols.template;
 import com.viaversion.nbt.tag.CompoundTag;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.protocols.v1_21to1_21_2.packet.ClientboundPacket1_21_2;
-import com.viaversion.viaversion.rewriter.ComponentRewriter;
-import com.viaversion.viaversion.util.SerializerVersion;
+import com.viaversion.viaversion.rewriter.text.NBTComponentRewriter;
 
-final class ComponentRewriter1_99 extends ComponentRewriter<ClientboundPacket1_21_2> {
+final class ComponentRewriter1_99 extends NBTComponentRewriter<ClientboundPacket1_21_2> {
 
     public ComponentRewriter1_99(final Protocol1_99To_98 protocol) {
-        super(protocol, ReadType.NBT);
+        super(protocol);
     }
 
     @Override
@@ -37,10 +36,5 @@ final class ComponentRewriter1_99 extends ComponentRewriter<ClientboundPacket1_2
         }
 
         // Remove or update data from componentsTag
-    }
-
-    @Override
-    protected SerializerVersion inputSerializerVersion() {
-        return SerializerVersion.V1_21_4;
     }
 }

@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -82,11 +82,11 @@ public class EntityPacketRewriter1_13_1 extends EntityRewriter<ClientboundPacket
                 handler(wrapper -> {
                     int entityId = wrapper.get(Types.VAR_INT, 0);
                     byte type = wrapper.get(Types.BYTE, 0);
-                    EntityTypes1_13.EntityType entType = EntityTypes1_13.getTypeFromId(type, true);
+                    int data = wrapper.get(Types.INT, 0);
+                    EntityTypes1_13.EntityType entType = EntityTypes1_13.ObjectType.getEntityType(type, data);
 
                     if (entType != null) {
                         if (entType.is(EntityTypes1_13.EntityType.FALLING_BLOCK)) {
-                            int data = wrapper.get(Types.INT, 0);
                             wrapper.set(Types.INT, 0, protocol.getMappingData().getNewBlockStateId(data));
                         }
                         // Register Type ID
@@ -147,11 +147,11 @@ public class EntityPacketRewriter1_13_1 extends EntityRewriter<ClientboundPacket
 
     @Override
     public EntityType typeFromId(int type) {
-        return EntityTypes1_13.getTypeFromId(type, false);
+        return EntityTypes1_13.EntityType.findById(type);
     }
 
     @Override
-    public EntityType objectTypeFromId(int type) {
-        return EntityTypes1_13.getTypeFromId(type, true);
+    public EntityType objectTypeFromId(int type, int data) {
+        return EntityTypes1_13.ObjectType.getEntityType(type, data);
     }
 }

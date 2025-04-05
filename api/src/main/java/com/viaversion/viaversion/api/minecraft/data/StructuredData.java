@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,11 +22,12 @@
  */
 package com.viaversion.viaversion.api.minecraft.data;
 
+import com.viaversion.viaversion.util.Copyable;
 import com.viaversion.viaversion.util.IdHolder;
 import io.netty.buffer.ByteBuf;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
-public interface StructuredData<T> extends IdHolder {
+public interface StructuredData<T> extends IdHolder, Copyable {
 
     /**
      * Returns filled structured data, equivalent to an Optional with a value in vanilla.
@@ -52,13 +53,17 @@ public interface StructuredData<T> extends IdHolder {
         return new EmptyStructuredData<>(key, id);
     }
 
-    @Nullable T value();
+    @Nullable
+    T value();
 
     void setValue(final T value);
 
     void setId(final int id);
 
     StructuredDataKey<T> key();
+
+    @Override
+    StructuredData<T> copy();
 
     /**
      * Returns whether the structured data is present. Even if true, the value may be null.

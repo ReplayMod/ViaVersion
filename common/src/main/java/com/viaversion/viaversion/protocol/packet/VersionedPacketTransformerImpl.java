@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -102,7 +102,7 @@ public class VersionedPacketTransformerImpl<C extends ClientboundPacketType, S e
 
     private void validatePacket(PacketWrapper packet) {
         if (packet.user() == null) {
-            throw new IllegalArgumentException("PacketWrapper does not have a targetted UserConnection");
+            throw new IllegalArgumentException("PacketWrapper does not have a targeted UserConnection");
         }
         if (packet.getPacketType() == null) {
             throw new IllegalArgumentException("PacketWrapper does not have a valid packet type");

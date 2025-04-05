@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -35,8 +35,10 @@ import it.unimi.dsi.fastutil.objects.Object2ObjectArrayMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 
 public class RegistryDataRewriter {
@@ -51,7 +53,7 @@ public class RegistryDataRewriter {
     public void handle(final PacketWrapper wrapper) {
         final String registryKey = wrapper.passthrough(Types.STRING);
         RegistryEntry[] entries = wrapper.read(Types.REGISTRY_ENTRY_ARRAY);
-        entries = handle(wrapper.user(), registryKey, entries);
+        entries = handle(wrapper.user(), Key.stripMinecraftNamespace(registryKey), entries);
         wrapper.write(Types.REGISTRY_ENTRY_ARRAY, entries);
     }
 
@@ -65,11 +67,26 @@ public class RegistryDataRewriter {
 
         final List<RegistryEntry> toAdd = this.toAdd.get(key);
         if (toAdd != null) {
-            final int length = entries.length;
-            final int toAddLength = toAdd.size();
-            entries = Arrays.copyOf(entries, length + toAddLength);
-            for (int i = 0; i < toAddLength; i++) {
-                entries[length + i] = toAdd.get(i).copy();
+            final Set<String> existingKeys = new HashSet<>();
+
+            final RegistryEntry[] updatedEntries = new RegistryEntry[entries.length + toAdd.size()];
+            int index = 0;
+            for (final RegistryEntry entry : entries) {
+                updatedEntries[index++] = entry;
+                existingKeys.add(entry.key());
+            }
+            for (final RegistryEntry entry : toAdd) {
+                if (existingKeys.contains(entry.key())) {
+                    continue;
+                }
+
+                updatedEntries[index++] = entry.copy();
+            }
+
+            if (index < updatedEntries.length) {
+                entries = Arrays.copyOf(updatedEntries, index);
+            } else {
+                entries = updatedEntries;
             }
         }
 
@@ -108,7 +125,13 @@ public class RegistryDataRewriter {
                 continue;
             }
 
-            final CompoundTag effects = ((CompoundTag) entry.tag()).getCompoundTag("effects");
+            final CompoundTag tag = (CompoundTag) entry.tag();
+            if (protocol.getMappingData().getFullItemMappings() != null) {
+                updateItemList(tag.getListTag("supported_items", StringTag.class));
+                updateItemList(tag.getListTag("primary_items", StringTag.class));
+            }
+
+            final CompoundTag effects = tag.getCompoundTag("effects");
             if (effects == null) {
                 continue;
             }
@@ -118,8 +141,8 @@ public class RegistryDataRewriter {
                 if (effectEntry.getValue() instanceof final CompoundTag compoundTag) {
                     updateNestedEffect(compoundTag);
                 } else if (effectEntry.getValue() instanceof final ListTag<?> listTag && listTag.getElementType() == CompoundTag.class) {
-                    for (final Tag tag : listTag) {
-                        updateNestedEffect((CompoundTag) tag);
+                    for (final Tag effectTag : listTag) {
+                        updateNestedEffect((CompoundTag) effectTag);
                     }
                 }
             }
@@ -139,8 +162,11 @@ public class RegistryDataRewriter {
             }
 
             final StringTag ingredientTag = ((CompoundTag) entry.tag()).getStringTag("ingredient");
-            final String mappedIngredient = protocol.getMappingData().getFullItemMappings().mappedIdentifier(ingredientTag.getValue());
-            ingredientTag.setValue(mappedIngredient);
+            if (ingredientTag == null) {
+                return;
+            }
+
+            updateItem(ingredientTag);
         }
     }
 
@@ -209,5 +235,21 @@ public class RegistryDataRewriter {
 
     private boolean hasAttributeMappings() {
         return protocol.getMappingData() != null && protocol.getMappingData().getAttributeMappings() != null;
+    }
+
+    private void updateItemList(final ListTag<StringTag> listTag) {
+        if (listTag == null) {
+            return;
+        }
+        for (final StringTag tag : listTag) {
+            updateItem(tag);
+        }
+    }
+
+    private void updateItem(final StringTag tag) {
+        final String mapped = protocol.getMappingData().getFullItemMappings().mappedIdentifier(tag.getValue());
+        if (mapped != null) {
+            tag.setValue(mapped);
+        }
     }
 }

@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -31,6 +31,7 @@ public final class DebugHandlerImpl implements DebugHandler {
     private final Set<String> packetTypesToLog = new HashSet<>();
     private final IntSet clientboundPacketIdsToLog = new IntOpenHashSet();
     private final IntSet serverboundPacketIdsToLog = new IntOpenHashSet();
+    private boolean logPrePacketTransform = true;
     private boolean logPostPacketTransform;
     private boolean enabled;
 
@@ -62,6 +63,16 @@ public final class DebugHandlerImpl implements DebugHandler {
     @Override
     public void clearPacketTypesToLog() {
         packetTypesToLog.clear();
+    }
+
+    @Override
+    public boolean logPrePacketTransform() {
+        return logPrePacketTransform;
+    }
+
+    @Override
+    public void setLogPrePacketTransform(final boolean logPrePacketTransform) {
+        this.logPrePacketTransform = logPrePacketTransform;
     }
 
     @Override

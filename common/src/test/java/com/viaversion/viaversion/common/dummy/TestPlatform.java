@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,17 +17,14 @@
  */
 package com.viaversion.viaversion.common.dummy;
 
-import com.google.gson.JsonObject;
 import com.viaversion.viaversion.ViaAPIBase;
 import com.viaversion.viaversion.api.ViaAPI;
-import com.viaversion.viaversion.api.command.ViaCommandSender;
 import com.viaversion.viaversion.api.configuration.ViaVersionConfig;
 import com.viaversion.viaversion.api.platform.PlatformTask;
 import com.viaversion.viaversion.api.platform.ViaPlatform;
 import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import io.netty.buffer.ByteBuf;
 import java.io.File;
-import java.util.UUID;
 import java.util.logging.Logger;
 
 public final class TestPlatform implements ViaPlatform {
@@ -81,25 +78,6 @@ public final class TestPlatform implements ViaPlatform {
     }
 
     @Override
-    public ViaCommandSender[] getOnlinePlayers() {
-        return new ViaCommandSender[0];
-    }
-
-    @Override
-    public void sendMessage(UUID uuid, String message) {
-    }
-
-    @Override
-    public boolean kickPlayer(UUID uuid, String message) {
-        return false;
-    }
-
-    @Override
-    public boolean isPluginEnabled() {
-        return false;
-    }
-
-    @Override
     public ViaAPI getApi() {
         return new ViaAPIBase() {
             @Override
@@ -120,15 +98,6 @@ public final class TestPlatform implements ViaPlatform {
 
     @Override
     public File getDataFolder() {
-        return null;
-    }
-
-    @Override
-    public void onReload() {
-    }
-
-    @Override
-    public JsonObject getDump() {
         return null;
     }
 

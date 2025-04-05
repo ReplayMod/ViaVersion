@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,10 +25,11 @@ package com.viaversion.viaversion.api.minecraft.item.data;
 import com.viaversion.viaversion.api.type.Type;
 import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.api.type.types.ArrayType;
+import com.viaversion.viaversion.util.Copyable;
 import io.netty.buffer.ByteBuf;
 import java.util.UUID;
 
-public record AttributeModifiers1_20_5(AttributeModifier[] modifiers, boolean showInTooltip) {
+public record AttributeModifiers1_20_5(AttributeModifier[] modifiers, boolean showInTooltip) implements Copyable {
 
     public static final Type<AttributeModifiers1_20_5> TYPE = new Type<>(AttributeModifiers1_20_5.class) {
         @Override
@@ -44,6 +45,11 @@ public record AttributeModifiers1_20_5(AttributeModifier[] modifiers, boolean sh
             buffer.writeBoolean(value.showInTooltip());
         }
     };
+
+    @Override
+    public AttributeModifiers1_20_5 copy() {
+        return new AttributeModifiers1_20_5(copy(modifiers), showInTooltip);
+    }
 
     public record AttributeModifier(int attribute, ModifierData modifier, int slotType) {
 

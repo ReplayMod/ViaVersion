@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -79,7 +79,8 @@ public interface Chunk {
      * @return chunk section bit mask, only non-null for 1.17+ chunks
      * @see #getBitmask()
      */
-    @Nullable BitSet getChunkMask();
+    @Nullable
+    BitSet getChunkMask();
 
     void setChunkMask(BitSet chunkSectionMask);
 
@@ -88,7 +89,8 @@ public interface Chunk {
      *
      * @return array of nullable chunk sections
      */
-    @Nullable ChunkSection[] getSections();
+    @Nullable
+    ChunkSection[] getSections();
 
     void setSections(ChunkSection[] sections);
 
@@ -106,9 +108,14 @@ public interface Chunk {
      *
      * @return compoundtag containing heightmaps if present
      */
-    @Nullable CompoundTag getHeightMap();
+    @Nullable
+    CompoundTag getHeightMap();
 
     void setHeightMap(@Nullable CompoundTag heightMap);
+
+    Heightmap[] heightmaps();
+
+    void setHeightmaps(Heightmap[] heightmaps);
 
     /**
      * Returns a list of block entities.

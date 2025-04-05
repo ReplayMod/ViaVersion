@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,11 +23,11 @@ import com.google.gson.JsonPrimitive;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.protocols.v1_14_4to1_15.packet.ClientboundPackets1_15;
 import com.viaversion.viaversion.protocols.v1_15_2to1_16.Protocol1_15_2To1_16;
-import com.viaversion.viaversion.rewriter.ComponentRewriter;
+import com.viaversion.viaversion.rewriter.text.JsonNBTComponentRewriter;
 import java.util.HashMap;
 import java.util.Map;
 
-public class ComponentRewriter1_16 extends ComponentRewriter<ClientboundPackets1_15> {
+public class ComponentRewriter1_16 extends JsonNBTComponentRewriter<ClientboundPackets1_15> {
     private final Map<String, String> mappings = new HashMap<>();
 
     public ComponentRewriter1_16(Protocol1_15_2To1_16 protocol) {

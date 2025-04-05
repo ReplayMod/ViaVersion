@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -30,6 +30,7 @@ import com.viaversion.viaversion.api.data.Mappings;
 import com.viaversion.viaversion.api.data.entity.DimensionData;
 import com.viaversion.viaversion.api.data.entity.EntityTracker;
 import com.viaversion.viaversion.api.data.entity.TrackedEntity;
+import com.viaversion.viaversion.api.minecraft.GameMode;
 import com.viaversion.viaversion.api.minecraft.Particle;
 import com.viaversion.viaversion.api.minecraft.entities.EntityType;
 import com.viaversion.viaversion.api.minecraft.entitydata.EntityData;
@@ -364,6 +365,60 @@ public abstract class EntityRewriter<C extends ClientboundPacketType, T extends 
         registerSetEntityData(packetType, null, dataType);
     }
 
+    public void registerLogin1_20_5(C packetType) {
+        protocol.registerClientbound(packetType, wrapper -> {
+            final int entityId = wrapper.passthrough(Types.INT);
+            wrapper.passthrough(Types.BOOLEAN); // Hardcore
+            wrapper.passthrough(Types.STRING_ARRAY); // World List
+            wrapper.passthrough(Types.VAR_INT); // Max players
+            wrapper.passthrough(Types.VAR_INT); // View distance
+            wrapper.passthrough(Types.VAR_INT); // Simulation distance
+            wrapper.passthrough(Types.BOOLEAN); // Reduced debug info
+            wrapper.passthrough(Types.BOOLEAN); // Show death screen
+            wrapper.passthrough(Types.BOOLEAN); // Limited crafting
+
+            final int dimensionId = wrapper.passthrough(Types.VAR_INT);
+            final String world = wrapper.passthrough(Types.STRING);
+            trackWorldDataByKey1_20_5(wrapper.user(), dimensionId, world);
+
+            wrapper.passthrough(Types.LONG); // Seed
+            final byte gamemode = wrapper.passthrough(Types.BYTE);
+            tracker(wrapper.user()).setInstaBuild(gamemode == GameMode.CREATIVE.id());
+
+            trackPlayer(wrapper.user(), entityId);
+        });
+    }
+
+    public void registerRespawn1_20_5(C packetType) {
+        protocol.registerClientbound(packetType, wrapper -> {
+            final int dimensionId = wrapper.passthrough(Types.VAR_INT);
+            final String world = wrapper.passthrough(Types.STRING);
+            trackWorldDataByKey1_20_5(wrapper.user(), dimensionId, world); // Tracks world height and name for chunk data and entity (un)tracking
+
+            wrapper.passthrough(Types.LONG); // Seed
+            final byte gamemode = wrapper.passthrough(Types.BYTE);
+            tracker(wrapper.user()).setInstaBuild(gamemode == GameMode.CREATIVE.id());
+        });
+    }
+
+    // Track the insta payer build ability
+    public void registerPlayerAbilities(C packetType) {
+        protocol.registerClientbound(packetType, wrapper -> {
+            final byte flags = wrapper.passthrough(Types.BYTE);
+            tracker(wrapper.user()).setInstaBuild((flags & 1 << 3) != 0);
+        });
+    }
+
+    public void registerGameEvent(C packetType) {
+        protocol.registerClientbound(packetType, wrapper -> {
+            final short event = wrapper.passthrough(Types.UNSIGNED_BYTE);
+            if (event == 3) {
+                final int value = (int) Math.floor(wrapper.passthrough(Types.FLOAT) + 0.5F);
+                tracker(wrapper.user()).setInstaBuild(value == GameMode.CREATIVE.id());
+            }
+        });
+    }
+
     public void clearEntities(final UserConnection connection) {
         final EntityTracker tracker = tracker(connection);
         tracker.clearEntities();
@@ -510,6 +565,10 @@ public abstract class EntityRewriter<C extends ClientboundPacketType, T extends 
         }
 
         final EntityType entityType = typeFromId(trackMappedType ? mappedTypeId : typeId);
+        if (entityType == null) {
+            return null;
+        }
+
         tracker(wrapper.user()).addEntity(entityId, entityType);
         return entityType;
     }
@@ -555,9 +614,13 @@ public abstract class EntityRewriter<C extends ClientboundPacketType, T extends 
         return wrapper -> {
             int entityId = wrapper.get(Types.VAR_INT, 0);
             byte type = wrapper.get(Types.BYTE, 0);
+            int data = wrapper.get(Types.INT, 0);
 
-            EntityType entType = objectTypeFromId(type);
-            // Register Type ID
+            EntityType entType = objectTypeFromId(type, data);
+            if (entType == null) {
+                return;
+            }
+
             tracker(wrapper.user()).addEntity(entityId, entType);
         };
     }

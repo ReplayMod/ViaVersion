@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -81,7 +81,6 @@ import com.viaversion.viaversion.api.type.types.version.Types1_20_3;
 import com.viaversion.viaversion.api.type.types.version.Types1_20_5;
 import com.viaversion.viaversion.protocols.v1_20_2to1_20_3.packet.ClientboundPacket1_20_3;
 import com.viaversion.viaversion.protocols.v1_20_2to1_20_3.packet.ClientboundPackets1_20_3;
-import com.viaversion.viaversion.protocols.v1_20_2to1_20_3.rewriter.RecipeRewriter1_20_3;
 import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.Protocol1_20_3To1_20_5;
 import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.data.Attributes1_20_5;
 import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.data.BannerPatterns1_20_5;
@@ -102,11 +101,13 @@ import com.viaversion.viaversion.rewriter.ItemRewriter;
 import com.viaversion.viaversion.util.ComponentUtil;
 import com.viaversion.viaversion.util.Either;
 import com.viaversion.viaversion.util.Key;
+import com.viaversion.viaversion.util.MathUtil;
 import com.viaversion.viaversion.util.SerializerVersion;
 import com.viaversion.viaversion.util.UUIDUtil;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectArrayMap;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -496,7 +497,7 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
 
         final NumberTag unbreakable = tag.getNumberTag("Unbreakable");
         if (unbreakable != null && unbreakable.asBoolean()) {
-            data.set(StructuredDataKey.UNBREAKABLE, new Unbreakable((hideFlagsValue & StructuredDataConverter.HIDE_UNBREAKABLE) == 0));
+            data.set(StructuredDataKey.UNBREAKABLE1_20_5, new Unbreakable((hideFlagsValue & StructuredDataConverter.HIDE_UNBREAKABLE) == 0));
         }
 
         final CompoundTag trimTag = tag.getCompoundTag("Trim");
@@ -558,13 +559,13 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
 
         updateMobTags(data, tag);
 
-        updateItemList(connection, data, tag, "ChargedProjectiles", StructuredDataKey.CHARGED_PROJECTILES1_20_5, false);
+        updateItemList(connection, data, tag, "ChargedProjectiles", StructuredDataKey.CHARGED_PROJECTILES1_20_5);
         if (old.identifier() == 927) {
-            updateItemList(connection, data, tag, "Items", StructuredDataKey.BUNDLE_CONTENTS1_20_5, false);
+            updateItemList(connection, data, tag, "Items", StructuredDataKey.BUNDLE_CONTENTS1_20_5);
         }
 
-        updateEnchantments(data, tag, "Enchantments", StructuredDataKey.ENCHANTMENTS, (hideFlagsValue & StructuredDataConverter.HIDE_ENCHANTMENTS) == 0);
-        updateEnchantments(data, tag, "StoredEnchantments", StructuredDataKey.STORED_ENCHANTMENTS, (hideFlagsValue & StructuredDataConverter.HIDE_ADDITIONAL) == 0);
+        updateEnchantments(data, tag, "Enchantments", StructuredDataKey.ENCHANTMENTS1_20_5, (hideFlagsValue & StructuredDataConverter.HIDE_ENCHANTMENTS) == 0);
+        updateEnchantments(data, tag, "StoredEnchantments", StructuredDataKey.STORED_ENCHANTMENTS1_20_5, (hideFlagsValue & StructuredDataConverter.HIDE_ADDITIONAL) == 0);
 
         final NumberTag mapId = tag.getNumberTag("map");
         if (mapId != null) {
@@ -585,12 +586,12 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
 
         final ListTag<StringTag> canPlaceOnTag = tag.getListTag("CanPlaceOn", StringTag.class);
         if (canPlaceOnTag != null) {
-            data.set(StructuredDataKey.CAN_PLACE_ON, updateBlockPredicates(canPlaceOnTag, (hideFlagsValue & StructuredDataConverter.HIDE_CAN_PLACE_ON) == 0));
+            data.set(StructuredDataKey.CAN_PLACE_ON1_20_5, updateBlockPredicates(canPlaceOnTag, (hideFlagsValue & StructuredDataConverter.HIDE_CAN_PLACE_ON) == 0));
         }
 
         final ListTag<StringTag> canDestroyTag = tag.getListTag("CanDestroy", StringTag.class);
         if (canDestroyTag != null) {
-            data.set(StructuredDataKey.CAN_BREAK, updateBlockPredicates(canDestroyTag, (hideFlagsValue & StructuredDataConverter.HIDE_CAN_DESTROY) == 0));
+            data.set(StructuredDataKey.CAN_BREAK1_20_5, updateBlockPredicates(canDestroyTag, (hideFlagsValue & StructuredDataConverter.HIDE_CAN_DESTROY) == 0));
         }
 
         final IntTag mapScaleDirectionTag = tag.getIntTag("map_scale_direction");
@@ -603,9 +604,10 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
             }
         }
 
+        // Only for VB, but kept here for simplicity; In VV we back up the original tag and later restore it, in VB
+        // we use the converted data and manually restore what broke during the conversion
         final CompoundTag backupTag = StructuredDataConverter.removeBackupTag(tag);
         if (backupTag != null) {
-            // Restore original data components
             restoreFromBackupTag(backupTag, data);
         }
         return item;
@@ -617,12 +619,6 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
             if (item.identifier() == 1182) { // crossbow
                 // Change crossbow damage to value used in 1.17.1 and lower
                 item.dataContainer().set(StructuredDataKey.MAX_DAMAGE, 326);
-            }
-        }
-        if (Via.getConfig().swordBlockingViaConsumable() && serverVersion.olderThanOrEqualTo(ProtocolVersion.v1_8)) {
-            if (item.identifier() == 814 || item.identifier() == 819 || item.identifier() == 824 || item.identifier() == 829 || item.identifier() == 834) { // swords
-                // Make sword "eatable" to enable clientside instant blocking on 1.8. Consume time is set really high, so the eating animation doesn't play
-                item.dataContainer().set(StructuredDataKey.FOOD1_20_5, new FoodProperties1_20_5(0, 0F, true, 3600, null, new FoodEffect[0]));
             }
         }
     }
@@ -780,7 +776,7 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
                 tag.contains("correct_for_drops") ? tag.getBoolean("correct_for_drops") : null
             ));
         }
-        data.set(StructuredDataKey.TOOL, new ToolProperties(
+        data.set(StructuredDataKey.TOOL1_20_5, new ToolProperties(
             rules.toArray(new ToolRule[0]),
             tool.getFloat("default_mining_speed"),
             tool.getInt("damage_per_block")
@@ -1230,13 +1226,13 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
     }
 
     private void updateItemList(final UserConnection connection, final StructuredDataContainer data, final CompoundTag tag,
-                                final String key, final StructuredDataKey<Item[]> dataKey, final boolean allowEmpty) {
+                                final String key, final StructuredDataKey<Item[]> dataKey) {
         final ListTag<CompoundTag> itemsTag = tag.getListTag(key, CompoundTag.class);
         if (itemsTag != null) {
             final Item[] items = itemsTag.stream()
                 .limit(256)
                 .map(item -> itemFromTag(connection, item))
-                .filter(item -> allowEmpty || !item.isEmpty())
+                .filter(item -> !item.isEmpty())
                 .toArray(Item[]::new);
             data.set(dataKey, items);
         }
@@ -1424,7 +1420,7 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
 
         final NumberTag colorTag = displayTag.getNumberTag("color");
         if (colorTag != null) {
-            data.set(StructuredDataKey.DYED_COLOR, new DyedColor(colorTag.asInt(), (hideFlags & StructuredDataConverter.HIDE_DYE_COLOR) == 0));
+            data.set(StructuredDataKey.DYED_COLOR1_20_5, new DyedColor(colorTag.asInt(), (hideFlags & StructuredDataConverter.HIDE_DYE_COLOR) == 0));
         }
     }
 
@@ -1492,8 +1488,36 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
                 data.set(StructuredDataKey.BASE_COLOR, baseColorIntTag.asInt());
             }
 
-            if (tag.contains("Items")) {
-                updateItemList(connection, data, tag, "Items", StructuredDataKey.CONTAINER1_20_5, true);
+            final ListTag<CompoundTag> itemsTag = tag.getListTag("Items", CompoundTag.class);
+            if (itemsTag != null) {
+                int highestSlot = 0;
+
+                for (int i = 0, size = Math.min(itemsTag.size(), 256); i < size; i++) {
+                    final CompoundTag itemTag = itemsTag.get(i);
+                    final Item item = itemFromTag(connection, itemTag);
+                    if (item.isEmpty()) {
+                        continue;
+                    }
+
+                    final int slot = itemTag.getByte("Slot");
+                    highestSlot = MathUtil.clamp(slot, highestSlot, 255);
+                }
+
+                final Item[] filteredItems = new Item[highestSlot + 1];
+                Arrays.fill(filteredItems, StructuredItem.empty());
+                for (final CompoundTag itemTag : itemsTag) {
+                    final Item item = itemFromTag(connection, itemTag);
+                    if (item.isEmpty()) {
+                        continue;
+                    }
+
+                    final int slot = itemTag.getByte("Slot");
+                    if (slot >= 0 && slot < filteredItems.length) {
+                        filteredItems[slot] = item;
+                    }
+                }
+
+                data.set(StructuredDataKey.CONTAINER1_20_5, filteredItems);
                 addBlockEntityId(tag, "shulker_box"); // Won't happen to the others and doesn't actually have to be correct otherwise
             }
         }
@@ -1521,7 +1545,7 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
                 patternTag.remove("Pattern");
                 patternTag.remove("Color");
                 patternTag.putString("pattern", fullPatternIdentifier);
-                patternTag.putString("color", DyeColors.colorById(color));
+                patternTag.putString("color", DyeColors.idToKey(color));
 
                 final int id = patternStorage != null ? patternStorage.bannerPatterns().keyToId(fullPatternIdentifier) : BannerPatterns1_20_5.keyToId(fullPatternIdentifier);
                 return id != -1 ? new BannerPatternLayer(Holder.of(id), color) : null;

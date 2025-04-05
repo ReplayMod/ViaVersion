@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,13 +24,11 @@ package com.viaversion.viaversion.api.platform;
 
 import com.google.gson.JsonObject;
 import com.viaversion.viaversion.api.ViaAPI;
-import com.viaversion.viaversion.api.command.ViaCommandSender;
 import com.viaversion.viaversion.api.configuration.ViaVersionConfig;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import java.io.File;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.UUID;
 import java.util.logging.Logger;
 
 /**
@@ -121,49 +119,36 @@ public interface ViaPlatform<T> {
     PlatformTask runRepeatingSync(Runnable runnable, long period);
 
     /**
-     * Get the online players
-     *
-     * @return Array of ViaCommandSender
-     */
-    ViaCommandSender[] getOnlinePlayers();
-
-    /**
      * Send a message to a player
      *
-     * @param uuid    The player's UUID
-     * @param message The message to send
+     * @param connection The UserConnection
+     * @param message    The message to send
      */
-    void sendMessage(UUID uuid, String message);
+    default void sendMessage(UserConnection connection, String message) {
+        throw new UnsupportedOperationException("ViaPlatform#sendMessage is not implemented on this platform.");
+    }
 
     /**
      * Kick a player for a reason
-     *
-     * @param uuid    The player's UUID
-     * @param message The message to kick them with
-     * @return True if it was successful
-     */
-    boolean kickPlayer(UUID uuid, String message);
-
-    /**
-     * Disconnects an UserConnection for a reason
      *
      * @param connection The UserConnection
      * @param message    The message to kick them with
      * @return True if it was successful
      */
-    default boolean disconnect(UserConnection connection, String message) {
-        if (connection.isClientSide()) return false;
-        UUID uuid = connection.getProtocolInfo().getUuid();
-        if (uuid == null) return false;
-        return kickPlayer(uuid, message);
+    default boolean kickPlayer(UserConnection connection, String message) {
+        throw new UnsupportedOperationException("ViaPlatform#kickPlayer is not implemented on this platform.");
     }
 
     /**
-     * Check if the plugin is enabled.
+     * Send a custom payload to from a player to the server.
      *
-     * @return True if it is enabled
+     * @param connection The UserConnection
+     * @param channel    The channel to send the payload on
+     * @param message    The data to send
      */
-    boolean isPluginEnabled();
+    default void sendCustomPayload(UserConnection connection, String channel, byte[] message) {
+        throw new UnsupportedOperationException("ViaPlatform#sendCustomPayload is not implemented on this platform.");
+    }
 
     /**
      * Get the API for this platform
@@ -187,16 +172,21 @@ public interface ViaPlatform<T> {
     File getDataFolder();
 
     /**
-     * Called when a reload happens
+     * Called when ViaVersion is initialized twice during the same process, this happens on platforms where ViaVersion
+     * is loaded as a plugin which can be reloaded.
      */
-    void onReload();
+    default void onReload() {
+    }
 
     /**
-     * Get the JSON data required for /viaversion dump
+     * Gets optional platform specific data for /viaversion dump. This can be a specific version or a list of installed
+     * plugins on the platform.
      *
      * @return The json data
      */
-    JsonObject getDump();
+    default JsonObject getDump() {
+        return new JsonObject();
+    }
 
     /**
      * Returns an immutable collection of classes to be checked as unsupported software with their software name.

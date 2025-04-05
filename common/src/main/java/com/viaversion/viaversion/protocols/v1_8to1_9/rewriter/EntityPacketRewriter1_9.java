@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -478,11 +478,11 @@ public class EntityPacketRewriter1_9 extends EntityRewriter<ClientboundPackets1_
 
     @Override
     public EntityType typeFromId(int type) {
-        return EntityTypes1_9.getTypeFromId(type, false);
+        return EntityTypes1_9.EntityType.findById(type);
     }
 
     @Override
-    public EntityType objectTypeFromId(int type) {
-        return EntityTypes1_9.getTypeFromId(type, true);
+    public EntityType objectTypeFromId(int type, int data) {
+        return EntityTypes1_9.ObjectType.getEntityType(type, data);
     }
 }

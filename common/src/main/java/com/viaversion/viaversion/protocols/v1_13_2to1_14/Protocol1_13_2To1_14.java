@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -39,7 +39,7 @@ import com.viaversion.viaversion.protocols.v1_13_2to1_14.rewriter.PlayerPacketRe
 import com.viaversion.viaversion.protocols.v1_13_2to1_14.rewriter.WorldPacketRewriter1_14;
 import com.viaversion.viaversion.protocols.v1_13_2to1_14.storage.EntityTracker1_14;
 import com.viaversion.viaversion.rewriter.CommandRewriter;
-import com.viaversion.viaversion.rewriter.ComponentRewriter;
+import com.viaversion.viaversion.rewriter.text.JsonNBTComponentRewriter;
 import com.viaversion.viaversion.rewriter.ParticleRewriter;
 import com.viaversion.viaversion.rewriter.SoundRewriter;
 import com.viaversion.viaversion.rewriter.StatisticsRewriter;
@@ -70,7 +70,7 @@ public class Protocol1_13_2To1_14 extends AbstractProtocol<ClientboundPackets1_1
 
         particleRewriter.registerLevelParticles1_13(ClientboundPackets1_13.LEVEL_PARTICLES, Types.FLOAT);
 
-        ComponentRewriter<ClientboundPackets1_13> componentRewriter = new ComponentRewriter1_14<>(this);
+        JsonNBTComponentRewriter<ClientboundPackets1_13> componentRewriter = new ComponentRewriter1_14<>(this);
         componentRewriter.registerComponentPacket(ClientboundPackets1_13.CHAT);
 
         CommandRewriter<ClientboundPackets1_13> commandRewriter = new CommandRewriter<>(this) {

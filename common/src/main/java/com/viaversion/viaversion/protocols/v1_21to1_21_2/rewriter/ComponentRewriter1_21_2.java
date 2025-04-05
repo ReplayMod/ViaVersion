@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,15 +24,16 @@ import com.viaversion.nbt.tag.StringTag;
 import com.viaversion.nbt.tag.Tag;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.data.FullMappings;
+import com.viaversion.viaversion.api.minecraft.data.StructuredDataKey;
 import com.viaversion.viaversion.protocols.v1_20_5to1_21.packet.ClientboundPacket1_21;
 import com.viaversion.viaversion.protocols.v1_21to1_21_2.Protocol1_21To1_21_2;
-import com.viaversion.viaversion.rewriter.ComponentRewriter;
+import com.viaversion.viaversion.rewriter.text.JsonNBTComponentRewriter;
 import com.viaversion.viaversion.util.SerializerVersion;
 import com.viaversion.viaversion.util.TagUtil;
 import java.util.Collections;
 import java.util.Iterator;
 
-public final class ComponentRewriter1_21_2 extends ComponentRewriter<ClientboundPacket1_21> {
+public final class ComponentRewriter1_21_2 extends JsonNBTComponentRewriter<ClientboundPacket1_21> {
 
     public ComponentRewriter1_21_2(final Protocol1_21To1_21_2 protocol) {
         super(protocol, ReadType.NBT);
@@ -70,8 +71,7 @@ public final class ComponentRewriter1_21_2 extends ComponentRewriter<Clientbound
             levels.entrySet().removeIf(entry -> ((NumberTag) entry.getValue()).asInt() == 0);
         }
 
-        TagUtil.removeNamespaced(componentsTag, "fire_resistant");
-        TagUtil.removeNamespaced(componentsTag, "lock");
+        removeDataComponents(componentsTag, StructuredDataKey.FIRE_RESISTANT, StructuredDataKey.LOCK);
 
         final StringTag customName = TagUtil.getNamespacedStringTag(componentsTag, "custom_name");
         final StringTag itemName = TagUtil.getNamespacedStringTag(componentsTag, "item_name");

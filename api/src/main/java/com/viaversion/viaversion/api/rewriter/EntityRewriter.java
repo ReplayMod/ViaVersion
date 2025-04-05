@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -44,9 +44,10 @@ public interface EntityRewriter<T extends Protocol<?, ?, ?, ?>> extends Rewriter
      * From 1.14 and onwards, this is the same exact value as {@link #typeFromId(int)}.
      *
      * @param type entity type id
+     * @param data entity data
      * @return EntityType from id
      */
-    default EntityType objectTypeFromId(int type) {
+    default EntityType objectTypeFromId(int type, int data) {
         return typeFromId(type);
     }
 

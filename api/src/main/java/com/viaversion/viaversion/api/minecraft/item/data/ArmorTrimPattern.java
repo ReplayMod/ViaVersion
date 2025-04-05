@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,12 +25,17 @@ package com.viaversion.viaversion.api.minecraft.item.data;
 import com.viaversion.nbt.tag.Tag;
 import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.api.type.types.misc.HolderType;
+import com.viaversion.viaversion.util.Copyable;
 import io.netty.buffer.ByteBuf;
 import it.unimi.dsi.fastutil.ints.Int2IntFunction;
 
-public record ArmorTrimPattern(String assetName, int itemId, Tag description, boolean decal) {
+public record ArmorTrimPattern(String assetName, int itemId, Tag description, boolean decal) implements Copyable {
 
-    public static final HolderType<ArmorTrimPattern> TYPE = new HolderType<>() {
+    public ArmorTrimPattern(final String assetName, final Tag description, final boolean decal) {
+        this(assetName, 0, description, decal);
+    }
+
+    public static final HolderType<ArmorTrimPattern> TYPE1_20_5 = new HolderType<>() {
         @Override
         public ArmorTrimPattern readDirect(final ByteBuf buffer) {
             final String assetName = Types.STRING.read(buffer);
@@ -48,8 +53,29 @@ public record ArmorTrimPattern(String assetName, int itemId, Tag description, bo
             buffer.writeBoolean(value.decal());
         }
     };
+    public static final HolderType<ArmorTrimPattern> TYPE1_21_5 = new HolderType<>() {
+        @Override
+        public ArmorTrimPattern readDirect(final ByteBuf buffer) {
+            final String assetName = Types.STRING.read(buffer);
+            final Tag description = Types.TAG.read(buffer);
+            final boolean decal = buffer.readBoolean();
+            return new ArmorTrimPattern(assetName, description, decal);
+        }
+
+        @Override
+        public void writeDirect(final ByteBuf buffer, final ArmorTrimPattern value) {
+            Types.STRING.write(buffer, value.assetName());
+            Types.TAG.write(buffer, value.description());
+            buffer.writeBoolean(value.decal());
+        }
+    };
 
     public ArmorTrimPattern rewrite(final Int2IntFunction idRewriteFunction) {
         return new ArmorTrimPattern(assetName, idRewriteFunction.applyAsInt(itemId), description, decal);
+    }
+
+    @Override
+    public ArmorTrimPattern copy() {
+        return new ArmorTrimPattern(assetName, itemId, description.copy(), decal);
     }
 }

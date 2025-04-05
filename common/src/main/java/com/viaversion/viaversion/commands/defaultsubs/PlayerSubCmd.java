@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -46,11 +46,18 @@ public class PlayerSubCmd implements ViaSubCommand {
         if (args.length == 0) {
             return false;
         }
+
+        final boolean all = args[0].equals("*");
+        boolean any = false;
         for (final UserConnection connection : Via.getManager().getConnectionManager().getConnections()) {
             final ProtocolInfo info = connection.getProtocolInfo();
-            if (args[0].equalsIgnoreCase(info.getUsername()) || args[0].equals("*")) {
-                sendMessage(sender, "&7[&6" + info.getUsername() + "&7] UUID: &2" + info.getUuid() + " &7Client-Protocol: &2" + info.protocolVersion().getName() + " &7Server-Protocol: &2" + info.serverProtocolVersion().getName());
+            if (args[0].equalsIgnoreCase(info.getUsername()) || all) {
+                sendMessage(sender, "&7[&6" + info.getUsername() + "&7] UUID: &2" + info.getUuid() + " &7Client protocol: &2" + info.protocolVersion().getName() + " &7Server protocol: &2" + info.serverProtocolVersion().getName() + " &7Client: &2" + connection.isClientSide());
+                any = true;
             }
+        }
+        if (!any) {
+            sendMessage(sender, all ? "&cNo players found!" : "&cNo player found with the name: " + args[0]);
         }
         return true;
     }

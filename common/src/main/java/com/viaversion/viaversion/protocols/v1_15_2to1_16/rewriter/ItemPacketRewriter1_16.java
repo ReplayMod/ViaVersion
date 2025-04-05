@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -51,7 +51,7 @@ public class ItemPacketRewriter1_16 extends ItemRewriter<ClientboundPackets1_15,
         // clear cursor item to prevent client to try dropping it during navigation between multiple inventories causing arm swing
         PacketHandler cursorRemapper = wrapper -> {
             PacketWrapper clearPacket = wrapper.create(ClientboundPackets1_16.CONTAINER_SET_SLOT);
-            clearPacket.write(Types.UNSIGNED_BYTE, (short) -1);
+            clearPacket.write(Types.BYTE, (byte) -1);
             clearPacket.write(Types.SHORT, (short) -1);
             clearPacket.write(Types.ITEM1_13_2, null);
             clearPacket.send(Protocol1_15_2To1_16.class);

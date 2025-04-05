@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -84,9 +84,8 @@ public class BukkitInventoryQuickMoveProvider extends InventoryQuickMoveProvider
             updateTask = new BukkitInventoryUpdateTask(this, uuid);
             updateTasks.put(uuid, updateTask);
         }
-        // http://wiki.vg/index.php?title=Protocol&oldid=13223#Click_Window
         updateTask.addItem(windowId, slotId, actionId);
-        if (!registered && Via.getPlatform().isPluginEnabled()) {
+        if (!registered) {
             Via.getPlatform().runSync(updateTask);
         }
         return true;

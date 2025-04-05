@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -65,6 +65,7 @@ public class CommandRewriter<C extends ClientboundPacketType> {
         this.parserHandlers.put("minecraft:resource_or_tag", wrapper -> wrapper.passthrough(Types.STRING)); // Resource location/tag
         this.parserHandlers.put("minecraft:resource_or_tag_key", wrapper -> wrapper.passthrough(Types.STRING)); // Resource location
         this.parserHandlers.put("minecraft:resource_key", wrapper -> wrapper.passthrough(Types.STRING)); // Resource location/tag
+        this.parserHandlers.put("minecraft:resource_selector", wrapper -> wrapper.passthrough(Types.STRING));
     }
 
     public void registerDeclareCommands(C packetType) {

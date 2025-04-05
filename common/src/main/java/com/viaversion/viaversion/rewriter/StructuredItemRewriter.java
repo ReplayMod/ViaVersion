@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,6 +22,7 @@ import com.viaversion.nbt.tag.Tag;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.data.FullMappings;
 import com.viaversion.viaversion.api.data.MappingData;
+import com.viaversion.viaversion.api.minecraft.EitherHolder;
 import com.viaversion.viaversion.api.minecraft.Holder;
 import com.viaversion.viaversion.api.minecraft.data.StructuredData;
 import com.viaversion.viaversion.api.minecraft.data.StructuredDataContainer;
@@ -115,11 +116,15 @@ public class StructuredItemRewriter<C extends ClientboundPacketType, S extends S
         // Specific types that need deep handling
         final StructuredDataContainer container = item.dataContainer();
         final MappingData mappingData = protocol.getMappingData();
+        if (mappingData.getDataComponentSerializerMappings() != null) {
+            container.replace(StructuredDataKey.TOOLTIP_DISPLAY, value -> value.rewrite(mappingData.getDataComponentSerializerMappings()::getNewId));
+        }
         if (mappingData.getItemMappings() != null) {
             final Int2IntFunction itemIdRewriter = clientbound ? mappingData::getNewItemId : mappingData::getOldItemId;
             container.replace(StructuredDataKey.TRIM1_20_5, value -> value.rewrite(itemIdRewriter));
             container.replace(StructuredDataKey.TRIM1_21_2, value -> value.rewrite(itemIdRewriter));
             container.replace(StructuredDataKey.TRIM1_21_4, value -> value.rewrite(itemIdRewriter));
+            container.replace(StructuredDataKey.PROVIDES_TRIM_MATERIAL, value -> value.rewrite(itemIdRewriter));
             container.replace(StructuredDataKey.POT_DECORATIONS, value -> value.rewrite(itemIdRewriter));
             container.replace(StructuredDataKey.REPAIRABLE, value -> value.rewrite(itemIdRewriter));
         }
@@ -129,15 +134,22 @@ public class StructuredItemRewriter<C extends ClientboundPacketType, S extends S
         }
         if (mappingData.getBlockMappings() != null) {
             final Int2IntFunction blockIdRewriter = clientbound ? mappingData::getNewBlockId : mappingData::getOldBlockId;
-            container.replace(StructuredDataKey.TOOL, value -> value.rewrite(blockIdRewriter));
-            container.replace(StructuredDataKey.CAN_PLACE_ON, value -> value.rewrite(blockIdRewriter));
-            container.replace(StructuredDataKey.CAN_BREAK, value -> value.rewrite(blockIdRewriter));
+            container.replace(StructuredDataKey.TOOL1_20_5, value -> value.rewrite(blockIdRewriter));
+            container.replace(StructuredDataKey.TOOL1_21_5, value -> value.rewrite(blockIdRewriter));
+            container.replace(StructuredDataKey.CAN_PLACE_ON1_20_5, value -> value.rewrite(blockIdRewriter));
+            container.replace(StructuredDataKey.CAN_BREAK1_20_5, value -> value.rewrite(blockIdRewriter));
+            container.replace(StructuredDataKey.CAN_PLACE_ON1_21_5, value -> value.rewrite(blockIdRewriter));
+            container.replace(StructuredDataKey.CAN_BREAK1_21_5, value -> value.rewrite(blockIdRewriter));
         }
         if (mappingData.getSoundMappings() != null) {
             final Int2IntFunction soundIdRewriter = clientbound ? mappingData::getNewSoundId : mappingData::getOldSoundId;
             container.replace(StructuredDataKey.INSTRUMENT1_20_5, value -> value.isDirect() ? Holder.of(value.value().rewrite(soundIdRewriter)) : value);
             container.replace(StructuredDataKey.INSTRUMENT1_21_2, value -> value.isDirect() ? Holder.of(value.value().rewrite(soundIdRewriter)) : value);
-            container.replace(StructuredDataKey.JUKEBOX_PLAYABLE, value -> value.rewrite(soundIdRewriter));
+            container.replace(StructuredDataKey.INSTRUMENT1_21_5, value -> value.hasHolder() && value.holder().isDirect() ? EitherHolder.of(Holder.of(value.holder().value().rewrite(soundIdRewriter))) : value); // ok...
+            container.replace(StructuredDataKey.JUKEBOX_PLAYABLE1_21, value -> value.rewrite(soundIdRewriter));
+            container.replace(StructuredDataKey.CONSUMABLE1_21_2, value -> value.rewrite(soundIdRewriter));
+            container.replace(StructuredDataKey.EQUIPPABLE1_21_2, value -> value.rewrite(soundIdRewriter));
+            container.replace(StructuredDataKey.EQUIPPABLE1_21_5, value -> value.rewrite(soundIdRewriter));
         }
         if (clientbound && protocol.getComponentRewriter() != null) {
             updateComponent(connection, item, StructuredDataKey.ITEM_NAME, "item_name");
@@ -249,7 +261,7 @@ public class StructuredItemRewriter<C extends ClientboundPacketType, S extends S
 
     protected void removeCustomTag(final StructuredDataContainer data, final CompoundTag customData) {
         // Only remove if we initially added it and only the marker is left
-        if (customData.contains(MARKER_KEY) && customData.size() == 1) {
+        if (customData.size() == 1 && customData.contains(MARKER_KEY)) {
             data.remove(StructuredDataKey.CUSTOM_DATA);
         }
     }

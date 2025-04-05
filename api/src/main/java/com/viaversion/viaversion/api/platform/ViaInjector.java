@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -58,7 +58,7 @@ public interface ViaInjector {
      * For proxies, this returns the lowest supported protocol version.
      *
      * @return server protocol version
-     * @throws Exception if there is an error with getting this info, e.g. not binded
+     * @throws Exception if there is an error with getting this info, e.g. not bound
      * @see ViaPlatform#isProxy()
      */
     ProtocolVersion getServerProtocolVersion() throws Exception;
@@ -67,7 +67,7 @@ public interface ViaInjector {
      * Returns the supported server protocol versions.
      *
      * @return server protocol versions
-     * @throws Exception if there is an error with getting this info, e.g. not binded
+     * @throws Exception if there is an error with getting this info, e.g. not bound
      * @see ViaPlatform#isProxy()
      */
     default SortedSet<ProtocolVersion> getServerProtocolVersions() throws Exception {

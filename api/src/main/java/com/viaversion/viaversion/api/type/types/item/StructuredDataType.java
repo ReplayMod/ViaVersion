@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -32,7 +32,7 @@ import com.viaversion.viaversion.api.type.Types;
 import io.netty.buffer.ByteBuf;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
-public class StructuredDataType extends Type<StructuredData<?>> {
+public class StructuredDataType extends Type<StructuredData<?>> implements StructuredDataTypeBase {
 
     private StructuredDataKey<?>[] types;
 
@@ -57,11 +57,12 @@ public class StructuredDataType extends Type<StructuredData<?>> {
         return readData(buffer, key, id);
     }
 
+    @Override
     public @Nullable StructuredDataKey<?> key(final int id) {
         return id >= 0 && id < types.length ? types[id] : null;
     }
 
-    private <T> StructuredData<T> readData(final ByteBuf buffer, final StructuredDataKey<T> key, final int id) {
+    <T> StructuredData<T> readData(final ByteBuf buffer, final StructuredDataKey<T> key, final int id) {
         return StructuredData.of(key, key.type().read(buffer), id);
     }
 

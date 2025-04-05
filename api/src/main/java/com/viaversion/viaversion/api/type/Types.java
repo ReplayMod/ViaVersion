@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2024 ViaVersion and contributors
+ * Copyright (C) 2016-2025 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -26,12 +26,13 @@ import com.google.gson.JsonElement;
 import com.viaversion.nbt.tag.CompoundTag;
 import com.viaversion.nbt.tag.Tag;
 import com.viaversion.viaversion.api.minecraft.BlockChangeRecord;
+import com.viaversion.viaversion.api.minecraft.BlockPosition;
+import com.viaversion.viaversion.api.minecraft.ChunkPosition;
 import com.viaversion.viaversion.api.minecraft.EulerAngle;
 import com.viaversion.viaversion.api.minecraft.GameProfile;
 import com.viaversion.viaversion.api.minecraft.GlobalBlockPosition;
 import com.viaversion.viaversion.api.minecraft.HolderSet;
 import com.viaversion.viaversion.api.minecraft.PlayerMessageSignature;
-import com.viaversion.viaversion.api.minecraft.BlockPosition;
 import com.viaversion.viaversion.api.minecraft.ProfileKey;
 import com.viaversion.viaversion.api.minecraft.Quaternion;
 import com.viaversion.viaversion.api.minecraft.RegistryEntry;
@@ -40,9 +41,10 @@ import com.viaversion.viaversion.api.minecraft.Vector;
 import com.viaversion.viaversion.api.minecraft.Vector3f;
 import com.viaversion.viaversion.api.minecraft.VillagerData;
 import com.viaversion.viaversion.api.minecraft.blockentity.BlockEntity;
+import com.viaversion.viaversion.api.minecraft.chunks.Heightmap;
+import com.viaversion.viaversion.api.minecraft.item.HashedItem;
 import com.viaversion.viaversion.api.minecraft.item.Item;
 import com.viaversion.viaversion.api.minecraft.item.data.Enchantments;
-import com.viaversion.viaversion.api.minecraft.ChunkPosition;
 import com.viaversion.viaversion.api.type.types.ArrayType;
 import com.viaversion.viaversion.api.type.types.BitSetType;
 import com.viaversion.viaversion.api.type.types.BooleanArrayType;
@@ -74,6 +76,8 @@ import com.viaversion.viaversion.api.type.types.block.BlockChangeRecordType;
 import com.viaversion.viaversion.api.type.types.block.BlockEntityType1_18;
 import com.viaversion.viaversion.api.type.types.block.BlockEntityType1_20_2;
 import com.viaversion.viaversion.api.type.types.block.VarLongBlockChangeRecordType;
+import com.viaversion.viaversion.api.type.types.chunk.HeightmapType;
+import com.viaversion.viaversion.api.type.types.item.HashedItemType1_21_5;
 import com.viaversion.viaversion.api.type.types.item.ItemShortArrayType1_13;
 import com.viaversion.viaversion.api.type.types.item.ItemShortArrayType1_13_2;
 import com.viaversion.viaversion.api.type.types.item.ItemShortArrayType1_8;
@@ -81,11 +85,11 @@ import com.viaversion.viaversion.api.type.types.item.ItemType1_13;
 import com.viaversion.viaversion.api.type.types.item.ItemType1_13_2;
 import com.viaversion.viaversion.api.type.types.item.ItemType1_20_2;
 import com.viaversion.viaversion.api.type.types.item.ItemType1_8;
+import com.viaversion.viaversion.api.type.types.math.BlockPositionType1_14;
+import com.viaversion.viaversion.api.type.types.math.BlockPositionType1_8;
 import com.viaversion.viaversion.api.type.types.math.ChunkPositionType;
 import com.viaversion.viaversion.api.type.types.math.EulerAngleType;
 import com.viaversion.viaversion.api.type.types.math.GlobalBlockPositionType;
-import com.viaversion.viaversion.api.type.types.math.BlockPositionType1_14;
-import com.viaversion.viaversion.api.type.types.math.BlockPositionType1_8;
 import com.viaversion.viaversion.api.type.types.math.QuaternionType;
 import com.viaversion.viaversion.api.type.types.math.Vector3fType;
 import com.viaversion.viaversion.api.type.types.math.VectorType;
@@ -131,6 +135,7 @@ public final class Types {
     public static final DoubleType DOUBLE = new DoubleType();
 
     public static final LongType LONG = new LongType();
+    public static final Type<Long> OPTIONAL_LONG = new LongType.OptionalLongType();
     public static final Type<long[]> LONG_ARRAY_PRIMITIVE = new LongArrayType();
 
     public static final BooleanType BOOLEAN = new BooleanType();
@@ -212,7 +217,12 @@ public final class Types {
     public static final Type<HolderSet> OPTIONAL_HOLDER_SET = new HolderSetType.OptionalHolderSetType();
 
     public static final HolderType<SoundEvent> SOUND_EVENT = new SoundEventType();
+    public static final HolderType<SoundEvent> OPTIONAL_SOUND_EVENT = new SoundEventType.OptionalSoundEventType();
 
+    public static final Type<Heightmap> HEIGHTMAP = new HeightmapType();
+    public static final Type<Heightmap[]> HEIGHTMAP_ARRAY = new ArrayType<>(HEIGHTMAP);
+
+    // No longer used past 1.20.2
     public static final Type<Item> ITEM1_8 = new ItemType1_8();
     public static final Type<Item> ITEM1_13 = new ItemType1_13();
     public static final Type<Item> ITEM1_13_2 = new ItemType1_13_2();
@@ -223,4 +233,6 @@ public final class Types {
     public static final Type<Item[]> ITEM1_13_ARRAY = new ArrayType<>(ITEM1_13);
     public static final Type<Item[]> ITEM1_13_2_ARRAY = new ArrayType<>(ITEM1_13_2);
     public static final Type<Item[]> ITEM1_20_2_ARRAY = new ArrayType<>(ITEM1_20_2);
+
+    public static final Type<HashedItem> HASHED_ITEM = new HashedItemType1_21_5();
 }
