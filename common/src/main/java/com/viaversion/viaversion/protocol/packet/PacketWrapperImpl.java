@@ -263,8 +263,11 @@ public class PacketWrapperImpl implements PacketWrapper {
     }
 
     private InformativeException createInformativeException(final Exception cause, final Type<?> type, final int index) {
+        final ProtocolInfo protocolInfo = this.user().getProtocolInfo();
         return new InformativeException(cause)
             .set("Packet Type", this.packetType)
+            .set("Client Protocol", protocolInfo.protocolVersion().getName())
+            .set("Server Protocol", protocolInfo.serverProtocolVersion().getName())
             .set("Index", index)
             .set("Type", type.getTypeName())
             .set("Data", this.packetValues)

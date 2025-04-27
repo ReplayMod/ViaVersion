@@ -91,6 +91,7 @@ import com.viaversion.viaversion.util.Either;
 import com.viaversion.viaversion.util.Key;
 import com.viaversion.viaversion.util.MathUtil;
 import com.viaversion.viaversion.util.SerializerVersion;
+import com.viaversion.viaversion.util.StringUtil;
 import com.viaversion.viaversion.util.UUIDUtil;
 import com.viaversion.viaversion.util.Unit;
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
@@ -215,8 +216,8 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Js
         try {
             tagTag = tag != null ? (CompoundTag) inputSerializerVersion().toTag(tag.getValue()) : null;
         } catch (final Exception e) {
-            if (!Via.getConfig().isSuppressConversionWarnings()) {
-                protocol.getLogger().log(Level.WARNING, "Error reading NBT in show_item: " + itemTag, e);
+            if (!Via.getConfig().isSuppressTextComponentConversionWarnings()) {
+                protocol.getLogger().log(Level.WARNING, "Error reading NBT in show_item: " + StringUtil.forLogging(itemTag), e);
             }
             return;
         }
@@ -247,9 +248,9 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Js
         if (!data.isEmpty()) {
             final CompoundTag components;
             try {
-                components = toTag(connection, data, false);
+                components = toTag(connection, data);
             } catch (final Exception e) {
-                if (!Via.getConfig().isSuppressConversionWarnings()) {
+                if (!Via.getConfig().isSuppressTextComponentConversionWarnings()) {
                     protocol.getLogger().log(Level.WARNING, "Error writing components in show_item!", e);
                 }
                 return;
@@ -258,7 +259,7 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Js
         }
     }
 
-    public CompoundTag toTag(final UserConnection connection, final Map<StructuredDataKey<?>, StructuredData<?>> data, final boolean empty) {
+    public CompoundTag toTag(final UserConnection connection, final Map<StructuredDataKey<?>, StructuredData<?>> data) {
         final CompoundTag tag = new CompoundTag();
         for (final Map.Entry<StructuredDataKey<?>, StructuredData<?>> entry : data.entrySet()) {
             final StructuredDataKey<?> key = entry.getKey();
@@ -273,12 +274,8 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Js
 
             final StructuredData<?> value = entry.getValue();
             if (value.isEmpty()) {
-                if (empty) {
-                    // Theoretically not needed here, but we'll keep it for consistency
-                    tag.put("!" + identifier, new CompoundTag());
-                    continue;
-                }
-                throw new IllegalArgumentException("Empty structured data: " + identifier);
+                tag.put("!" + identifier, new CompoundTag());
+                continue;
             }
 
             //noinspection unchecked
@@ -303,11 +300,19 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Js
         return list;
     }
 
-    public StructuredData<?> readFromTag(final UserConnection connection, final String identifier, final Tag tag) {
+    private StructuredData<?> readFromTag(final UserConnection connection, String identifier, final Tag tag) {
+        final boolean removed = identifier.startsWith("!");
+        if (removed) {
+            identifier = identifier.substring(1);
+        }
         final int id = protocol.getMappingData().getDataComponentSerializerMappings().mappedId(identifier);
         Preconditions.checkArgument(id != -1, "Unknown data component: %s", identifier);
         final StructuredDataKey<?> key = structuredDataType.key(id);
-        return readFromTag(connection, key, id, tag);
+        if (removed) {
+            return StructuredData.empty(key, id);
+        } else {
+            return readFromTag(connection, key, id, tag);
+        }
     }
 
     protected <T> StructuredData<T> readFromTag(final UserConnection connection, final StructuredDataKey<T> key, final int id, final Tag tag) {
@@ -1561,7 +1566,7 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Js
             tag.putInt("count", 1);
         }
         final Map<StructuredDataKey<?>, StructuredData<?>> components = item.dataContainer().data();
-        final CompoundTag componentsTag = toTag(connection, components, true);
+        final CompoundTag componentsTag = toTag(connection, components);
         if (!componentsTag.isEmpty()) {
             tag.put("components", componentsTag);
         }

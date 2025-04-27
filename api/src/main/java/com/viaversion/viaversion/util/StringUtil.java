@@ -20,30 +20,24 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package com.viaversion.viaversion.api.minecraft.item.data;
+package com.viaversion.viaversion.util;
 
-import com.viaversion.viaversion.api.minecraft.item.data.Consumable1_21_2.ConsumeEffect;
-import com.viaversion.viaversion.api.type.Type;
-import com.viaversion.viaversion.util.Copyable;
-import io.netty.buffer.ByteBuf;
+public final class StringUtil {
 
-public record DeathProtection(ConsumeEffect<?>[] deathEffects) implements Copyable {
+    public static String forLogging(final Object o) {
+        return forLogging(String.valueOf(o));
+    }
 
-    public static final Type<DeathProtection> TYPE = new Type<>(DeathProtection.class) {
-        @Override
-        public DeathProtection read(final ByteBuf buffer) {
-            final ConsumeEffect<?>[] deathEffects = ConsumeEffect.ARRAY_TYPE.read(buffer);
-            return new DeathProtection(deathEffects);
+    public static String forLogging(final String s) {
+        final StringBuilder builder = new StringBuilder(s.length());
+        for (int i = 0, len = s.length(); i < len; i++) {
+            final char c = s.charAt(i);
+            if (c == '\t' || c == '\n' || c == '\r') {
+                builder.append(' ');
+            } else if (!Character.isISOControl(c)) {
+                builder.append(c);
+            }
         }
-
-        @Override
-        public void write(final ByteBuf buffer, final DeathProtection value) {
-            ConsumeEffect.ARRAY_TYPE.write(buffer, value.deathEffects);
-        }
-    };
-
-    @Override
-    public DeathProtection copy() {
-        return new DeathProtection(Copyable.copy(deathEffects));
+        return builder.toString();
     }
 }

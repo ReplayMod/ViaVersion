@@ -28,6 +28,7 @@ import java.util.logging.Level;
 import net.lenni0451.mcstructs.text.Style;
 import net.lenni0451.mcstructs.text.TextComponent;
 import net.lenni0451.mcstructs.text.components.StringComponent;
+import net.lenni0451.mcstructs.text.components.TranslationComponent;
 import net.lenni0451.mcstructs.text.events.hover.HoverEvent;
 import net.lenni0451.mcstructs.text.events.hover.impl.EntityHoverEvent;
 import net.lenni0451.mcstructs.text.events.hover.impl.ItemHoverEvent;
@@ -64,8 +65,8 @@ public final class ComponentUtil {
             final TextComponent component = SerializerVersion.V1_20_3.toComponent(tag);
             return component != null ? SerializerVersion.V1_19_4.toJson(component) : null;
         } catch (final Exception e) {
-            if (!Via.getConfig().isSuppressConversionWarnings()) {
-                Via.getPlatform().getLogger().log(Level.SEVERE, "Error converting tag: " + tag, e);
+            if (!Via.getConfig().isSuppressTextComponentConversionWarnings()) {
+                Via.getPlatform().getLogger().log(Level.SEVERE, "Error converting tag: " + StringUtil.forLogging(tag), e);
             }
             return plainToJson("<error>");
         }
@@ -80,14 +81,14 @@ public final class ComponentUtil {
             final TextComponent component = SerializerVersion.V1_19_4.toComponent(element);
             return trimStrings(SerializerVersion.V1_20_3.toTag(component));
         } catch (final Exception e) {
-            if (!Via.getConfig().isSuppressConversionWarnings()) {
-                Via.getPlatform().getLogger().log(Level.SEVERE, "Error converting component: " + element, e);
+            if (!Via.getConfig().isSuppressTextComponentConversionWarnings()) {
+                Via.getPlatform().getLogger().log(Level.SEVERE, "Error converting component: " + StringUtil.forLogging(element), e);
             }
             return new StringTag("<error>");
         }
     }
 
-    private static Tag trimStrings(final Tag input) {
+    public static Tag trimStrings(final Tag input) {
         // Dirty fix for https://github.com/ViaVersion/ViaVersion/issues/3650
         // Usually tripped by hover event data being too long, e.g. book or shulker box contents, which have to be held in full as SNBT
         if (input == null) {
@@ -109,8 +110,8 @@ public final class ComponentUtil {
             final TextComponent component = SerializerVersion.V1_20_5.toComponent(tag);
             return component != null ? SerializerVersion.V1_20_3.toString(component) : null;
         } catch (final Exception e) {
-            if (!Via.getConfig().isSuppressConversionWarnings()) {
-                Via.getPlatform().getLogger().log(Level.SEVERE, "Error converting tag: " + tag, e);
+            if (!Via.getConfig().isSuppressTextComponentConversionWarnings()) {
+                Via.getPlatform().getLogger().log(Level.SEVERE, "Error converting tag: " + StringUtil.forLogging(tag), e);
             }
             return plainToJson("<error>").toString();
         }
@@ -146,27 +147,39 @@ public final class ComponentUtil {
     private static JsonElement convert(final SerializerVersion from, final SerializerVersion to, final TextComponent component) {
         if (from.ordinal() >= SerializerVersion.V1_16.ordinal() && to.ordinal() < SerializerVersion.V1_16.ordinal()) {
             // Convert hover event to legacy format
-            final Style style = component.getStyle();
-            final HoverEvent hoverEvent = style.getHoverEvent();
-            if (hoverEvent instanceof EntityHoverEvent entityHoverEvent && entityHoverEvent.isModern()) {
-                final EntityHoverEvent.ModernHolder entityData = entityHoverEvent.asModern();
-                final CompoundTag tag = new CompoundTag();
-                tag.putString("type", entityData.getType().get());
-                tag.putString("id", entityData.getUuid().toString());
-                tag.putString("name", to.toString(entityData.getName() != null ? entityData.getName() : new StringComponent("")));
-                entityHoverEvent.setLegacyData(new StringComponent(to.toSNBT(tag)));
-            } else if (hoverEvent instanceof ItemHoverEvent itemHoverEvent && itemHoverEvent.isModern()) {
-                final ItemHoverEvent.ModernHolder itemData = itemHoverEvent.asModern();
-                final CompoundTag tag = new CompoundTag();
-                tag.putString("id", itemData.getId().get());
-                tag.putByte("Count", (byte) itemData.getCount());
-                if (itemData.getTag() != null) {
-                    tag.put("tag", itemData.getTag());
-                }
-                itemHoverEvent.setLegacyData(to.toSNBT(tag));
-            }
+            component.forEach(c -> convertHoverToLegacy(to, c));
         }
         return to.toJson(component);
+    }
+
+    private static void convertHoverToLegacy(final SerializerVersion to, final TextComponent component) {
+        if (component instanceof TranslationComponent translationComponent) {
+            for (final Object arg : translationComponent.getArgs()) {
+                if (arg instanceof TextComponent componentArg) {
+                    convertHoverToLegacy(to, componentArg);
+                }
+            }
+        }
+
+        final Style style = component.getStyle();
+        final HoverEvent hoverEvent = style.getHoverEvent();
+        if (hoverEvent instanceof EntityHoverEvent entityHoverEvent && entityHoverEvent.isModern()) {
+            final EntityHoverEvent.ModernHolder entityData = entityHoverEvent.asModern();
+            final CompoundTag tag = new CompoundTag();
+            tag.putString("type", entityData.getType().get());
+            tag.putString("id", entityData.getUuid().toString());
+            tag.putString("name", to.toString(entityData.getName() != null ? entityData.getName() : new StringComponent("")));
+            entityHoverEvent.setLegacyData(new StringComponent(to.toSNBT(tag)));
+        } else if (hoverEvent instanceof ItemHoverEvent itemHoverEvent && itemHoverEvent.isModern()) {
+            final ItemHoverEvent.ModernHolder itemData = itemHoverEvent.asModern();
+            final CompoundTag tag = new CompoundTag();
+            tag.putString("id", itemData.getId().get());
+            tag.putByte("Count", (byte) itemData.getCount());
+            if (itemData.getTag() != null) {
+                tag.put("tag", itemData.getTag());
+            }
+            itemHoverEvent.setLegacyData(to.toSNBT(tag));
+        }
     }
 
     public static JsonElement legacyToJson(final String message) {
