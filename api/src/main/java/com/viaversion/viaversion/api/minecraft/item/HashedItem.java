@@ -39,4 +39,7 @@ public interface HashedItem extends ItemBase {
     Int2IntMap dataHashesById();
 
     IntSet removedDataIds();
+
+    @Override
+    HashedItem copy();
 }

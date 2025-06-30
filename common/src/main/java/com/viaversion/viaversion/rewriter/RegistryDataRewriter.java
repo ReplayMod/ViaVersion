@@ -24,6 +24,7 @@ import com.viaversion.nbt.tag.Tag;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.data.FullMappings;
 import com.viaversion.viaversion.api.data.entity.DimensionData;
+import com.viaversion.viaversion.api.data.item.ItemHasher;
 import com.viaversion.viaversion.api.minecraft.RegistryEntry;
 import com.viaversion.viaversion.api.protocol.Protocol;
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
@@ -39,30 +40,51 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 public class RegistryDataRewriter {
-    private final Map<String, Consumer<CompoundTag>> enchantmentEffectRewriters = new Object2ObjectArrayMap<>();
+    private final Map<String, BiConsumer<String, CompoundTag>> registryEntryHandlers = new Object2ObjectArrayMap<>();
+    private final Map<String, Consumer<CompoundTag>> enchantmentEffectHandlers = new Object2ObjectArrayMap<>(); // for nested enchantment data
     private final Map<String, List<RegistryEntry>> toAdd = new Object2ObjectArrayMap<>();
-    private final Protocol<?, ?, ?, ?> protocol;
+    private final Set<String> toRemove = new HashSet<>();
+    protected final Protocol<?, ?, ?, ?> protocol;
 
     public RegistryDataRewriter(Protocol<?, ?, ?, ?> protocol) {
         this.protocol = protocol;
     }
 
     public void handle(final PacketWrapper wrapper) {
-        final String registryKey = wrapper.passthrough(Types.STRING);
+        final String registryKey = Key.stripMinecraftNamespace(wrapper.passthrough(Types.STRING));
         RegistryEntry[] entries = wrapper.read(Types.REGISTRY_ENTRY_ARRAY);
-        entries = handle(wrapper.user(), Key.stripMinecraftNamespace(registryKey), entries);
+        entries = handle(wrapper.user(), registryKey, entries);
         wrapper.write(Types.REGISTRY_ENTRY_ARRAY, entries);
+
+        if (this.toRemove.contains(registryKey)) {
+            wrapper.cancel();
+        }
     }
 
     public RegistryEntry[] handle(final UserConnection connection, String key, RegistryEntry[] entries) {
         key = Key.stripMinecraftNamespace(key);
         if (key.equals("enchantment")) {
-            updateEnchantments(entries);
+            updateEnchantments(connection, entries);
         } else if (key.equals("trim_material")) {
             updateTrimMaterials(entries);
+        } else if (key.equals("jukebox_song")) {
+            updateJukeboxSongs(entries);
+        }
+
+        final BiConsumer<String, CompoundTag> registryEntryHandler = this.registryEntryHandlers.get(key);
+        if (registryEntryHandler != null) {
+            for (final RegistryEntry entry : entries) {
+                if (entry.tag() == null) {
+                    continue;
+                }
+
+                final CompoundTag tag = (CompoundTag) entry.tag();
+                registryEntryHandler.accept(entry.key(), tag);
+            }
         }
 
         final List<RegistryEntry> toAdd = this.toAdd.get(key);
@@ -98,8 +120,16 @@ public class RegistryDataRewriter {
         toAdd.computeIfAbsent(Key.stripMinecraftNamespace(registryKey), $ -> new ArrayList<>()).addAll(List.of(entries));
     }
 
+    public void remove(final String registryKey) {
+        toRemove.add(Key.stripMinecraftNamespace(registryKey));
+    }
+
+    public void addHandler(String registryKey, final BiConsumer<String, CompoundTag> handler) {
+        registryEntryHandlers.put(Key.stripMinecraftNamespace(registryKey), handler);
+    }
+
     public void addEnchantmentEffectRewriter(final String key, final Consumer<CompoundTag> rewriter) {
-        enchantmentEffectRewriters.put(Key.stripMinecraftNamespace(key), rewriter);
+        enchantmentEffectHandlers.put(Key.stripMinecraftNamespace(key), rewriter);
     }
 
     public void trackDimensionAndBiomes(final UserConnection connection, final String registryKey, final RegistryEntry[] entries) {
@@ -119,8 +149,10 @@ public class RegistryDataRewriter {
         }
     }
 
-    public void updateEnchantments(final RegistryEntry[] entries) {
+    public void updateEnchantments(final UserConnection connection, final RegistryEntry[] entries) {
+        final List<String> identifiers = new ArrayList<>(entries.length);
         for (final RegistryEntry entry : entries) {
+            identifiers.add(entry.key());
             if (entry.tag() == null) {
                 continue;
             }
@@ -149,6 +181,11 @@ public class RegistryDataRewriter {
 
             updateAttributesFields(effects);
         }
+
+        final ItemHasher itemHasher = connection.getItemHasher(protocol.getClass());
+        if (itemHasher != null) {
+            itemHasher.setEnchantments(identifiers);
+        }
     }
 
     public void updateTrimMaterials(final RegistryEntry[] entries) {
@@ -168,6 +205,10 @@ public class RegistryDataRewriter {
 
             updateItem(ingredientTag);
         }
+    }
+
+    public void updateJukeboxSongs(final RegistryEntry[] entries) {
+        // can be overridden
     }
 
     private void updateNestedEffect(final CompoundTag effectsTag) {
@@ -204,15 +245,14 @@ public class RegistryDataRewriter {
     }
 
     private void runEffectRewriters(final CompoundTag effectTag) {
-        String effect = effectTag.getString("type");
+        final String effect = effectTag.getString("type");
         if (effect == null) {
             return;
         }
 
-        effect = Key.stripMinecraftNamespace(effect);
         updateAttributeField(effectTag);
 
-        final Consumer<CompoundTag> rewriter = enchantmentEffectRewriters.get(effect);
+        final Consumer<CompoundTag> rewriter = enchantmentEffectHandlers.get(Key.stripMinecraftNamespace(effect));
         if (rewriter != null) {
             rewriter.accept(effectTag);
         }

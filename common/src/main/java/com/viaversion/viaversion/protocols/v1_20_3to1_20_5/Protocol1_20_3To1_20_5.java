@@ -29,7 +29,7 @@ import com.viaversion.viaversion.api.protocol.packet.provider.PacketTypesProvide
 import com.viaversion.viaversion.api.protocol.packet.provider.SimplePacketTypesProvider;
 import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.api.type.types.misc.ParticleType;
-import com.viaversion.viaversion.api.type.types.version.Types1_20_5;
+import com.viaversion.viaversion.api.type.types.version.VersionedTypes;
 import com.viaversion.viaversion.data.entity.EntityTrackerBase;
 import com.viaversion.viaversion.protocols.base.ClientboundLoginPackets;
 import com.viaversion.viaversion.protocols.base.ServerboundLoginPackets;
@@ -52,11 +52,12 @@ import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.rewriter.EntityPacket
 import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.rewriter.ParticleRewriter1_20_5;
 import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.storage.AcknowledgedMessagesStorage;
 import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.storage.ArmorTrimStorage;
+import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.storage.TagKeys;
 import com.viaversion.viaversion.protocols.v1_20to1_20_2.packet.ServerboundConfigurationPackets1_20_2;
-import com.viaversion.viaversion.rewriter.text.JsonNBTComponentRewriter;
 import com.viaversion.viaversion.rewriter.SoundRewriter;
 import com.viaversion.viaversion.rewriter.StatisticsRewriter;
 import com.viaversion.viaversion.rewriter.TagRewriter;
+import com.viaversion.viaversion.rewriter.text.JsonNBTComponentRewriter;
 import com.viaversion.viaversion.util.ProtocolLogger;
 import java.util.BitSet;
 import java.util.UUID;
@@ -74,7 +75,7 @@ public final class Protocol1_20_3To1_20_5 extends AbstractProtocol<ClientboundPa
     private final BlockItemPacketRewriter1_20_5 itemRewriter = new BlockItemPacketRewriter1_20_5(this);
     private final ParticleRewriter1_20_5 particleRewriter = new ParticleRewriter1_20_5(this);
     private final TagRewriter<ClientboundPacket1_20_3> tagRewriter = new TagRewriter<>(this);
-    private final ComponentRewriter1_20_5<ClientboundPacket1_20_3> componentRewriter = new ComponentRewriter1_20_5<>(this, Types1_20_5.STRUCTURED_DATA);
+    private final ComponentRewriter1_20_5<ClientboundPacket1_20_3> componentRewriter = new ComponentRewriter1_20_5<>(this, VersionedTypes.V1_20_5.structuredData);
 
     public Protocol1_20_3To1_20_5() {
         super(ClientboundPacket1_20_3.class, ClientboundPacket1_20_5.class, ServerboundPacket1_20_3.class, ServerboundPacket1_20_5.class);
@@ -84,8 +85,8 @@ public final class Protocol1_20_3To1_20_5 extends AbstractProtocol<ClientboundPa
     protected void registerPackets() {
         super.registerPackets();
 
-        tagRewriter.registerGeneric(ClientboundPackets1_20_3.UPDATE_TAGS);
-        tagRewriter.registerGeneric(ClientboundConfigurationPackets1_20_3.UPDATE_TAGS);
+        registerClientbound(ClientboundPackets1_20_3.UPDATE_TAGS, this::updateTags);
+        registerClientbound(ClientboundConfigurationPackets1_20_3.UPDATE_TAGS, this::updateTags);
 
         final SoundRewriter<ClientboundPacket1_20_3> soundRewriter = new SoundRewriter<>(this);
         soundRewriter.registerSound1_19_3(ClientboundPackets1_20_3.SOUND);
@@ -95,6 +96,7 @@ public final class Protocol1_20_3To1_20_5 extends AbstractProtocol<ClientboundPa
 
         componentRewriter.registerComponentPacket(ClientboundPackets1_20_3.SYSTEM_CHAT);
         componentRewriter.registerComponentPacket(ClientboundPackets1_20_3.DISGUISED_CHAT);
+        componentRewriter.registerPlayerChat(ClientboundPackets1_20_3.PLAYER_CHAT, Types.VAR_INT);
         componentRewriter.registerPlayerCombatKill1_20(ClientboundPackets1_20_3.PLAYER_COMBAT_KILL);
 
         // People add item hovers to all sorts of weird places...
@@ -216,14 +218,7 @@ public final class Protocol1_20_3To1_20_5 extends AbstractProtocol<ClientboundPa
         registerClientbound(State.LOGIN, ClientboundLoginPackets.LOGIN_FINISHED, wrapper -> {
             wrapper.passthrough(Types.UUID); // UUID
             wrapper.passthrough(Types.STRING); // Name
-
-            final int properties = wrapper.passthrough(Types.VAR_INT);
-            for (int i = 0; i < properties; i++) {
-                wrapper.passthrough(Types.STRING); // Name
-                wrapper.passthrough(Types.STRING); // Value
-                wrapper.passthrough(Types.OPTIONAL_STRING); // Signature
-            }
-
+            wrapper.passthrough(Types.PROFILE_PROPERTY_ARRAY);
             wrapper.write(Types.BOOLEAN, strictErrorHandling);
         });
 
@@ -232,6 +227,12 @@ public final class Protocol1_20_3To1_20_5 extends AbstractProtocol<ClientboundPa
         cancelServerbound(ServerboundConfigurationPackets1_20_5.SELECT_KNOWN_PACKS);
         cancelServerbound(ServerboundPackets1_20_5.COOKIE_RESPONSE);
         cancelServerbound(ServerboundPackets1_20_5.DEBUG_SAMPLE_SUBSCRIPTION);
+    }
+
+    private void updateTags(final PacketWrapper wrapper) {
+        tagRewriter.handleGeneric(wrapper);
+        wrapper.resetReader();
+        wrapper.user().put(new TagKeys(wrapper));
     }
 
     private void fixChatAck(final PacketWrapper wrapper, final AcknowledgedMessagesStorage storage) {
@@ -252,19 +253,19 @@ public final class Protocol1_20_3To1_20_5 extends AbstractProtocol<ClientboundPa
     @Override
     protected void onMappingDataLoaded() {
         EntityTypes1_20_5.initialize(this);
-        Types1_20_5.PARTICLE.filler(this)
+        VersionedTypes.V1_20_5.particle.filler(this)
             .reader("block", ParticleType.Readers.BLOCK)
             .reader("block_marker", ParticleType.Readers.BLOCK)
             .reader("dust", ParticleType.Readers.DUST)
             .reader("dust_pillar", ParticleType.Readers.BLOCK)
             .reader("falling_dust", ParticleType.Readers.BLOCK)
             .reader("dust_color_transition", ParticleType.Readers.DUST_TRANSITION)
-            .reader("item", ParticleType.Readers.item(Types1_20_5.ITEM))
+            .reader("item", ParticleType.Readers.item(VersionedTypes.V1_20_5.item))
             .reader("vibration", ParticleType.Readers.VIBRATION1_20_3)
             .reader("sculk_charge", ParticleType.Readers.SCULK_CHARGE)
             .reader("shriek", ParticleType.Readers.SHRIEK)
             .reader("entity_effect", ParticleType.Readers.COLOR);
-        Types1_20_5.STRUCTURED_DATA.filler(this)
+        VersionedTypes.V1_20_5.structuredData.filler(this)
             .add(StructuredDataKey.CUSTOM_DATA).add(StructuredDataKey.MAX_STACK_SIZE).add(StructuredDataKey.MAX_DAMAGE)
             .add(StructuredDataKey.DAMAGE).add(StructuredDataKey.UNBREAKABLE1_20_5).add(StructuredDataKey.RARITY)
             .add(StructuredDataKey.HIDE_TOOLTIP).add(StructuredDataKey.FOOD1_20_5).add(StructuredDataKey.FIRE_RESISTANT)
@@ -274,16 +275,17 @@ public final class Protocol1_20_3To1_20_5 extends AbstractProtocol<ClientboundPa
             .add(StructuredDataKey.CREATIVE_SLOT_LOCK).add(StructuredDataKey.ENCHANTMENT_GLINT_OVERRIDE).add(StructuredDataKey.INTANGIBLE_PROJECTILE)
             .add(StructuredDataKey.STORED_ENCHANTMENTS1_20_5).add(StructuredDataKey.DYED_COLOR1_20_5).add(StructuredDataKey.MAP_COLOR)
             .add(StructuredDataKey.MAP_ID).add(StructuredDataKey.MAP_DECORATIONS).add(StructuredDataKey.MAP_POST_PROCESSING)
-            .add(StructuredDataKey.CHARGED_PROJECTILES1_20_5).add(StructuredDataKey.BUNDLE_CONTENTS1_20_5).add(StructuredDataKey.POTION_CONTENTS1_20_5)
+            .add(StructuredDataKey.POTION_CONTENTS1_20_5)
             .add(StructuredDataKey.SUSPICIOUS_STEW_EFFECTS).add(StructuredDataKey.WRITABLE_BOOK_CONTENT).add(StructuredDataKey.WRITTEN_BOOK_CONTENT)
             .add(StructuredDataKey.TRIM1_20_5).add(StructuredDataKey.DEBUG_STICK_STATE).add(StructuredDataKey.ENTITY_DATA)
             .add(StructuredDataKey.BUCKET_ENTITY_DATA).add(StructuredDataKey.BLOCK_ENTITY_DATA).add(StructuredDataKey.INSTRUMENT1_20_5)
             .add(StructuredDataKey.RECIPES).add(StructuredDataKey.LODESTONE_TRACKER).add(StructuredDataKey.FIREWORK_EXPLOSION)
             .add(StructuredDataKey.FIREWORKS).add(StructuredDataKey.PROFILE).add(StructuredDataKey.NOTE_BLOCK_SOUND)
             .add(StructuredDataKey.BANNER_PATTERNS).add(StructuredDataKey.BASE_COLOR).add(StructuredDataKey.POT_DECORATIONS)
-            .add(StructuredDataKey.CONTAINER1_20_5).add(StructuredDataKey.BLOCK_STATE).add(StructuredDataKey.BEES)
+            .add(StructuredDataKey.BLOCK_STATE).add(StructuredDataKey.BEES)
             .add(StructuredDataKey.LOCK).add(StructuredDataKey.CONTAINER_LOOT).add(StructuredDataKey.TOOL1_20_5)
-            .add(StructuredDataKey.ITEM_NAME).add(StructuredDataKey.OMINOUS_BOTTLE_AMPLIFIER);
+            .add(StructuredDataKey.ITEM_NAME).add(StructuredDataKey.OMINOUS_BOTTLE_AMPLIFIER)
+            .add(VersionedTypes.V1_20_5.structuredDataKeys().keys());
 
         tagRewriter.renameTag(RegistryType.ITEM, "minecraft:axolotl_tempt_items", "minecraft:axolotl_food");
         tagRewriter.removeTag(RegistryType.ITEM, "minecraft:tools");

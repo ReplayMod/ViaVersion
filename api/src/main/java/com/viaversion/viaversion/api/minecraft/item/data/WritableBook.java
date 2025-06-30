@@ -20,26 +20,34 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package com.viaversion.viaversion.api.type.types.version;
+package com.viaversion.viaversion.api.minecraft.item.data;
 
-import com.viaversion.viaversion.api.minecraft.chunks.ChunkSection;
-import com.viaversion.viaversion.api.minecraft.entitydata.EntityData;
+import com.viaversion.viaversion.api.minecraft.codec.Ops;
 import com.viaversion.viaversion.api.type.Type;
-import com.viaversion.viaversion.api.type.types.chunk.ChunkSectionType1_8;
-import com.viaversion.viaversion.api.type.types.entitydata.EntityDataListType;
-import com.viaversion.viaversion.api.type.types.entitydata.EntityDataType1_8;
-import java.util.List;
+import com.viaversion.viaversion.util.Copyable;
+import io.netty.buffer.ByteBuf;
 
-public final class Types1_8 {
+public record WritableBook(FilterableString[] pages) implements Copyable {
 
-    /**
-     * Entity data type for 1.8
-     */
-    public static final Type<EntityData> ENTITY_DATA = new EntityDataType1_8();
-    /**
-     * Entity data list type for 1.8
-     */
-    public static final Type<List<EntityData>> ENTITY_DATA_LIST = new EntityDataListType(ENTITY_DATA);
+    public static final Type<WritableBook> TYPE = new Type<>(WritableBook.class) {
+        @Override
+        public WritableBook read(final ByteBuf buffer) {
+            return new WritableBook(FilterableString.ARRAY_TYPE.read(buffer));
+        }
 
-    public static final Type<ChunkSection> CHUNK_SECTION = new ChunkSectionType1_8();
+        @Override
+        public void write(final ByteBuf buffer, final WritableBook value) {
+            FilterableString.ARRAY_TYPE.write(buffer, value.pages);
+        }
+
+        @Override
+        public void write(final Ops ops, final WritableBook writableBook) {
+            ops.writeMap(map -> map.writeOptional("pages", FilterableString.ARRAY_TYPE, writableBook.pages, new FilterableString[0]));
+        }
+    };
+
+    @Override
+    public WritableBook copy() {
+        return new WritableBook(Copyable.copy(pages));
+    }
 }

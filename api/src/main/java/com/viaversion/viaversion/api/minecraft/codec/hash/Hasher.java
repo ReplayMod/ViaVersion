@@ -20,22 +20,26 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package com.viaversion.viaversion.api.type.types.version;
+package com.viaversion.viaversion.api.minecraft.codec.hash;
 
-import com.viaversion.viaversion.api.minecraft.entitydata.EntityData;
-import com.viaversion.viaversion.api.type.Type;
-import com.viaversion.viaversion.api.type.types.entitydata.EntityDataListType;
-import com.viaversion.viaversion.api.type.types.entitydata.EntityDataType1_12;
-import java.util.List;
+import com.viaversion.viaversion.api.minecraft.codec.Ops;
 
-public final class Types1_12 {
+/**
+ * Hash operations. Note that this is different from Vanilla codecs, where this
+ * instead acts as a (re-usable) hasher directly rather than each method having
+ * self-contained return values.
+ */
+public interface Hasher extends Ops {
 
     /**
-     * Entity data type for 1.12
+     * Returns the current hash value.
+     *
+     * @return the current hash value
      */
-    public static final Type<EntityData> ENTITY_DATA = new EntityDataType1_12();
+    int hash();
+
     /**
-     * Entity data list type for 1.12
+     * Resets the hasher to its initial state.
      */
-    public static final Type<List<EntityData>> ENTITY_DATA_LIST = new EntityDataListType(ENTITY_DATA);
+    void reset();
 }

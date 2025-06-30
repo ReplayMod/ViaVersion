@@ -24,7 +24,7 @@ import com.viaversion.viaversion.rewriter.text.NBTComponentRewriter;
 
 final class ComponentRewriter1_99 extends NBTComponentRewriter<ClientboundPacket1_21_2> {
 
-    public ComponentRewriter1_99(final Protocol1_99To_98 protocol) {
+    public ComponentRewriter1_99(final Protocol1_98To1_99 protocol) {
         super(protocol);
     }
 

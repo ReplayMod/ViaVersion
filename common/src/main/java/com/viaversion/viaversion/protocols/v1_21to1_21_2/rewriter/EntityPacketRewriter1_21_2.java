@@ -18,8 +18,8 @@
 package com.viaversion.viaversion.protocols.v1_21to1_21_2.rewriter;
 
 import com.viaversion.nbt.tag.CompoundTag;
+import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.connection.UserConnection;
-import com.viaversion.viaversion.api.data.entity.EntityTracker;
 import com.viaversion.viaversion.api.minecraft.RegistryEntry;
 import com.viaversion.viaversion.api.minecraft.entities.EntityType;
 import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_21_2;
@@ -28,8 +28,7 @@ import com.viaversion.viaversion.api.minecraft.item.Item;
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.protocol.remapper.PacketHandlers;
 import com.viaversion.viaversion.api.type.Types;
-import com.viaversion.viaversion.api.type.types.version.Types1_21;
-import com.viaversion.viaversion.api.type.types.version.Types1_21_2;
+import com.viaversion.viaversion.api.type.types.version.VersionedTypes;
 import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.packet.ServerboundPackets1_20_5;
 import com.viaversion.viaversion.protocols.v1_20_5to1_21.packet.ClientboundConfigurationPackets1_21;
 import com.viaversion.viaversion.protocols.v1_20_5to1_21.packet.ClientboundPacket1_21;
@@ -43,8 +42,10 @@ import com.viaversion.viaversion.protocols.v1_21to1_21_2.storage.ClientVehicleSt
 import com.viaversion.viaversion.protocols.v1_21to1_21_2.storage.EntityTracker1_21_2;
 import com.viaversion.viaversion.protocols.v1_21to1_21_2.storage.GroundFlagTracker;
 import com.viaversion.viaversion.protocols.v1_21to1_21_2.storage.PlayerPositionStorage;
+import com.viaversion.viaversion.protocols.v1_21to1_21_2.storage.TeleportAckCancelStorage;
 import com.viaversion.viaversion.rewriter.EntityRewriter;
 import com.viaversion.viaversion.rewriter.RegistryDataRewriter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
@@ -63,6 +64,8 @@ public final class EntityPacketRewriter1_21_2 extends EntityRewriter<Clientbound
     };
     private static final float IMPULSE = 0.98F;
 
+    private final boolean isVF = Via.getPlatform().getPlatformName().equals("ViaFabric");
+
     public EntityPacketRewriter1_21_2(final Protocol1_21To1_21_2 protocol) {
         super(protocol);
     }
@@ -70,7 +73,7 @@ public final class EntityPacketRewriter1_21_2 extends EntityRewriter<Clientbound
     @Override
     public void registerPackets() {
         registerTrackerWithData1_19(ClientboundPackets1_21.ADD_ENTITY, EntityTypes1_21_2.FALLING_BLOCK);
-        registerSetEntityData(ClientboundPackets1_21.SET_ENTITY_DATA, Types1_21.ENTITY_DATA_LIST, Types1_21_2.ENTITY_DATA_LIST);
+        registerSetEntityData(ClientboundPackets1_21.SET_ENTITY_DATA);
         registerRemoveEntities(ClientboundPackets1_21.REMOVE_ENTITIES);
 
         protocol.appendClientbound(ClientboundPackets1_21.ADD_ENTITY, wrapper -> {
@@ -155,10 +158,10 @@ public final class EntityPacketRewriter1_21_2 extends EntityRewriter<Clientbound
             wrapper.passthrough(Types.BOOLEAN); // Flat
             wrapper.passthrough(Types.OPTIONAL_GLOBAL_POSITION); // Last death location
             wrapper.passthrough(Types.VAR_INT); // Portal cooldown
-
             wrapper.write(Types.VAR_INT, 64); // Sea level
+            final byte keepDataMask = wrapper.passthrough(Types.BYTE); // Keep data mask
 
-            final EntityTracker entityTracker = tracker(wrapper.user());
+            final EntityTracker1_21_2 entityTracker = tracker(wrapper.user());
             if (entityTracker.currentWorld() != null && !entityTracker.currentWorld().equals(world)) {
                 final ChunkLoadTracker chunkLoadTracker = wrapper.user().get(ChunkLoadTracker.class);
                 if (chunkLoadTracker != null) {
@@ -170,6 +173,49 @@ public final class EntityPacketRewriter1_21_2 extends EntityRewriter<Clientbound
 
             wrapper.user().put(new GroundFlagTracker());
             wrapper.user().remove(ClientVehicleStorage.class);
+
+            if ((keepDataMask & 1) == 0) { // If don't keep entity attributes
+                entityTracker.setPlayerMaxHealthAttributeValue(20F);
+            }
+            if ((keepDataMask & 2) != 0) { // <= 1.21.1 resets some player data even when keep entity data is set
+                final boolean isBundling = wrapper.user().get(BundleStateTracker.class).isBundling();
+                if (!isBundling) {
+                    final PacketWrapper bundleStart = wrapper.create(ClientboundPackets1_21_2.BUNDLE_DELIMITER);
+                    bundleStart.send(Protocol1_21To1_21_2.class);
+                }
+
+                wrapper.send(Protocol1_21To1_21_2.class);
+                wrapper.cancel();
+
+                final PacketWrapper entityDataPacket = wrapper.create(ClientboundPackets1_21_2.SET_ENTITY_DATA);
+                entityDataPacket.write(Types.VAR_INT, entityTracker.clientEntityId()); // Entity id
+                final List<EntityData> entityData = new ArrayList<>();
+                entityData.add(new EntityData(6 /*pose*/, VersionedTypes.V1_21_2.entityDataTypes.poseType, 0 /*standing*/));
+                entityData.add(new EntityData(9 /*health*/, VersionedTypes.V1_21_2.entityDataTypes.floatType, (float) entityTracker.playerMaxHealthAttributeValue()));
+                entityDataPacket.write(VersionedTypes.V1_21_2.entityDataList, entityData);
+                entityDataPacket.send(Protocol1_21To1_21_2.class);
+
+                final int teleportId = ThreadLocalRandom.current().nextInt();
+                wrapper.user().get(TeleportAckCancelStorage.class).cancelTeleportId(teleportId);
+
+                final PacketWrapper positionPacket = wrapper.create(ClientboundPackets1_21_2.PLAYER_POSITION);
+                positionPacket.write(Types.VAR_INT, teleportId); // Teleport id
+                positionPacket.write(Types.DOUBLE, 0D); // X
+                positionPacket.write(Types.DOUBLE, 0D); // Y
+                positionPacket.write(Types.DOUBLE, 0D); // Z
+                positionPacket.write(Types.DOUBLE, 0D); // Delta movement X
+                positionPacket.write(Types.DOUBLE, 0D); // Delta movement Y
+                positionPacket.write(Types.DOUBLE, 0D); // Delta movement Z
+                positionPacket.write(Types.FLOAT, -180F); // Y rot
+                positionPacket.write(Types.FLOAT, 0F); // X rot
+                positionPacket.write(Types.INT, 0b00000111); // Relative arguments
+                positionPacket.send(Protocol1_21To1_21_2.class);
+
+                if (!isBundling) {
+                    final PacketWrapper bundleEnd = wrapper.create(ClientboundPackets1_21_2.BUNDLE_DELIMITER);
+                    bundleEnd.send(Protocol1_21To1_21_2.class);
+                }
+            }
         });
 
         protocol.registerClientbound(ClientboundPackets1_21.PLAYER_POSITION, wrapper -> {
@@ -290,7 +336,14 @@ public final class EntityPacketRewriter1_21_2 extends EntityRewriter<Clientbound
                 updatedFlags |= 2;
             }
 
-            vehicleStorage.storeMovement(sidewaysMovement, forwardMovement, updatedFlags);
+            // Dirty workaround for https://github.com/ViaVersion/ViaVersion/issues/4508. TODO Check whether this is caused by Fabric API or something else
+            if (wrapper.user().isServerSide() && isVF) {
+                wrapper.write(Types.FLOAT, sidewaysMovement);
+                wrapper.write(Types.FLOAT, forwardMovement);
+                wrapper.write(Types.BYTE, flags);
+            } else {
+                vehicleStorage.storeMovement(sidewaysMovement, forwardMovement, updatedFlags);
+            }
         });
 
         protocol.registerClientbound(ClientboundPackets1_21.TELEPORT_ENTITY, ClientboundPackets1_21_2.ENTITY_POSITION_SYNC, wrapper -> {
@@ -351,7 +404,7 @@ public final class EntityPacketRewriter1_21_2 extends EntityRewriter<Clientbound
             handleOnGround(wrapper);
 
             final ClientVehicleStorage vehicleStorage = wrapper.user().get(ClientVehicleStorage.class);
-            if (vehicleStorage == null) {
+            if (vehicleStorage == null || (wrapper.user().isServerSide() && isVF)) {
                 return;
             }
 
@@ -381,6 +434,11 @@ public final class EntityPacketRewriter1_21_2 extends EntityRewriter<Clientbound
                 wrapper.sendToServer(Protocol1_21To1_21_2.class);
                 wrapper.cancel();
                 playerPositionStorage.sendMovePlayerPosRot(wrapper.user());
+                return;
+            }
+            final int teleportId = wrapper.passthrough(Types.VAR_INT); // Teleport id
+            if (wrapper.user().get(TeleportAckCancelStorage.class).checkShouldCancelTeleportAck(teleportId)) {
+                wrapper.cancel();
             }
         });
     }
@@ -437,16 +495,16 @@ public final class EntityPacketRewriter1_21_2 extends EntityRewriter<Clientbound
 
     @Override
     protected void registerRewrites() {
-        filter().mapDataType(Types1_21_2.ENTITY_DATA_TYPES::byId);
+        filter().mapDataType(VersionedTypes.V1_21_2.entityDataTypes::byId);
 
         registerEntityDataTypeHandler(
-            Types1_21_2.ENTITY_DATA_TYPES.itemType,
-            Types1_21_2.ENTITY_DATA_TYPES.blockStateType,
-            Types1_21_2.ENTITY_DATA_TYPES.optionalBlockStateType,
-            Types1_21_2.ENTITY_DATA_TYPES.particleType,
-            Types1_21_2.ENTITY_DATA_TYPES.particlesType,
-            Types1_21_2.ENTITY_DATA_TYPES.componentType,
-            Types1_21_2.ENTITY_DATA_TYPES.optionalComponentType
+            VersionedTypes.V1_21_2.entityDataTypes.itemType,
+            VersionedTypes.V1_21_2.entityDataTypes.blockStateType,
+            VersionedTypes.V1_21_2.entityDataTypes.optionalBlockStateType,
+            VersionedTypes.V1_21_2.entityDataTypes.particleType,
+            VersionedTypes.V1_21_2.entityDataTypes.particlesType,
+            VersionedTypes.V1_21_2.entityDataTypes.componentType,
+            VersionedTypes.V1_21_2.entityDataTypes.optionalComponentType
         );
         registerBlockStateHandler(EntityTypes1_21_2.ABSTRACT_MINECART, 11);
 
@@ -512,7 +570,7 @@ public final class EntityPacketRewriter1_21_2 extends EntityRewriter<Clientbound
             // Re-apply entity data previously set
             final PacketWrapper setEntityDataPacket = PacketWrapper.create(ClientboundPackets1_21_2.SET_ENTITY_DATA, event.user());
             setEntityDataPacket.write(Types.VAR_INT, event.entityId());
-            setEntityDataPacket.write(Types1_21_2.ENTITY_DATA_LIST, entity.entityData());
+            setEntityDataPacket.write(VersionedTypes.V1_21_2.entityDataList, entity.entityData());
             setEntityDataPacket.send(Protocol1_21To1_21_2.class);
 
             // Re-attach all passengers

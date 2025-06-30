@@ -73,12 +73,13 @@ import com.viaversion.viaversion.api.minecraft.item.data.SuspiciousStewEffect;
 import com.viaversion.viaversion.api.minecraft.item.data.ToolProperties;
 import com.viaversion.viaversion.api.minecraft.item.data.ToolRule;
 import com.viaversion.viaversion.api.minecraft.item.data.Unbreakable;
+import com.viaversion.viaversion.api.minecraft.item.data.WritableBook;
 import com.viaversion.viaversion.api.minecraft.item.data.WrittenBook;
 import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.api.type.types.chunk.ChunkType1_20_2;
 import com.viaversion.viaversion.api.type.types.version.Types1_20_3;
-import com.viaversion.viaversion.api.type.types.version.Types1_20_5;
+import com.viaversion.viaversion.api.type.types.version.VersionedTypes;
 import com.viaversion.viaversion.protocols.v1_20_2to1_20_3.packet.ClientboundPacket1_20_3;
 import com.viaversion.viaversion.protocols.v1_20_2to1_20_3.packet.ClientboundPackets1_20_3;
 import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.Protocol1_20_3To1_20_5;
@@ -96,6 +97,7 @@ import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.packet.ServerboundPac
 import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.packet.ServerboundPackets1_20_5;
 import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.storage.ArmorTrimStorage;
 import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.storage.BannerPatternStorage;
+import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.storage.TagKeys;
 import com.viaversion.viaversion.rewriter.BlockRewriter;
 import com.viaversion.viaversion.rewriter.ItemRewriter;
 import com.viaversion.viaversion.util.ComponentUtil;
@@ -128,7 +130,7 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
     private static final StatePropertyMatcher[] EMPTY_PROPERTY_MATCHERS = new StatePropertyMatcher[0];
 
     public BlockItemPacketRewriter1_20_5(final Protocol1_20_3To1_20_5 protocol) {
-        super(protocol, Types.ITEM1_20_2, Types.ITEM1_20_2_ARRAY, Types1_20_5.ITEM, Types1_20_5.ITEM_ARRAY);
+        super(protocol, Types.ITEM1_20_2, Types.ITEM1_20_2_ARRAY, VersionedTypes.V1_20_5.item, VersionedTypes.V1_20_5.itemArray);
     }
 
     @Override
@@ -261,7 +263,7 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
                 particle.add(Types.VAR_INT, protocol.getMappingData().getNewBlockStateId(blockStateId));
             } else if (mappings.isItemParticle(particleId)) {
                 final Item item = handleNonEmptyItemToClient(wrapper.user(), wrapper.read(Types.ITEM1_20_2));
-                particle.add(Types1_20_5.ITEM, item);
+                particle.add(VersionedTypes.V1_20_5.item, item);
             } else if (particleId == mappings.id("dust")) {
                 // R, g, b, scale
                 for (int i = 0; i < 4; i++) {
@@ -285,7 +287,7 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
                 particle.add(Types.VAR_INT, wrapper.read(Types.VAR_INT)); // Delay
             }
 
-            wrapper.write(Types1_20_5.PARTICLE, particle);
+            wrapper.write(VersionedTypes.V1_20_5.particle, particle);
         });
 
         protocol.registerClientbound(ClientboundPackets1_20_3.EXPLODE, wrapper -> {
@@ -304,8 +306,8 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
             wrapper.passthrough(Types.FLOAT); // Knockback Z
             wrapper.passthrough(Types.VAR_INT); // Block interaction type
 
-            final Particle smallExplosionParticle = wrapper.passthroughAndMap(Types1_20_3.PARTICLE, Types1_20_5.PARTICLE);
-            final Particle largeExplosionParticle = wrapper.passthroughAndMap(Types1_20_3.PARTICLE, Types1_20_5.PARTICLE);
+            final Particle smallExplosionParticle = wrapper.passthroughAndMap(Types1_20_3.PARTICLE, VersionedTypes.V1_20_5.particle);
+            final Particle largeExplosionParticle = wrapper.passthroughAndMap(Types1_20_3.PARTICLE, VersionedTypes.V1_20_5.particle);
             protocol.getParticleRewriter().rewriteParticle(wrapper.user(), smallExplosionParticle);
             protocol.getParticleRewriter().rewriteParticle(wrapper.user(), largeExplosionParticle);
 
@@ -319,10 +321,10 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
             final int size = wrapper.passthrough(Types.VAR_INT);
             for (int i = 0; i < size; i++) {
                 Item input = handleNonEmptyItemToClient(wrapper.user(), wrapper.read(Types.ITEM1_20_2));
-                wrapper.write(Types1_20_5.ITEM_COST, input);
+                wrapper.write(VersionedTypes.V1_20_5.itemCost, input);
 
                 final Item output = handleNonEmptyItemToClient(wrapper.user(), wrapper.read(Types.ITEM1_20_2));
-                wrapper.write(Types1_20_5.ITEM, output);
+                wrapper.write(VersionedTypes.V1_20_5.item, output);
 
                 Item secondInput = wrapper.read(Types.ITEM1_20_2);
                 if (secondInput != null) {
@@ -331,7 +333,7 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
                         secondInput = null;
                     }
                 }
-                wrapper.write(Types1_20_5.OPTIONAL_ITEM_COST, secondInput);
+                wrapper.write(VersionedTypes.V1_20_5.optionalItemCost, secondInput);
 
                 wrapper.passthrough(Types.BOOLEAN); // Out of stock
                 wrapper.passthrough(Types.INT); // Number of trade uses
@@ -449,12 +451,12 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
         updateDisplay(connection, data, tag.getCompoundTag("display"), hideFlagsValue);
 
         final NumberTag damage = tag.getNumberTag("Damage");
-        if (damage != null && damage.asInt() != 0) {
+        if (damage != null && damage.asInt() > 0) {
             data.set(StructuredDataKey.DAMAGE, damage.asInt());
         }
 
         final NumberTag repairCost = tag.getNumberTag("RepairCost");
-        if (repairCost != null && repairCost.asInt() != 0) {
+        if (repairCost != null && repairCost.asInt() > 0) {
             data.set(StructuredDataKey.REPAIR_COST, repairCost.asInt());
         }
 
@@ -573,9 +575,9 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
 
         updateMobTags(data, tag);
 
-        updateItemList(connection, data, tag, "ChargedProjectiles", StructuredDataKey.CHARGED_PROJECTILES1_20_5);
+        updateItemList(connection, data, tag, "ChargedProjectiles", StructuredDataKey.V1_20_5.chargedProjectiles);
         if (old.identifier() == 927) {
-            updateItemList(connection, data, tag, "Items", StructuredDataKey.BUNDLE_CONTENTS1_20_5);
+            updateItemList(connection, data, tag, "Items", StructuredDataKey.V1_20_5.bundleContents);
         }
 
         updateEnchantments(data, tag, "Enchantments", StructuredDataKey.ENCHANTMENTS1_20_5, (hideFlagsValue & StructuredDataConverter.HIDE_ENCHANTMENTS) == 0);
@@ -593,29 +595,14 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
 
         updateProfile(data, tag.get("SkullOwner"));
 
-        final CompoundTag customCreativeLock = tag.getCompoundTag("CustomCreativeLock");
-        if (customCreativeLock != null) {
-            data.set(StructuredDataKey.CREATIVE_SLOT_LOCK);
-        }
-
         final ListTag<StringTag> canPlaceOnTag = tag.getListTag("CanPlaceOn", StringTag.class);
         if (canPlaceOnTag != null) {
-            data.set(StructuredDataKey.CAN_PLACE_ON1_20_5, updateBlockPredicates(canPlaceOnTag, (hideFlagsValue & StructuredDataConverter.HIDE_CAN_PLACE_ON) == 0));
+            data.set(StructuredDataKey.CAN_PLACE_ON1_20_5, updateBlockPredicates(connection, canPlaceOnTag, (hideFlagsValue & StructuredDataConverter.HIDE_CAN_PLACE_ON) == 0));
         }
 
         final ListTag<StringTag> canDestroyTag = tag.getListTag("CanDestroy", StringTag.class);
         if (canDestroyTag != null) {
-            data.set(StructuredDataKey.CAN_BREAK1_20_5, updateBlockPredicates(canDestroyTag, (hideFlagsValue & StructuredDataConverter.HIDE_CAN_DESTROY) == 0));
-        }
-
-        final IntTag mapScaleDirectionTag = tag.getIntTag("map_scale_direction");
-        if (mapScaleDirectionTag != null) {
-            data.set(StructuredDataKey.MAP_POST_PROCESSING, 1); // Scale
-        } else {
-            final NumberTag mapToLockTag = tag.getNumberTag("map_to_lock");
-            if (mapToLockTag != null) {
-                data.set(StructuredDataKey.MAP_POST_PROCESSING, 0); // Lock
-            }
+            data.set(StructuredDataKey.CAN_BREAK1_20_5, updateBlockPredicates(connection, canDestroyTag, (hideFlagsValue & StructuredDataConverter.HIDE_CAN_DESTROY) == 0));
         }
 
         // Only for VB, but kept here for simplicity; In VV we back up the original tag and later restore it, in VB
@@ -816,16 +803,16 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
         data.set(StructuredDataKey.BANNER_PATTERNS, patternLayer.toArray(new BannerPatternLayer[0]));
     }
 
-    private AdventureModePredicate updateBlockPredicates(final ListTag<StringTag> tag, final boolean showInTooltip) {
+    private AdventureModePredicate updateBlockPredicates(final UserConnection connection, final ListTag<StringTag> tag, final boolean showInTooltip) {
         final BlockPredicate[] predicates = tag.stream()
             .map(StringTag::getValue)
-            .map(this::deserializeBlockPredicate)
+            .map(rawPredicate -> deserializeBlockPredicate(connection, rawPredicate))
             .filter(Objects::nonNull)
             .toArray(BlockPredicate[]::new);
         return new AdventureModePredicate(predicates, showInTooltip);
     }
 
-    private @Nullable BlockPredicate deserializeBlockPredicate(final String rawPredicate) {
+    private @Nullable BlockPredicate deserializeBlockPredicate(final UserConnection connection, final String rawPredicate) {
         final int propertiesStartIndex = rawPredicate.indexOf('[');
         final int tagStartIndex = rawPredicate.indexOf('{');
         int idLength = rawPredicate.length();
@@ -846,7 +833,12 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
 
             holders = HolderSet.of(new int[]{id});
         } else {
-            holders = HolderSet.of(identifier.substring(1));
+            final String tagKey = identifier.substring(1);
+            if (!connection.get(TagKeys.class).isValidIdentifier(tagKey)) {
+                return null;
+            }
+
+            holders = HolderSet.of(tagKey);
         }
 
         final int propertiesEndIndex = rawPredicate.indexOf(']');
@@ -1164,7 +1156,7 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
                 break;
             }
         }
-        data.set(StructuredDataKey.WRITABLE_BOOK_CONTENT, pages.toArray(new FilterableString[0]));
+        data.set(StructuredDataKey.WRITABLE_BOOK_CONTENT, new WritableBook(pages.toArray(new FilterableString[0])));
     }
 
     private void updateWrittenBookPages(final UserConnection connection, final StructuredDataContainer data, final CompoundTag tag) {
@@ -1483,7 +1475,7 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
 
             final StringTag noteBlockSoundTag = tag.getStringTag("note_block_sound");
             if (noteBlockSoundTag != null) {
-                data.set(StructuredDataKey.NOTE_BLOCK_SOUND, noteBlockSoundTag.getValue());
+                data.set(StructuredDataKey.NOTE_BLOCK_SOUND, Key.of(noteBlockSoundTag.getValue()));
                 addBlockEntityId(tag, "player_head");
             }
 
@@ -1531,7 +1523,7 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
                     }
                 }
 
-                data.set(StructuredDataKey.CONTAINER1_20_5, filteredItems);
+                data.set(StructuredDataKey.V1_20_5.container, filteredItems);
                 addBlockEntityId(tag, "shulker_box");
             }
         }

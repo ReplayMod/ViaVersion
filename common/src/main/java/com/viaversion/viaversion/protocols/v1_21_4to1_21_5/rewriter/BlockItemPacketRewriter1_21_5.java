@@ -24,6 +24,7 @@ import com.viaversion.nbt.tag.StringTag;
 import com.viaversion.nbt.tag.Tag;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.data.FullMappings;
+import com.viaversion.viaversion.api.data.MappingData;
 import com.viaversion.viaversion.api.data.Mappings;
 import com.viaversion.viaversion.api.data.entity.EntityTracker;
 import com.viaversion.viaversion.api.minecraft.EitherHolder;
@@ -61,12 +62,12 @@ import com.viaversion.viaversion.api.type.types.chunk.ChunkBiomesType1_19_4;
 import com.viaversion.viaversion.api.type.types.chunk.ChunkBiomesType1_21_5;
 import com.viaversion.viaversion.api.type.types.chunk.ChunkType1_20_2;
 import com.viaversion.viaversion.api.type.types.chunk.ChunkType1_21_5;
-import com.viaversion.viaversion.api.type.types.version.Types1_21_4;
-import com.viaversion.viaversion.api.type.types.version.Types1_21_5;
+import com.viaversion.viaversion.api.type.types.version.VersionedTypes;
 import com.viaversion.viaversion.protocol.packet.PacketWrapperImpl;
 import com.viaversion.viaversion.protocols.v1_21_4to1_21_5.Protocol1_21_4To1_21_5;
 import com.viaversion.viaversion.protocols.v1_21_4to1_21_5.packet.ServerboundPacket1_21_5;
 import com.viaversion.viaversion.protocols.v1_21_4to1_21_5.packet.ServerboundPackets1_21_5;
+import com.viaversion.viaversion.protocols.v1_21_4to1_21_5.storage.ItemHashStorage1_21_5;
 import com.viaversion.viaversion.protocols.v1_21to1_21_2.packet.ClientboundPacket1_21_2;
 import com.viaversion.viaversion.protocols.v1_21to1_21_2.packet.ClientboundPackets1_21_2;
 import com.viaversion.viaversion.rewriter.BlockRewriter;
@@ -75,6 +76,7 @@ import com.viaversion.viaversion.rewriter.StructuredItemRewriter;
 import com.viaversion.viaversion.util.Key;
 import com.viaversion.viaversion.util.Limit;
 import com.viaversion.viaversion.util.Unit;
+import it.unimi.dsi.fastutil.ints.Int2IntMap;
 import it.unimi.dsi.fastutil.ints.IntLinkedOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSortedSet;
 import java.util.ArrayList;
@@ -89,7 +91,7 @@ public final class BlockItemPacketRewriter1_21_5 extends StructuredItemRewriter<
 
     public static final List<StructuredDataKey<?>> HIDE_ADDITIONAL_KEYS = List.of(
         StructuredDataKey.BANNER_PATTERNS, StructuredDataKey.BEES, StructuredDataKey.BLOCK_ENTITY_DATA,
-        StructuredDataKey.BLOCK_STATE, StructuredDataKey.BUNDLE_CONTENTS1_21_5, StructuredDataKey.CHARGED_PROJECTILES1_21_5, StructuredDataKey.CONTAINER1_21_5,
+        StructuredDataKey.BLOCK_STATE, StructuredDataKey.V1_21_5.bundleContents, StructuredDataKey.V1_21_5.chargedProjectiles, StructuredDataKey.V1_21_5.container,
         StructuredDataKey.CONTAINER_LOOT, StructuredDataKey.FIREWORK_EXPLOSION, StructuredDataKey.FIREWORKS, StructuredDataKey.INSTRUMENT1_21_5, StructuredDataKey.MAP_ID,
         StructuredDataKey.PAINTING_VARIANT, StructuredDataKey.POT_DECORATIONS, StructuredDataKey.POTION_CONTENTS1_21_2, StructuredDataKey.TROPICAL_FISH_PATTERN,
         StructuredDataKey.WRITTEN_BOOK_CONTENT
@@ -113,10 +115,7 @@ public final class BlockItemPacketRewriter1_21_5 extends StructuredItemRewriter<
     private static final int HANGING_SIGN_BOCK_ENTITY_ID = 8;
 
     public BlockItemPacketRewriter1_21_5(final Protocol1_21_4To1_21_5 protocol) {
-        super(protocol,
-            Types1_21_4.ITEM, Types1_21_4.ITEM_ARRAY, Types1_21_5.ITEM, Types1_21_5.ITEM_ARRAY,
-            Types1_21_4.ITEM_COST, Types1_21_4.OPTIONAL_ITEM_COST, Types1_21_5.ITEM_COST, Types1_21_5.OPTIONAL_ITEM_COST
-        );
+        super(protocol);
     }
 
     @Override
@@ -167,7 +166,7 @@ public final class BlockItemPacketRewriter1_21_5 extends StructuredItemRewriter<
             }
         });
 
-        protocol.registerClientbound(ClientboundPackets1_21_2.SET_CURSOR_ITEM, this::passthroughClientboundItem);
+        registerSetCursorItem(ClientboundPackets1_21_2.SET_CURSOR_ITEM);
         registerSetPlayerInventory(ClientboundPackets1_21_2.SET_PLAYER_INVENTORY);
         registerCooldown1_21_2(ClientboundPackets1_21_2.COOLDOWN);
         registerSetContent1_21_2(ClientboundPackets1_21_2.CONTAINER_SET_CONTENT);
@@ -183,7 +182,7 @@ public final class BlockItemPacketRewriter1_21_5 extends StructuredItemRewriter<
 
             wrapper.passthrough(Types.SHORT); // Slot
 
-            final Item item = handleItemToServer(wrapper.user(), wrapper.read(Types1_21_5.LENGTH_PREFIXED_ITEM));
+            final Item item = handleItemToServer(wrapper.user(), wrapper.read(VersionedTypes.V1_21_5.lengthPrefixedItem()));
             wrapper.write(itemType(), item);
         });
 
@@ -194,18 +193,16 @@ public final class BlockItemPacketRewriter1_21_5 extends StructuredItemRewriter<
             wrapper.passthrough(Types.BYTE); // Button
             wrapper.passthrough(Types.VAR_INT); // Mode
 
-            // On a protocol level, there is no sane way for us to reconstruct the original item here if it has any extra data.
-            // Send them with just their id and amount, which simply forces the server to re-sync it if there is extra data.
-
+            // Try our best to get the actual item out of it - will be wrong for some data component types that don't have their conversion implemented
             final int affectedItems = Limit.max(wrapper.passthrough(Types.VAR_INT), 128);
             for (int i = 0; i < affectedItems; i++) {
                 wrapper.passthrough(Types.SHORT); // Slot
                 final HashedItem item = wrapper.read(Types.HASHED_ITEM);
-                wrapper.write(Types1_21_5.ITEM, handleItemToServer(wrapper.user(), this.convertHashedItemToStructuredItem(wrapper.user(), item)));
+                wrapper.write(VersionedTypes.V1_21_5.item, handleItemToServer(wrapper.user(), this.convertHashedItemToStructuredItem(wrapper.user(), item)));
             }
 
             final HashedItem carriedItem = wrapper.read(Types.HASHED_ITEM);
-            wrapper.write(Types1_21_5.ITEM, handleItemToServer(wrapper.user(), this.convertHashedItemToStructuredItem(wrapper.user(), carriedItem)));
+            wrapper.write(VersionedTypes.V1_21_5.item, handleItemToServer(wrapper.user(), this.convertHashedItemToStructuredItem(wrapper.user(), carriedItem)));
         });
 
         protocol.registerClientbound(ClientboundPackets1_21_2.UPDATE_ADVANCEMENTS, wrapper -> {
@@ -327,46 +324,62 @@ public final class BlockItemPacketRewriter1_21_5 extends StructuredItemRewriter<
 
     @Override
     public Item handleItemToClient(final UserConnection connection, final Item item) {
-        super.handleItemToClient(connection, item);
+        // Don't call super, not actually using ItemHasherBase
+        if (item.isEmpty()) {
+            return item;
+        }
+
+        final MappingData mappingData = protocol.getMappingData();
+        if (mappingData != null && mappingData.getItemMappings() != null) {
+            item.setIdentifier(mappingData.getNewItemId(item.identifier()));
+        }
 
         final StructuredDataContainer dataContainer = item.dataContainer();
+        updateItemDataComponentTypeIds(dataContainer, true);
+        handleRewritablesToClient(connection, dataContainer, null);
+
+        updateItemData(item);
+
+        handleItemDataComponentsToClient(connection, item, dataContainer);
+
         if (dataContainer.hasValue(StructuredDataKey.HIDE_ADDITIONAL_TOOLTIP)) {
             final CompoundTag backupTag = new CompoundTag();
             backupTag.putBoolean("hide_additional_tooltip", true);
             saveTag(createCustomTag(item), backupTag, "backup");
         }
 
-        updateItemData(item);
-
         // Add data components to fix issues in older protocols
         appendItemDataFixComponents(connection, item);
+
+        // Store the data components if necessary for the server, the client only sends data hashes now
+        final ItemHashStorage1_21_5 itemHasher = itemHasher(connection);
+        if (itemHasher.isProcessingClientboundInventoryPacket()) {
+            for (final StructuredData<?> data : dataContainer.data().values()) {
+                itemHasher.trackStructuredData(data);
+            }
+        }
+
         return item;
     }
 
     @Override
-    public Item handleItemToServer(final UserConnection connection, final Item item) {
-        super.handleItemToServer(connection, item);
-
-        final StructuredDataContainer dataContainer = item.dataContainer();
-        final CompoundTag customData = dataContainer.get(StructuredDataKey.CUSTOM_DATA);
-        if (customData != null && customData.remove(nbtTagName("backup")) instanceof final CompoundTag backupTag) {
-            if (backupTag.getBoolean("hide_additional_tooltip")) {
-                dataContainer.set(StructuredDataKey.HIDE_ADDITIONAL_TOOLTIP);
-            }
-            removeCustomTag(dataContainer, customData);
-        }
-
+    protected void handleItemDataComponentsToServer(final UserConnection connection, final Item item, final StructuredDataContainer container) {
         downgradeItemData(item);
-        return item;
+        super.handleItemDataComponentsToServer(connection, item, container);
+    }
+
+    @Override
+    protected void restoreBackupData(final Item item, final StructuredDataContainer container, final CompoundTag customData) {
+        super.restoreBackupData(item, container, customData);
+        if (customData.remove(nbtTagName("backup")) instanceof final CompoundTag backupTag) {
+            if (backupTag.getBoolean("hide_additional_tooltip")) {
+                container.set(StructuredDataKey.HIDE_ADDITIONAL_TOOLTIP);
+            }
+        }
     }
 
     public static void updateItemData(final Item item) {
         final StructuredDataContainer dataContainer = item.dataContainer();
-        dataContainer.replaceKey(StructuredDataKey.CHARGED_PROJECTILES1_21_4, StructuredDataKey.CHARGED_PROJECTILES1_21_5);
-        dataContainer.replaceKey(StructuredDataKey.BUNDLE_CONTENTS1_21_4, StructuredDataKey.BUNDLE_CONTENTS1_21_5);
-        dataContainer.replaceKey(StructuredDataKey.CONTAINER1_21_4, StructuredDataKey.CONTAINER1_21_5);
-        dataContainer.replaceKey(StructuredDataKey.USE_REMAINDER1_21_4, StructuredDataKey.USE_REMAINDER1_21_5);
-
         dataContainer.replaceKey(StructuredDataKey.TOOL1_20_5, StructuredDataKey.TOOL1_21_5);
         dataContainer.replaceKey(StructuredDataKey.EQUIPPABLE1_21_2, StructuredDataKey.EQUIPPABLE1_21_5);
         dataContainer.replace(StructuredDataKey.INSTRUMENT1_21_2, StructuredDataKey.INSTRUMENT1_21_5, EitherHolder::of);
@@ -431,8 +444,8 @@ public final class BlockItemPacketRewriter1_21_5 extends StructuredItemRewriter<
         }
 
         dataContainer.replace(StructuredDataKey.UNBREAKABLE1_20_5, StructuredDataKey.UNBREAKABLE1_21_5, unbreakable -> Unit.INSTANCE);
-        dataContainer.replace(StructuredDataKey.CAN_PLACE_ON1_20_5, StructuredDataKey.CAN_PLACE_ON1_21_5, BlockItemPacketRewriter1_21_5::updateAdventureModePredicate);
-        dataContainer.replace(StructuredDataKey.CAN_BREAK1_20_5, StructuredDataKey.CAN_BREAK1_21_5, BlockItemPacketRewriter1_21_5::updateAdventureModePredicate);
+        dataContainer.replace(StructuredDataKey.CAN_PLACE_ON1_20_5, StructuredDataKey.V1_21_5.canPlaceOn, BlockItemPacketRewriter1_21_5::updateAdventureModePredicate);
+        dataContainer.replace(StructuredDataKey.CAN_BREAK1_20_5, StructuredDataKey.V1_21_5.canBreak, BlockItemPacketRewriter1_21_5::updateAdventureModePredicate);
         dataContainer.replaceKey(StructuredDataKey.JUKEBOX_PLAYABLE1_21, StructuredDataKey.JUKEBOX_PLAYABLE1_21_5);
         dataContainer.replaceKey(StructuredDataKey.DYED_COLOR1_20_5, StructuredDataKey.DYED_COLOR1_21_5);
         dataContainer.replaceKey(StructuredDataKey.ATTRIBUTE_MODIFIERS1_21, StructuredDataKey.ATTRIBUTE_MODIFIERS1_21_5);
@@ -454,11 +467,6 @@ public final class BlockItemPacketRewriter1_21_5 extends StructuredItemRewriter<
 
     public static void downgradeItemData(final Item item) {
         final StructuredDataContainer dataContainer = item.dataContainer();
-        dataContainer.replaceKey(StructuredDataKey.CHARGED_PROJECTILES1_21_5, StructuredDataKey.CHARGED_PROJECTILES1_21_4);
-        dataContainer.replaceKey(StructuredDataKey.BUNDLE_CONTENTS1_21_5, StructuredDataKey.BUNDLE_CONTENTS1_21_4);
-        dataContainer.replaceKey(StructuredDataKey.CONTAINER1_21_5, StructuredDataKey.CONTAINER1_21_4);
-        dataContainer.replaceKey(StructuredDataKey.USE_REMAINDER1_21_5, StructuredDataKey.USE_REMAINDER1_21_4);
-
         dataContainer.replaceKey(StructuredDataKey.TOOL1_21_5, StructuredDataKey.TOOL1_20_5);
         dataContainer.replaceKey(StructuredDataKey.EQUIPPABLE1_21_5, StructuredDataKey.EQUIPPABLE1_21_2);
         dataContainer.replace(StructuredDataKey.INSTRUMENT1_21_5, StructuredDataKey.INSTRUMENT1_21_2, instrument -> instrument.hasHolder() ? instrument.holder() : null);
@@ -474,15 +482,28 @@ public final class BlockItemPacketRewriter1_21_5 extends StructuredItemRewriter<
         updateShowInTooltip(dataContainer, tooltipDisplay, StructuredDataKey.TRIM1_21_5, StructuredDataKey.TRIM1_21_4, trim -> new ArmorTrim(trim.material(), trim.pattern(), false));
         updateShowInTooltip(dataContainer, tooltipDisplay, StructuredDataKey.ENCHANTMENTS1_21_5, StructuredDataKey.ENCHANTMENTS1_20_5, enchantments -> new Enchantments(enchantments.enchantments(), false));
         updateShowInTooltip(dataContainer, tooltipDisplay, StructuredDataKey.STORED_ENCHANTMENTS1_21_5, StructuredDataKey.STORED_ENCHANTMENTS1_20_5, enchantments -> new Enchantments(enchantments.enchantments(), false));
-        updateShowInTooltip(dataContainer, tooltipDisplay, StructuredDataKey.CAN_PLACE_ON1_21_5, StructuredDataKey.CAN_PLACE_ON1_20_5, canPlaceOn -> new AdventureModePredicate(canPlaceOn.predicates(), false));
-        updateShowInTooltip(dataContainer, tooltipDisplay, StructuredDataKey.CAN_BREAK1_21_5, StructuredDataKey.CAN_BREAK1_20_5, canBreak -> new AdventureModePredicate(canBreak.predicates(), false));
+        updateShowInTooltip(dataContainer, tooltipDisplay, StructuredDataKey.V1_21_5.canPlaceOn, StructuredDataKey.CAN_PLACE_ON1_20_5, canPlaceOn -> new AdventureModePredicate(canPlaceOn.predicates(), false));
+        updateShowInTooltip(dataContainer, tooltipDisplay, StructuredDataKey.V1_21_5.canBreak, StructuredDataKey.CAN_BREAK1_20_5, canBreak -> new AdventureModePredicate(canBreak.predicates(), false));
         updateShowInTooltip(dataContainer, tooltipDisplay, StructuredDataKey.JUKEBOX_PLAYABLE1_21_5, StructuredDataKey.JUKEBOX_PLAYABLE1_21, playable -> new JukeboxPlayable(playable.song(), false));
 
         dataContainer.remove(NEW_DATA_TO_REMOVE);
     }
 
     private StructuredItem convertHashedItemToStructuredItem(final UserConnection connection, final HashedItem hashedItem) {
-        return new StructuredItem(hashedItem.identifier(), hashedItem.amount());
+        final StructuredItem item = new StructuredItem(hashedItem.identifier(), hashedItem.amount());
+        final ItemHashStorage1_21_5 hasher = itemHasher(connection);
+        final Map<StructuredDataKey<?>, StructuredData<?>> structuredDataMap = item.dataContainer().data();
+        for (final Int2IntMap.Entry hashEntry : hashedItem.dataHashesById().int2IntEntrySet()) {
+            final StructuredData<?> structuredData = hasher.dataFromHash(hashEntry.getIntKey(), hashEntry.getIntValue());
+            if (structuredData != null) {
+                structuredDataMap.put(structuredData.key(), structuredData);
+            }
+        }
+        for (final int dataId : hashedItem.removedDataIds()) {
+            final StructuredDataKey<?> structuredDataKey = VersionedTypes.V1_21_5.structuredData.key(dataId);
+            structuredDataMap.put(structuredDataKey, StructuredData.empty(structuredDataKey, dataId));
+        }
+        return item;
     }
 
     private void appendItemDataFixComponents(final UserConnection connection, final Item item) {

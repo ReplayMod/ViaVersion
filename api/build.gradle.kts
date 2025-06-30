@@ -24,13 +24,16 @@ dependencies {
     }
     implementation(rootProject.libs.text) {
         exclude("com.google.code.gson", "gson")
-        exclude("com.google.guava", "guava")
         exclude("com.viaversion", "nbt")
     }
     api(libs.snakeYaml)
 
     compileOnlyApi(libs.netty)
-    compileOnlyApi(libs.guava)
+    compileOnlyApi(libs.guava) {
+        exclude("com.google.errorprone", "error_prone_annotations")
+        exclude("org.jspecify", "jspecify")
+        exclude("com.google.j2objc", "j2objc-annotations")
+    }
     compileOnlyApi(libs.checkerQual)
 }
 

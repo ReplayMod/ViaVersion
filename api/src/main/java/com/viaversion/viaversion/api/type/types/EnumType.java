@@ -20,25 +20,46 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package com.viaversion.viaversion.api.type.types.version;
+package com.viaversion.viaversion.api.type.types;
 
-import com.viaversion.viaversion.api.minecraft.chunks.ChunkSection;
-import com.viaversion.viaversion.api.minecraft.entitydata.EntityData;
-import com.viaversion.viaversion.api.type.Type;
-import com.viaversion.viaversion.api.type.types.chunk.ChunkSectionType1_9;
-import com.viaversion.viaversion.api.type.types.entitydata.EntityDataListType;
-import com.viaversion.viaversion.api.type.types.entitydata.EntityDataType1_9;
-import java.util.List;
+import com.viaversion.viaversion.api.minecraft.codec.Ops;
+import com.viaversion.viaversion.api.type.Types;
+import com.viaversion.viaversion.util.MathUtil;
 
-public final class Types1_9 {
-    /**
-     * Entity data type for 1.9
-     */
-    public static final Type<EntityData> ENTITY_DATA = new EntityDataType1_9();
-    /**
-     * Entity data list type for 1.9
-     */
-    public static final Type<List<EntityData>> ENTITY_DATA_LIST = new EntityDataListType(ENTITY_DATA);
+public final class EnumType extends VarIntType {
 
-    public static final Type<ChunkSection> CHUNK_SECTION = new ChunkSectionType1_9();
+    private final String[] names;
+    private final Fallback fallback;
+
+    public EnumType(final String... names) {
+        this(Fallback.ZERO, names);
+    }
+
+    public EnumType(final Fallback fallback, final String... names) {
+        this.names = names;
+        this.fallback = fallback;
+    }
+
+    @Override
+    public void write(final Ops ops, final Integer value) {
+        final String name;
+        if (value < 0 || value >= names.length) {
+            name = switch (fallback) {
+                case ZERO -> names[0];
+                case WRAP -> names[Math.floorMod(value, names.length)];
+                case CLAMP -> names[MathUtil.clamp(value, 0, names.length - 1)];
+            };
+        } else {
+            name = names[value];
+        }
+        Types.STRING.write(ops, name);
+    }
+
+    public String[] names() {
+        return names;
+    }
+
+    public enum Fallback {
+        ZERO, WRAP, CLAMP
+    }
 }

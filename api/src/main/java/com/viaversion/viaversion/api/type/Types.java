@@ -41,7 +41,9 @@ import com.viaversion.viaversion.api.minecraft.Vector;
 import com.viaversion.viaversion.api.minecraft.Vector3f;
 import com.viaversion.viaversion.api.minecraft.VillagerData;
 import com.viaversion.viaversion.api.minecraft.blockentity.BlockEntity;
+import com.viaversion.viaversion.api.minecraft.chunks.ChunkSection;
 import com.viaversion.viaversion.api.minecraft.chunks.Heightmap;
+import com.viaversion.viaversion.api.minecraft.entitydata.EntityData;
 import com.viaversion.viaversion.api.minecraft.item.HashedItem;
 import com.viaversion.viaversion.api.minecraft.item.Item;
 import com.viaversion.viaversion.api.minecraft.item.data.Enchantments;
@@ -76,7 +78,15 @@ import com.viaversion.viaversion.api.type.types.block.BlockChangeRecordType;
 import com.viaversion.viaversion.api.type.types.block.BlockEntityType1_18;
 import com.viaversion.viaversion.api.type.types.block.BlockEntityType1_20_2;
 import com.viaversion.viaversion.api.type.types.block.VarLongBlockChangeRecordType;
+import com.viaversion.viaversion.api.type.types.chunk.ChunkSectionType1_13;
+import com.viaversion.viaversion.api.type.types.chunk.ChunkSectionType1_16;
+import com.viaversion.viaversion.api.type.types.chunk.ChunkSectionType1_8;
+import com.viaversion.viaversion.api.type.types.chunk.ChunkSectionType1_9;
 import com.viaversion.viaversion.api.type.types.chunk.HeightmapType;
+import com.viaversion.viaversion.api.type.types.entitydata.EntityDataListType;
+import com.viaversion.viaversion.api.type.types.entitydata.EntityDataType1_12;
+import com.viaversion.viaversion.api.type.types.entitydata.EntityDataType1_8;
+import com.viaversion.viaversion.api.type.types.entitydata.EntityDataType1_9;
 import com.viaversion.viaversion.api.type.types.item.HashedItemType1_21_5;
 import com.viaversion.viaversion.api.type.types.item.ItemShortArrayType1_13;
 import com.viaversion.viaversion.api.type.types.item.ItemShortArrayType1_13_2;
@@ -97,14 +107,21 @@ import com.viaversion.viaversion.api.type.types.misc.CompoundTagType;
 import com.viaversion.viaversion.api.type.types.misc.GameProfileType;
 import com.viaversion.viaversion.api.type.types.misc.HolderSetType;
 import com.viaversion.viaversion.api.type.types.misc.HolderType;
+import com.viaversion.viaversion.api.type.types.misc.KeyType;
+import com.viaversion.viaversion.api.type.types.misc.LengthPrefixedTagType;
 import com.viaversion.viaversion.api.type.types.misc.NamedCompoundTagType;
 import com.viaversion.viaversion.api.type.types.misc.PlayerMessageSignatureType;
 import com.viaversion.viaversion.api.type.types.misc.ProfileKeyType;
+import com.viaversion.viaversion.api.type.types.misc.ProfilePropertyType;
 import com.viaversion.viaversion.api.type.types.misc.SoundEventType;
+import com.viaversion.viaversion.api.type.types.misc.TagKeyType;
 import com.viaversion.viaversion.api.type.types.misc.TagType;
+import com.viaversion.viaversion.api.type.types.misc.TextComponentTagType;
 import com.viaversion.viaversion.api.type.types.misc.VillagerDataType;
 import com.viaversion.viaversion.api.type.types.version.Types1_20_5;
+import com.viaversion.viaversion.util.Key;
 import com.viaversion.viaversion.util.Unit;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -162,6 +179,11 @@ public final class Types {
     /* MC Types */
     public static final Type<byte[]> SERVERBOUND_CUSTOM_PAYLOAD_DATA = new RemainingBytesType(Short.MAX_VALUE);
 
+    public static final Type<Key> RESOURCE_LOCATION = new KeyType();
+    public static final Type<Key> OPTIONAL_RESOURCE_LOCATION = new KeyType.OptionalKeyType();
+    public static final Type<Key[]> RESOURCE_LOCATION_ARRAY = new ArrayType<>(RESOURCE_LOCATION);
+    public static final Type<Key> TAG_KEY = new TagKeyType();
+
     public static final Type<BlockPosition> BLOCK_POSITION1_8 = new BlockPositionType1_8();
     public static final Type<BlockPosition> OPTIONAL_POSITION1_8 = new BlockPositionType1_8.OptionalBlockPositionType();
     public static final Type<BlockPosition> BLOCK_POSITION1_14 = new BlockPositionType1_14();
@@ -179,10 +201,17 @@ public final class Types {
     public static final Type<Tag> TAG = new TagType();
     public static final Type<Tag[]> TAG_ARRAY = new ArrayType<>(TAG);
     public static final Type<Tag> OPTIONAL_TAG = new TagType.OptionalTagType();
+    public static final Type<Tag> TEXT_COMPONENT_TAG = new TextComponentTagType(); // only strictly needed for hashing
+    public static final Type<Tag> CUSTOM_CLICK_ACTION_TAG = new LengthPrefixedTagType(65536);
 
     public static final Type<GlobalBlockPosition> GLOBAL_POSITION = new GlobalBlockPositionType();
     public static final Type<GlobalBlockPosition> OPTIONAL_GLOBAL_POSITION = new GlobalBlockPositionType.OptionalGlobalPositionType();
     public static final Type<ChunkPosition> CHUNK_POSITION = new ChunkPositionType();
+
+    public static final Type<ChunkSection> CHUNK_SECTION1_8 = new ChunkSectionType1_8();
+    public static final Type<ChunkSection> CHUNK_SECTION1_9 = new ChunkSectionType1_9();
+    public static final Type<ChunkSection> CHUNK_SECTION1_13 = new ChunkSectionType1_13();
+    public static final Type<ChunkSection> CHUNK_SECTION1_16 = new ChunkSectionType1_16();
 
     public static final Type<BlockEntity> BLOCK_ENTITY1_18 = new BlockEntityType1_18();
     public static final Type<BlockEntity> BLOCK_ENTITY1_20_2 = new BlockEntityType1_20_2();
@@ -195,6 +224,8 @@ public final class Types {
     public static final Type<VillagerData> VILLAGER_DATA = new VillagerDataType();
 
     public static final Type<GameProfile> GAME_PROFILE = new GameProfileType();
+    public static final Type<GameProfile.Property> PROFILE_PROPERTY = new ProfilePropertyType();
+    public static final Type<GameProfile.Property[]> PROFILE_PROPERTY_ARRAY = new ArrayType<>(PROFILE_PROPERTY);
     public static final Type<ProfileKey> PROFILE_KEY = new ProfileKeyType();
     public static final Type<ProfileKey> OPTIONAL_PROFILE_KEY = new ProfileKeyType.OptionalProfileKeyType();
 
@@ -221,6 +252,14 @@ public final class Types {
 
     public static final Type<Heightmap> HEIGHTMAP = new HeightmapType();
     public static final Type<Heightmap[]> HEIGHTMAP_ARRAY = new ArrayType<>(HEIGHTMAP);
+
+    public static final Type<EntityData> ENTITY_DATA1_8 = new EntityDataType1_8();
+    public static final Type<EntityData> ENTITY_DATA1_9 = new EntityDataType1_9();
+    public static final Type<EntityData> ENTITY_DATA1_12 = new EntityDataType1_12();
+
+    public static final Type<List<EntityData>> ENTITY_DATA_LIST1_8 = new EntityDataListType(ENTITY_DATA1_8);
+    public static final Type<List<EntityData>> ENTITY_DATA_LIST1_9 = new EntityDataListType(ENTITY_DATA1_9);
+    public static final Type<List<EntityData>> ENTITY_DATA_LIST1_12 = new EntityDataListType(ENTITY_DATA1_12);
 
     // No longer used past 1.20.2
     public static final Type<Item> ITEM1_8 = new ItemType1_8();

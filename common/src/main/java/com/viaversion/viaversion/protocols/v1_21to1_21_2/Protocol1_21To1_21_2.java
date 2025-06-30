@@ -22,6 +22,7 @@ import com.viaversion.viaversion.api.data.MappingData;
 import com.viaversion.viaversion.api.data.MappingDataBase;
 import com.viaversion.viaversion.api.minecraft.data.StructuredDataKey;
 import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_21_2;
+import com.viaversion.viaversion.api.minecraft.item.data.ChatType;
 import com.viaversion.viaversion.api.protocol.AbstractProtocol;
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.protocol.packet.State;
@@ -31,7 +32,8 @@ import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import com.viaversion.viaversion.api.rewriter.ComponentRewriter;
 import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.api.type.types.misc.ParticleType;
-import com.viaversion.viaversion.api.type.types.version.Types1_21_2;
+import com.viaversion.viaversion.api.type.types.version.VersionedTypes;
+import com.viaversion.viaversion.api.type.types.version.VersionedTypesHolder;
 import com.viaversion.viaversion.protocols.base.ClientboundLoginPackets;
 import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.packet.ServerboundConfigurationPackets1_20_5;
 import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.packet.ServerboundPacket1_20_5;
@@ -52,11 +54,17 @@ import com.viaversion.viaversion.protocols.v1_21to1_21_2.storage.ChunkLoadTracke
 import com.viaversion.viaversion.protocols.v1_21to1_21_2.storage.EntityTracker1_21_2;
 import com.viaversion.viaversion.protocols.v1_21to1_21_2.storage.GroundFlagTracker;
 import com.viaversion.viaversion.protocols.v1_21to1_21_2.storage.PlayerPositionStorage;
+import com.viaversion.viaversion.protocols.v1_21to1_21_2.storage.TeleportAckCancelStorage;
 import com.viaversion.viaversion.rewriter.AttributeRewriter;
 import com.viaversion.viaversion.rewriter.SoundRewriter;
 import com.viaversion.viaversion.rewriter.StatisticsRewriter;
 import com.viaversion.viaversion.rewriter.TagRewriter;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.BitSet;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 import static com.viaversion.viaversion.util.ProtocolUtil.packetTypeMap;
 
@@ -91,6 +99,7 @@ public final class Protocol1_21To1_21_2 extends AbstractProtocol<ClientboundPack
         componentRewriter.registerPlayerCombatKill1_20(ClientboundPackets1_21.PLAYER_COMBAT_KILL);
         componentRewriter.registerComponentPacket(ClientboundPackets1_21.SYSTEM_CHAT);
         componentRewriter.registerDisguisedChat(ClientboundPackets1_21.DISGUISED_CHAT);
+        componentRewriter.registerPlayerChat(ClientboundPackets1_21.PLAYER_CHAT, ChatType.TYPE);
         componentRewriter.registerPing();
 
         particleRewriter.registerLevelParticles1_20_5(ClientboundPackets1_21.LEVEL_PARTICLES);
@@ -110,14 +119,7 @@ public final class Protocol1_21To1_21_2 extends AbstractProtocol<ClientboundPack
         registerClientbound(State.LOGIN, ClientboundLoginPackets.LOGIN_FINISHED, wrapper -> {
             wrapper.passthrough(Types.UUID); // UUID
             wrapper.passthrough(Types.STRING); // Name
-
-            final int properties = wrapper.passthrough(Types.VAR_INT);
-            for (int i = 0; i < properties; i++) {
-                wrapper.passthrough(Types.STRING); // Name
-                wrapper.passthrough(Types.STRING); // Value
-                wrapper.passthrough(Types.OPTIONAL_STRING); // Signature
-            }
-
+            wrapper.passthrough(Types.PROFILE_PROPERTY_ARRAY);
             wrapper.read(Types.BOOLEAN); // Strict error handling
         });
 
@@ -144,13 +146,7 @@ public final class Protocol1_21To1_21_2 extends AbstractProtocol<ClientboundPack
                 wrapper.passthrough(Types.UUID);
                 if (actions.get(0)) {
                     wrapper.passthrough(Types.STRING); // Player Name
-
-                    final int properties = wrapper.passthrough(Types.VAR_INT);
-                    for (int j = 0; j < properties; j++) {
-                        wrapper.passthrough(Types.STRING); // Name
-                        wrapper.passthrough(Types.STRING); // Value
-                        wrapper.passthrough(Types.OPTIONAL_STRING); // Signature
-                    }
+                    wrapper.passthrough(Types.PROFILE_PROPERTY_ARRAY);
                 }
                 if (actions.get(1) && wrapper.passthrough(Types.BOOLEAN)) {
                     wrapper.passthrough(Types.UUID); // Session UUID
@@ -166,6 +162,52 @@ public final class Protocol1_21To1_21_2 extends AbstractProtocol<ClientboundPack
                     wrapper.passthrough(Types.VAR_INT); // Latency
                 }
                 componentRewriter.processTag(wrapper.user(), wrapper.passthrough(Types.OPTIONAL_TAG));
+            }
+        });
+
+        appendClientbound(ClientboundPackets1_21.UPDATE_ATTRIBUTES, wrapper -> {
+            wrapper.resetReader();
+            final int entityId = wrapper.passthrough(Types.VAR_INT);
+            final EntityTracker1_21_2 entityTracker = wrapper.user().getEntityTracker(Protocol1_21To1_21_2.class);
+            if (entityId != entityTracker.clientEntityId()) {
+                return;
+            }
+
+            final int size = wrapper.passthrough(Types.VAR_INT);
+            for (int i = 0; i < size; i++) {
+                final int attributeId = wrapper.passthrough(Types.VAR_INT);
+                if (attributeId == 18) { // generic.max_health
+                    final double base = wrapper.passthrough(Types.DOUBLE); // Base
+                    final int modifierSize = wrapper.passthrough(Types.VAR_INT);
+                    final Int2ObjectMap<Map<String, Double>> attributeModifiers = new Int2ObjectOpenHashMap<>();
+                    for (int j = 0; j < modifierSize; j++) {
+                        final String modifierId = wrapper.passthrough(Types.STRING); // ID
+                        final double amount = wrapper.passthrough(Types.DOUBLE); // Amount
+                        final byte operation = wrapper.passthrough(Types.BYTE); // Operation
+                        attributeModifiers.computeIfAbsent(operation, k -> new HashMap<>()).put(modifierId, amount);
+                    }
+
+                    double v1 = base;
+                    for (Double value : attributeModifiers.getOrDefault(0, Collections.emptyMap()).values()) { // ADD_VALUE
+                        v1 += value;
+                    }
+                    double v2 = v1;
+                    for (Double value : attributeModifiers.getOrDefault(1, Collections.emptyMap()).values()) { // ADD_MULTIPLIED_BASE
+                        v2 += v1 * value;
+                    }
+                    for (Double value : attributeModifiers.getOrDefault(2, Collections.emptyMap()).values()) { // ADD_MULTIPLIED_TOTAL
+                        v2 *= 1D + value;
+                    }
+                    entityTracker.setPlayerMaxHealthAttributeValue(Math.max(1D, Math.min(1024D, v2)));
+                } else {
+                    wrapper.passthrough(Types.DOUBLE); // Base
+                    final int modifierSize = wrapper.passthrough(Types.VAR_INT);
+                    for (int j = 0; j < modifierSize; j++) {
+                        wrapper.passthrough(Types.STRING); // ID
+                        wrapper.passthrough(Types.DOUBLE); // Amount
+                        wrapper.passthrough(Types.BYTE); // Operation
+                    }
+                }
             }
         });
 
@@ -194,7 +236,7 @@ public final class Protocol1_21To1_21_2 extends AbstractProtocol<ClientboundPack
     @Override
     protected void onMappingDataLoaded() {
         EntityTypes1_21_2.initialize(this);
-        Types1_21_2.PARTICLE.filler(this)
+        VersionedTypes.V1_21_2.particle.filler(this)
             .reader("block", ParticleType.Readers.BLOCK)
             .reader("block_marker", ParticleType.Readers.BLOCK)
             .reader("dust_pillar", ParticleType.Readers.BLOCK)
@@ -207,8 +249,8 @@ public final class Protocol1_21To1_21_2 extends AbstractProtocol<ClientboundPack
             .reader("shriek", ParticleType.Readers.SHRIEK)
             .reader("entity_effect", ParticleType.Readers.COLOR)
             .reader("trail", ParticleType.Readers.TRAIL1_21_2)
-            .reader("item", ParticleType.Readers.item(Types1_21_2.ITEM));
-        Types1_21_2.STRUCTURED_DATA.filler(this).add(StructuredDataKey.CUSTOM_DATA, StructuredDataKey.MAX_STACK_SIZE, StructuredDataKey.MAX_DAMAGE,
+            .reader("item", ParticleType.Readers.item(VersionedTypes.V1_21_2.item));
+        VersionedTypes.V1_21_2.structuredData.filler(this).add(StructuredDataKey.CUSTOM_DATA, StructuredDataKey.MAX_STACK_SIZE, StructuredDataKey.MAX_DAMAGE,
             StructuredDataKey.UNBREAKABLE1_20_5, StructuredDataKey.RARITY, StructuredDataKey.HIDE_TOOLTIP, StructuredDataKey.DAMAGE_RESISTANT,
             StructuredDataKey.CUSTOM_NAME, StructuredDataKey.LORE, StructuredDataKey.ENCHANTMENTS1_20_5, StructuredDataKey.CAN_PLACE_ON1_20_5,
             StructuredDataKey.CAN_BREAK1_20_5, StructuredDataKey.CUSTOM_MODEL_DATA1_20_5, StructuredDataKey.HIDE_ADDITIONAL_TOOLTIP,
@@ -225,9 +267,7 @@ public final class Protocol1_21To1_21_2 extends AbstractProtocol<ClientboundPack
             StructuredDataKey.FOOD1_21_2, StructuredDataKey.JUKEBOX_PLAYABLE1_21, StructuredDataKey.ATTRIBUTE_MODIFIERS1_21,
             StructuredDataKey.REPAIRABLE, StructuredDataKey.ENCHANTABLE, StructuredDataKey.CONSUMABLE1_21_2,
             StructuredDataKey.USE_COOLDOWN, StructuredDataKey.DAMAGE, StructuredDataKey.EQUIPPABLE1_21_2, StructuredDataKey.ITEM_MODEL,
-            StructuredDataKey.GLIDER, StructuredDataKey.TOOLTIP_STYLE, StructuredDataKey.DEATH_PROTECTION,
-            // Volatile thanks to containing item
-            StructuredDataKey.CHARGED_PROJECTILES1_21_2, StructuredDataKey.BUNDLE_CONTENTS1_21_2, StructuredDataKey.CONTAINER1_21_2, StructuredDataKey.USE_REMAINDER1_21_2);
+            StructuredDataKey.GLIDER, StructuredDataKey.TOOLTIP_STYLE, StructuredDataKey.DEATH_PROTECTION);
         super.onMappingDataLoaded();
     }
 
@@ -236,6 +276,7 @@ public final class Protocol1_21To1_21_2 extends AbstractProtocol<ClientboundPack
         addEntityTracker(connection, new EntityTracker1_21_2(connection));
         connection.put(new BundleStateTracker());
         connection.put(new GroundFlagTracker());
+        connection.put(new TeleportAckCancelStorage());
 
         final ProtocolVersion protocolVersion = connection.getProtocolInfo().protocolVersion();
         if (protocolVersion.olderThan(ProtocolVersion.v1_21_4)) { // Only needed for 1.21.2/1.21.3
@@ -282,6 +323,16 @@ public final class Protocol1_21To1_21_2 extends AbstractProtocol<ClientboundPack
 
     public SoundRewriter<ClientboundPacket1_21> getSoundRewriter() {
         return soundRewriter;
+    }
+
+    @Override
+    public VersionedTypesHolder types() {
+        return VersionedTypes.V1_21;
+    }
+
+    @Override
+    public VersionedTypesHolder mappedTypes() {
+        return VersionedTypes.V1_21_2;
     }
 
     @Override

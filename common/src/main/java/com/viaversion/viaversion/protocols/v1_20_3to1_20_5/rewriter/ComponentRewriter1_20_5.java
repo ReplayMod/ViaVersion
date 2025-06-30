@@ -70,6 +70,7 @@ import com.viaversion.viaversion.api.minecraft.item.data.SuspiciousStewEffect;
 import com.viaversion.viaversion.api.minecraft.item.data.ToolProperties;
 import com.viaversion.viaversion.api.minecraft.item.data.ToolRule;
 import com.viaversion.viaversion.api.minecraft.item.data.Unbreakable;
+import com.viaversion.viaversion.api.minecraft.item.data.WritableBook;
 import com.viaversion.viaversion.api.minecraft.item.data.WrittenBook;
 import com.viaversion.viaversion.api.protocol.Protocol;
 import com.viaversion.viaversion.api.protocol.packet.ClientboundPacketType;
@@ -147,8 +148,8 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Js
         register(StructuredDataKey.MAP_ID, this::mapIdToTag, this::mapIdFromTag);
         register(StructuredDataKey.MAP_DECORATIONS, this::mapDecorationsToTag, this::mapDecorationsFromTag);
         registerEmpty(StructuredDataKey.MAP_POST_PROCESSING);
-        register(StructuredDataKey.CHARGED_PROJECTILES1_20_5, this::chargedProjectilesToTag, this::chargedProjectilesFromTag);
-        register(StructuredDataKey.BUNDLE_CONTENTS1_20_5, this::bundleContentsToTag, this::bundleContentsFromTag);
+        register(StructuredDataKey.V1_20_5.chargedProjectiles, this::chargedProjectilesToTag, this::chargedProjectilesFromTag);
+        register(StructuredDataKey.V1_20_5.bundleContents, this::bundleContentsToTag, this::bundleContentsFromTag);
         register(StructuredDataKey.POTION_CONTENTS1_20_5, this::potionContentsToTag, this::potionContentsFromTag);
         register(StructuredDataKey.SUSPICIOUS_STEW_EFFECTS, this::suspiciousStewEffectsToTag, this::suspiciousStewEffectsFromTag);
         register(StructuredDataKey.WRITABLE_BOOK_CONTENT, this::writableBookContentToTag, this::writableBookContentFromTag);
@@ -169,7 +170,7 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Js
         register(StructuredDataKey.BANNER_PATTERNS, this::bannerPatternsToTag, this::bannerPatternsFromTag);
         register(StructuredDataKey.BASE_COLOR, this::baseColorToTag, this::baseColorFromTag);
         register(StructuredDataKey.POT_DECORATIONS, this::potDecorationsToTag, this::potDecorationsFromTag);
-        register(StructuredDataKey.CONTAINER1_20_5, this::containerToTag, this::containerFromTag);
+        register(StructuredDataKey.V1_20_5.container, this::containerToTag, this::containerFromTag);
         register(StructuredDataKey.BLOCK_STATE, this::blockStateToTag, this::blockStateFromTag);
         register(StructuredDataKey.BEES, this::beesToTag, this::beesFromTag);
         register(StructuredDataKey.LOCK, this::lockToTag, this::lockFromTag);
@@ -877,18 +878,18 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Js
         return list.toArray(SuspiciousStewEffect[]::new);
     }
 
-    protected CompoundTag writableBookContentToTag(final FilterableString[] value) {
+    protected CompoundTag writableBookContentToTag(final WritableBook value) {
         final CompoundTag tag = new CompoundTag();
         if (value == null) {
             return tag;
         }
 
-        if (value.length > 100) {
-            throw new IllegalArgumentException("Too many pages: " + value.length);
+        if (value.pages().length > 100) {
+            throw new IllegalArgumentException("Too many pages: " + value.pages().length);
         }
 
         final ListTag<CompoundTag> pagesTag = new ListTag<>(CompoundTag.class);
-        for (final FilterableString page : value) {
+        for (final FilterableString page : value.pages()) {
             final CompoundTag pageTag = new CompoundTag();
             filterableStringToTag(pageTag, page, 1024);
             pagesTag.add(pageTag);
@@ -897,7 +898,7 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Js
         return tag;
     }
 
-    protected FilterableString[] writableBookContentFromTag(final Tag tag) {
+    protected WritableBook writableBookContentFromTag(final Tag tag) {
         final CompoundTag value = (CompoundTag) tag;
 
         final ListTag<CompoundTag> pagesTag = value.getListTag("pages", CompoundTag.class);
@@ -909,7 +910,7 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Js
         for (int i = 0; i < pagesTag.size(); i++) {
             pages[i] = filterableStringFromTag(pagesTag.get(i));
         }
-        return pages;
+        return new WritableBook(pages);
     }
 
     protected CompoundTag writtenBookContentToTag(final WrittenBook value) {
@@ -1251,12 +1252,12 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Js
         return new GameProfile(name, id, properties);
     }
 
-    protected StringTag noteBlockSoundToTag(final String value) {
-        return identifierToTag(value);
+    protected StringTag noteBlockSoundToTag(final Key value) {
+        return new StringTag(value.original());
     }
 
-    protected String noteBlockSoundFromTag(final Tag value) {
-        return identifierFromTag((StringTag) value);
+    protected Key noteBlockSoundFromTag(final Tag value) {
+        return Key.of(((StringTag) value).getValue());
     }
 
     protected ListTag<CompoundTag> bannerPatternsToTag(final BannerPatternLayer[] value) {

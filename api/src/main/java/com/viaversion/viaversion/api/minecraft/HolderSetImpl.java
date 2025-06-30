@@ -67,11 +67,17 @@ final class HolderSetImpl {
 
         @Override
         public HolderSet rewrite(final Int2IntFunction idRewriter) {
+            // Filter out negative ids as they would come from missing VB mapping data. This happens especially
+            // with block ids which are not mapped and thus written as -1 so VV rewriters can cancel them nicely.
             final int[] mappedIds = new int[ids.length];
-            for (int i = 0; i < mappedIds.length; i++) {
-                mappedIds[i] = idRewriter.applyAsInt(ids[i]);
+            int validCount = 0;
+            for (final int id : ids) {
+                final int mappedId = idRewriter.applyAsInt(id);
+                if (mappedId != -1) {
+                    mappedIds[validCount++] = mappedId;
+                }
             }
-            return new Ids(mappedIds);
+            return new Ids(validCount == ids.length ? mappedIds : Arrays.copyOf(mappedIds, validCount));
         }
 
         @Override

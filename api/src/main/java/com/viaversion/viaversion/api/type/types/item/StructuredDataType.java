@@ -24,12 +24,15 @@ package com.viaversion.viaversion.api.type.types.item;
 
 import com.google.common.base.Preconditions;
 import com.viaversion.viaversion.api.data.FullMappings;
+import com.viaversion.viaversion.api.data.item.ItemHasher;
+import com.viaversion.viaversion.api.minecraft.codec.Ops;
 import com.viaversion.viaversion.api.minecraft.data.StructuredData;
 import com.viaversion.viaversion.api.minecraft.data.StructuredDataKey;
 import com.viaversion.viaversion.api.protocol.Protocol;
 import com.viaversion.viaversion.api.type.Type;
 import com.viaversion.viaversion.api.type.Types;
 import io.netty.buffer.ByteBuf;
+import java.util.Collection;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 public class StructuredDataType extends Type<StructuredData<?>> implements StructuredDataTypeBase {
@@ -62,12 +65,27 @@ public class StructuredDataType extends Type<StructuredData<?>> implements Struc
         return id >= 0 && id < types.length ? types[id] : null;
     }
 
+    @Override
+    public void write(final Ops ops, final StructuredData<?> data) {
+        if (data.isPresent() && ops.context().isSupported(data.key())) {
+            writeGeneric(ops, data);
+        }
+    }
+
+    private <V> void writeGeneric(final Ops ops, final StructuredData<V> data) {
+        data.key().type().write(ops, data.value());
+    }
+
     <T> StructuredData<T> readData(final ByteBuf buffer, final StructuredDataKey<T> key, final int id) {
         return StructuredData.of(key, key.type().read(buffer), id);
     }
 
     public DataFiller filler(final Protocol<?, ?, ?, ?> protocol) {
-        return new DataFiller(protocol);
+        final DataFiller filler = new DataFiller(protocol);
+        if (protocol.mappedTypes() != null) {
+            filler.add(protocol.mappedTypes().structuredDataKeys().keys());
+        }
+        return filler;
     }
 
     public final class DataFiller {
@@ -90,6 +108,13 @@ public class StructuredDataType extends Type<StructuredData<?>> implements Struc
         }
 
         public DataFiller add(final StructuredDataKey<?>... keys) {
+            for (final StructuredDataKey<?> key : keys) {
+                add(key);
+            }
+            return this;
+        }
+
+        public DataFiller add(final Collection<StructuredDataKey<?>> keys) {
             for (final StructuredDataKey<?> key : keys) {
                 add(key);
             }

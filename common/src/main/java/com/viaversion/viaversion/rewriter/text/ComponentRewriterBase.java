@@ -112,13 +112,7 @@ public abstract class ComponentRewriterBase<C extends ClientboundPacketType> imp
                 wrapper.passthrough(Types.UUID);
                 if (actions.get(0)) {
                     wrapper.passthrough(Types.STRING); // Player Name
-
-                    final int properties = wrapper.passthrough(Types.VAR_INT);
-                    for (int j = 0; j < properties; j++) {
-                        wrapper.passthrough(Types.STRING); // Name
-                        wrapper.passthrough(Types.STRING); // Value
-                        wrapper.passthrough(Types.OPTIONAL_STRING); // Signature
-                    }
+                    wrapper.passthrough(Types.PROFILE_PROPERTY_ARRAY);
                 }
                 if (actions.get(1) && wrapper.passthrough(Types.BOOLEAN)) {
                     wrapper.passthrough(Types.UUID); // Session UUID
@@ -301,6 +295,19 @@ public abstract class ComponentRewriterBase<C extends ClientboundPacketType> imp
         if (mappedId != null) {
             idTag.setValue(mappedId);
         }
+
+        if (componentsTag == null) {
+            return;
+        }
+
+        handleWrittenBookContents(connection, componentsTag);
+        handleContainerContents(connection, componentsTag);
+        handleItemArrayContents(connection, componentsTag, "bundle_contents");
+        handleItemArrayContents(connection, componentsTag, "charged_projectiles");
+        final CompoundTag useRemainder = TagUtil.getNamespacedCompoundTag(componentsTag, "use_remainder");
+        if (useRemainder != null) {
+            handleShowItem(connection, useRemainder);
+        }
     }
 
     protected void handleContainerContents(final UserConnection connection, final CompoundTag tag) {
@@ -338,7 +345,7 @@ public abstract class ComponentRewriterBase<C extends ClientboundPacketType> imp
         }
 
         for (final CompoundTag itemTag : container) {
-            handleShowItem(connection, itemTag, itemTag.getCompoundTag("components"));
+            handleShowItem(connection, itemTag);
         }
     }
 

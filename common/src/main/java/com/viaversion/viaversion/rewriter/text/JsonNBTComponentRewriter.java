@@ -26,10 +26,10 @@ import com.viaversion.nbt.tag.Tag;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.protocol.Protocol;
 import com.viaversion.viaversion.api.protocol.packet.ClientboundPacketType;
+import com.viaversion.viaversion.api.type.Type;
 import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.util.ComponentUtil;
 import com.viaversion.viaversion.util.SerializerVersion;
-import com.viaversion.viaversion.util.TagUtil;
 import java.util.BitSet;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
@@ -97,13 +97,7 @@ public class JsonNBTComponentRewriter<C extends ClientboundPacketType> extends C
                 wrapper.passthrough(Types.UUID);
                 if (actions.get(0)) {
                     wrapper.passthrough(Types.STRING); // Player Name
-
-                    final int properties = wrapper.passthrough(Types.VAR_INT);
-                    for (int j = 0; j < properties; j++) {
-                        wrapper.passthrough(Types.STRING); // Name
-                        wrapper.passthrough(Types.STRING); // Value
-                        wrapper.passthrough(Types.OPTIONAL_STRING); // Signature
-                    }
+                    wrapper.passthrough(Types.PROFILE_PROPERTY_ARRAY);
                 }
                 if (actions.get(1) && wrapper.passthrough(Types.BOOLEAN)) {
                     wrapper.passthrough(Types.UUID); // Session UUID
@@ -120,6 +114,36 @@ public class JsonNBTComponentRewriter<C extends ClientboundPacketType> extends C
                 }
                 processTag(wrapper.user(), wrapper.passthrough(Types.OPTIONAL_TAG));
             }
+        });
+    }
+
+    public void registerPlayerChat(final C packetType, final Type<?> chatType) {
+        protocol.registerClientbound(packetType, wrapper -> {
+            wrapper.passthrough(Types.UUID); // Sender
+            wrapper.passthrough(Types.VAR_INT); // Index
+            wrapper.passthrough(Types.OPTIONAL_SIGNATURE_BYTES); // Signature
+            wrapper.passthrough(Types.STRING); // Plain content
+            wrapper.passthrough(Types.LONG); // Timestamp
+            wrapper.passthrough(Types.LONG); // Salt
+
+            final int lastSeen = wrapper.passthrough(Types.VAR_INT);
+            for (int i = 0; i < lastSeen; i++) {
+                final int index = wrapper.passthrough(Types.VAR_INT);
+                if (index == 0) {
+                    wrapper.passthrough(Types.SIGNATURE_BYTES);
+                }
+            }
+
+            processTag(wrapper.user(), wrapper.passthrough(Types.OPTIONAL_TAG)); // Unsigned content
+
+            final int filterMaskType = wrapper.passthrough(Types.VAR_INT);
+            if (filterMaskType == 2) { // Partially filtered
+                wrapper.passthrough(Types.LONG_ARRAY_PRIMITIVE); // Mask
+            }
+
+            wrapper.passthrough(chatType); // Chat Type
+            processTag(wrapper.user(), wrapper.passthrough(Types.TAG)); // Name
+            processTag(wrapper.user(), wrapper.passthrough(Types.OPTIONAL_TAG)); // Target Name
         });
     }
 
@@ -171,24 +195,9 @@ public class JsonNBTComponentRewriter<C extends ClientboundPacketType> extends C
             convertLegacyItemContents(hoverEventTag);
 
             final CompoundTag contentsTag = hoverEventTag.getCompoundTag("contents");
-            if (contentsTag == null) {
-                return;
-            }
-
-            final CompoundTag componentsTag = contentsTag.getCompoundTag("components");
-            handleShowItem(connection, contentsTag, componentsTag);
-            if (componentsTag != null) {
-                final CompoundTag useRemainder = TagUtil.getNamespacedCompoundTag(componentsTag, "use_remainder");
-                if (useRemainder != null) {
-                    handleShowItem(connection, useRemainder);
-                }
-                handleContainerContents(connection, componentsTag);
-                if (inputSerializerVersion() != null) {
-                    handleWrittenBookContents(connection, componentsTag);
-                }
-
-                handleItemArrayContents(connection, componentsTag, "bundle_contents");
-                handleItemArrayContents(connection, componentsTag, "charged_projectiles");
+            if (contentsTag != null) {
+                final CompoundTag componentsTag = contentsTag.getCompoundTag("components");
+                handleShowItem(connection, contentsTag, componentsTag);
             }
         }
     }
@@ -208,6 +217,13 @@ public class JsonNBTComponentRewriter<C extends ClientboundPacketType> extends C
         processTag(connection, asTag);
 
         tag.setValue(output.toString(output.toComponent(asTag)));
+    }
+
+    @Override
+    protected void handleWrittenBookContents(final UserConnection connection, final CompoundTag tag) {
+        if (inputSerializerVersion() != null) {
+            super.handleWrittenBookContents(connection, tag);
+        }
     }
 
     @Override
