@@ -72,16 +72,20 @@ public class ConnectionManagerImpl implements ConnectionManager {
     @Override
     public void onDisconnect(UserConnection connection) {
         Objects.requireNonNull(connection, "connection is null!");
+        connection.setActive(false);
+
         connections.remove(connection);
 
         UUID id = connection.getProtocolInfo().getUuid();
         if (connection.isServerSide()) {
-            serverConnections.remove(id);
+            serverConnections.remove(id, connection);
         } else {
-            clientConnections.remove(id);
+            clientConnections.remove(id, connection);
         }
 
-        connection.clearStoredObjects();
+        // There might be a packet still going through the handlers after we set the connection as inactive
+        // Make sure that we remove stored objects after those have been handled, otherwise this might introduce NPEs
+        connection.getChannel().eventLoop().execute(connection::clearStoredObjects);
     }
 
     @Override

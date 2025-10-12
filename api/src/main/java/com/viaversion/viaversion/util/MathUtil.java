@@ -25,6 +25,11 @@ package com.viaversion.viaversion.util;
 public final class MathUtil {
 
     /**
+     * Miniscule value below which positive floats are considered zero
+     */
+    public static final float EPSILON = 1.0E-5F;
+
+    /**
      * Returns the ceiled integer value of the given float.
      *
      * @param value float value to ceil
@@ -45,6 +50,11 @@ public final class MathUtil {
         return i > 0 ? 32 - Integer.numberOfLeadingZeros(i - 1) : 0;
     }
 
+    public static long ceilLong(final double d) {
+        final long l = (long) d;
+        return d > l ? l + 1 : l;
+    }
+
     /**
      * Returns the clamped number within the given range.
      *
@@ -58,5 +68,12 @@ public final class MathUtil {
             return min;
         }
         return i > max ? max : i;
+    }
+
+    public static double clamp(final double d, final double min, final double max) {
+        if (d < min) {
+            return min;
+        }
+        return d > max ? max : d;
     }
 }

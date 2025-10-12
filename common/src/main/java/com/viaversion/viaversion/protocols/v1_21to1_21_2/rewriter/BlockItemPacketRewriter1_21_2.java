@@ -45,6 +45,7 @@ import com.viaversion.viaversion.api.minecraft.item.data.FoodProperties1_20_5;
 import com.viaversion.viaversion.api.minecraft.item.data.FoodProperties1_21_2;
 import com.viaversion.viaversion.api.minecraft.item.data.Instrument1_20_5;
 import com.viaversion.viaversion.api.minecraft.item.data.Instrument1_21_2;
+import com.viaversion.viaversion.api.minecraft.item.data.LockCode;
 import com.viaversion.viaversion.api.minecraft.item.data.PotionEffect;
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.type.Types;
@@ -58,6 +59,7 @@ import com.viaversion.viaversion.protocols.v1_21to1_21_2.packet.ServerboundPacke
 import com.viaversion.viaversion.protocols.v1_21to1_21_2.packet.ServerboundPackets1_21_2;
 import com.viaversion.viaversion.protocols.v1_21to1_21_2.storage.BundleStateTracker;
 import com.viaversion.viaversion.protocols.v1_21to1_21_2.storage.ChunkLoadTracker;
+import com.viaversion.viaversion.protocols.v1_21to1_21_2.storage.LastExplosionPowerStorage;
 import com.viaversion.viaversion.rewriter.BlockRewriter;
 import com.viaversion.viaversion.rewriter.StructuredItemRewriter;
 import com.viaversion.viaversion.util.ComponentUtil;
@@ -205,6 +207,12 @@ public final class BlockItemPacketRewriter1_21_2 extends StructuredItemRewriter<
                 final int y = centerY + wrapper.read(Types.BYTE); // Relative Y
                 final int z = centerZ + wrapper.read(Types.BYTE); // Relative Z
                 affectedBlocks.add(new BlockPosition(x, y, z));
+            }
+
+            final LastExplosionPowerStorage lastExplosionPowerStorage = wrapper.user().get(LastExplosionPowerStorage.class);
+            if (lastExplosionPowerStorage != null) {
+                lastExplosionPowerStorage.setPower(power);
+                lastExplosionPowerStorage.setAffectedBlocks(affectedBlocks.size());
             }
 
             final float knockbackX = wrapper.read(Types.FLOAT);
@@ -562,14 +570,14 @@ public final class BlockItemPacketRewriter1_21_2 extends StructuredItemRewriter<
         });
         dataContainer.replaceKey(StructuredDataKey.POTION_CONTENTS1_20_5, StructuredDataKey.POTION_CONTENTS1_21_2);
         dataContainer.replace(StructuredDataKey.FIRE_RESISTANT, StructuredDataKey.DAMAGE_RESISTANT, fireResistant -> new DamageResistant(Key.of("minecraft:is_fire")));
-        dataContainer.replace(StructuredDataKey.LOCK, tag -> {
+        dataContainer.replace(StructuredDataKey.LOCK1_20_5, StructuredDataKey.LOCK1_21_2, tag -> {
             final String lock = ((StringTag) tag).getValue();
             final CompoundTag predicateTag = new CompoundTag();
             final CompoundTag itemComponentsTag = new CompoundTag();
             predicateTag.put("components", itemComponentsTag);
             // As json here...
             itemComponentsTag.putString("custom_name", ComponentUtil.plainToJson(lock).toString());
-            return predicateTag;
+            return new LockCode(predicateTag);
         });
         dataContainer.replace(StructuredDataKey.TRIM1_20_5, StructuredDataKey.TRIM1_21_2, trim -> {
             // TODO Rewrite from int to string id via sent registry
@@ -582,15 +590,20 @@ public final class BlockItemPacketRewriter1_21_2 extends StructuredItemRewriter<
 
     public static void downgradeItemData(final Item item) {
         final StructuredDataContainer dataContainer = item.dataContainer();
-        dataContainer.replace(StructuredDataKey.LOCK, StructuredDataKey.LOCK, lock -> {
-            final CompoundTag predicateTag = (CompoundTag) lock;
+        dataContainer.replace(StructuredDataKey.LOCK1_21_2, StructuredDataKey.LOCK1_20_5, lock -> {
+            final CompoundTag predicateTag = lock.tag();
             final CompoundTag itemComponentsTag = predicateTag.getCompoundTag("components");
-            if (itemComponentsTag != null) {
-                // Back from json in the string tag to plain text
-                final StringTag customName = TagUtil.getNamespacedStringTag(itemComponentsTag, "custom_name");
-                return new StringTag(SerializerVersion.V1_20_5.toComponent(customName.getValue()).asUnformattedString());
+            if (itemComponentsTag == null) {
+                return null;
             }
-            return null;
+
+            // Back from json in the string tag to plain text
+            final StringTag customName = TagUtil.getNamespacedStringTag(itemComponentsTag, "custom_name");
+            if (customName == null) {
+                return null;
+            }
+
+            return new StringTag(SerializerVersion.V1_20_5.toComponent(customName.getValue()).asUnformattedString());
         });
         dataContainer.replace(StructuredDataKey.INSTRUMENT1_21_2, StructuredDataKey.INSTRUMENT1_20_5, instrument -> {
             if (instrument.hasId()) {

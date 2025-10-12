@@ -45,6 +45,16 @@ public interface CodecContext {
 
         Key dataComponentType(int id);
 
+        Key entity(int id);
+
+        Key blockEntity(int id);
+
+        Key sound(int id);
+
+        Key key(MappingData.MappingType mappingType, int id);
+
+        int id(MappingData.MappingType mappingType, String identifier);
+
         static RegistryAccess of(final List<String> enchantments, final MappingData mappingData) {
             return new RegistryAccessImpl(enchantments, mappingData);
         }

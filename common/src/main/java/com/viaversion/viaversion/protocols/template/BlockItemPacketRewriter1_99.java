@@ -22,11 +22,11 @@ import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.minecraft.data.StructuredDataContainer;
 import com.viaversion.viaversion.api.minecraft.item.Item;
 import com.viaversion.viaversion.api.type.types.chunk.ChunkType1_21_5;
-import com.viaversion.viaversion.protocols.v1_21_2to1_21_4.packet.ServerboundPacket1_21_4;
-import com.viaversion.viaversion.protocols.v1_21_2to1_21_4.packet.ServerboundPackets1_21_4;
 import com.viaversion.viaversion.protocols.v1_21_4to1_21_5.rewriter.RecipeDisplayRewriter1_21_5;
-import com.viaversion.viaversion.protocols.v1_21to1_21_2.packet.ClientboundPacket1_21_2;
-import com.viaversion.viaversion.protocols.v1_21to1_21_2.packet.ClientboundPackets1_21_2;
+import com.viaversion.viaversion.protocols.v1_21_5to1_21_6.packet.ClientboundPacket1_21_6;
+import com.viaversion.viaversion.protocols.v1_21_5to1_21_6.packet.ClientboundPackets1_21_6;
+import com.viaversion.viaversion.protocols.v1_21_5to1_21_6.packet.ServerboundPacket1_21_6;
+import com.viaversion.viaversion.protocols.v1_21_5to1_21_6.packet.ServerboundPackets1_21_6;
 import com.viaversion.viaversion.rewriter.BlockRewriter;
 import com.viaversion.viaversion.rewriter.RecipeDisplayRewriter;
 import com.viaversion.viaversion.rewriter.StructuredItemRewriter;
@@ -35,7 +35,7 @@ import com.viaversion.viaversion.rewriter.StructuredItemRewriter;
 //   ChunkType1_21_5
 //   RecipeDisplayRewriter
 //   Types1_21_4, Types1_OLD
-final class BlockItemPacketRewriter1_99 extends StructuredItemRewriter<ClientboundPacket1_21_2, ServerboundPacket1_21_4, Protocol1_98To1_99> {
+final class BlockItemPacketRewriter1_99 extends StructuredItemRewriter<ClientboundPacket1_21_6, ServerboundPacket1_21_6, Protocol1_98To1_99> {
 
     public BlockItemPacketRewriter1_99(final Protocol1_98To1_99 protocol) {
         super(protocol);
@@ -46,32 +46,32 @@ final class BlockItemPacketRewriter1_99 extends StructuredItemRewriter<Clientbou
         // Register block and block state id changes
         // Other places using block state id mappings: Spawn particle, entity data, entity spawn (falling blocks)
         // Tags and statistics use block (!) ids
-        final BlockRewriter<ClientboundPacket1_21_2> blockRewriter = BlockRewriter.for1_20_2(protocol);
-        blockRewriter.registerBlockEvent(ClientboundPackets1_21_2.BLOCK_EVENT);
-        blockRewriter.registerBlockUpdate(ClientboundPackets1_21_2.BLOCK_UPDATE);
-        blockRewriter.registerSectionBlocksUpdate1_20(ClientboundPackets1_21_2.SECTION_BLOCKS_UPDATE);
-        blockRewriter.registerLevelEvent1_21(ClientboundPackets1_21_2.LEVEL_EVENT, 2001);
-        blockRewriter.registerLevelChunk1_19(ClientboundPackets1_21_2.LEVEL_CHUNK_WITH_LIGHT, ChunkType1_21_5::new);
-        blockRewriter.registerBlockEntityData(ClientboundPackets1_21_2.BLOCK_ENTITY_DATA);
+        final BlockRewriter<ClientboundPacket1_21_6> blockRewriter = BlockRewriter.for1_20_2(protocol);
+        blockRewriter.registerBlockEvent(ClientboundPackets1_21_6.BLOCK_EVENT);
+        blockRewriter.registerBlockUpdate(ClientboundPackets1_21_6.BLOCK_UPDATE);
+        blockRewriter.registerSectionBlocksUpdate1_20(ClientboundPackets1_21_6.SECTION_BLOCKS_UPDATE);
+        blockRewriter.registerLevelEvent1_21(ClientboundPackets1_21_6.LEVEL_EVENT, 2001);
+        blockRewriter.registerLevelChunk1_19(ClientboundPackets1_21_6.LEVEL_CHUNK_WITH_LIGHT, ChunkType1_21_5::new);
+        blockRewriter.registerBlockEntityData(ClientboundPackets1_21_6.BLOCK_ENTITY_DATA);
 
         // Registers item id changes
         // Other places using item ids are: Entity data, tags, statistics, effect
-        // registerOpenScreen(ClientboundPackets1_21_2.OPEN_SCREEN); If a new container type was added; also remove from the component rewriter registration
-        registerSetCursorItem(ClientboundPackets1_21_2.SET_CURSOR_ITEM);
-        registerSetPlayerInventory(ClientboundPackets1_21_2.SET_PLAYER_INVENTORY);
-        registerCooldown1_21_2(ClientboundPackets1_21_2.COOLDOWN);
-        registerSetContent1_21_2(ClientboundPackets1_21_2.CONTAINER_SET_CONTENT);
-        registerSetSlot1_21_2(ClientboundPackets1_21_2.CONTAINER_SET_SLOT);
-        registerAdvancements1_20_3(ClientboundPackets1_21_2.UPDATE_ADVANCEMENTS);
-        registerSetEquipment(ClientboundPackets1_21_2.SET_EQUIPMENT);
-        registerMerchantOffers1_20_5(ClientboundPackets1_21_2.MERCHANT_OFFERS);
-        registerContainerClick1_21_5(ServerboundPackets1_21_4.CONTAINER_CLICK);
-        registerSetCreativeModeSlot1_21_5(ServerboundPackets1_21_4.SET_CREATIVE_MODE_SLOT);
+        // registerOpenScreen(ClientboundPackets1_21_6.OPEN_SCREEN); If a new container type was added; also remove from the component rewriter registration
+        registerSetCursorItem(ClientboundPackets1_21_6.SET_CURSOR_ITEM);
+        registerSetPlayerInventory(ClientboundPackets1_21_6.SET_PLAYER_INVENTORY);
+        registerCooldown1_21_2(ClientboundPackets1_21_6.COOLDOWN);
+        registerSetContent1_21_2(ClientboundPackets1_21_6.CONTAINER_SET_CONTENT);
+        registerSetSlot1_21_2(ClientboundPackets1_21_6.CONTAINER_SET_SLOT);
+        registerAdvancements1_20_3(ClientboundPackets1_21_6.UPDATE_ADVANCEMENTS);
+        registerSetEquipment(ClientboundPackets1_21_6.SET_EQUIPMENT);
+        registerMerchantOffers1_20_5(ClientboundPackets1_21_6.MERCHANT_OFFERS);
+        registerContainerClick1_21_5(ServerboundPackets1_21_6.CONTAINER_CLICK);
+        registerSetCreativeModeSlot1_21_5(ServerboundPackets1_21_6.SET_CREATIVE_MODE_SLOT);
 
-        final RecipeDisplayRewriter<ClientboundPacket1_21_2> recipeRewriter = new RecipeDisplayRewriter1_21_5<>(protocol);
-        recipeRewriter.registerUpdateRecipes(ClientboundPackets1_21_2.UPDATE_RECIPES);
-        recipeRewriter.registerRecipeBookAdd(ClientboundPackets1_21_2.RECIPE_BOOK_ADD);
-        recipeRewriter.registerPlaceGhostRecipe(ClientboundPackets1_21_2.PLACE_GHOST_RECIPE);
+        final RecipeDisplayRewriter<ClientboundPacket1_21_6> recipeRewriter = new RecipeDisplayRewriter1_21_5<>(protocol);
+        recipeRewriter.registerUpdateRecipes(ClientboundPackets1_21_6.UPDATE_RECIPES);
+        recipeRewriter.registerRecipeBookAdd(ClientboundPackets1_21_6.RECIPE_BOOK_ADD);
+        recipeRewriter.registerPlaceGhostRecipe(ClientboundPackets1_21_6.PLACE_GHOST_RECIPE);
         // OR do this if serialization of recipes changed and override the relevant method
         // Add new serializers to RecipeDisplayRewriter, or extend the last one for changes
     }

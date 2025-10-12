@@ -52,6 +52,7 @@ import com.viaversion.viaversion.api.minecraft.item.data.BannerPatternLayer;
 import com.viaversion.viaversion.api.minecraft.item.data.Bee;
 import com.viaversion.viaversion.api.minecraft.item.data.BlockPredicate;
 import com.viaversion.viaversion.api.minecraft.item.data.BlockStateProperties;
+import com.viaversion.viaversion.api.minecraft.item.data.DebugStickState;
 import com.viaversion.viaversion.api.minecraft.item.data.DyedColor;
 import com.viaversion.viaversion.api.minecraft.item.data.Enchantments;
 import com.viaversion.viaversion.api.minecraft.item.data.FilterableComponent;
@@ -155,25 +156,25 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Js
         register(StructuredDataKey.WRITABLE_BOOK_CONTENT, this::writableBookContentToTag, this::writableBookContentFromTag);
         register(StructuredDataKey.WRITTEN_BOOK_CONTENT, this::writtenBookContentToTag, this::writtenBookContentFromTag);
         register(StructuredDataKey.TRIM1_20_5, this::trimToTag, this::trimFromTag);
-        register(StructuredDataKey.DEBUG_STICK_STATE, this::debugStickRateToTag, this::debugStickRateFromTag);
-        register(StructuredDataKey.ENTITY_DATA, this::entityDataToTag, this::entityDataFromTag);
+        register(StructuredDataKey.DEBUG_STICK_STATE, this::debugStickStateToTag, this::debugStickStateFromTag);
+        register(StructuredDataKey.ENTITY_DATA1_20_5, this::entityDataToTag, this::entityDataFromTag);
         register(StructuredDataKey.BUCKET_ENTITY_DATA, this::bucketEntityDataToTag, this::bucketEntityDataFromTag);
-        register(StructuredDataKey.BLOCK_ENTITY_DATA, this::blockEntityDataToTag, this::blockEntityDataFromTag);
+        register(StructuredDataKey.BLOCK_ENTITY_DATA1_20_5, this::blockEntityDataToTag, this::blockEntityDataFromTag);
         register(StructuredDataKey.INSTRUMENT1_20_5, this::instrumentToTag, this::instrumentFromTag);
         register(StructuredDataKey.OMINOUS_BOTTLE_AMPLIFIER, this::ominousBottleAmplifierToTag, this::ominousBottleAmplifierFromTag);
         register(StructuredDataKey.RECIPES, this::recipesToTag, this::recipesFromTag);
         register(StructuredDataKey.LODESTONE_TRACKER, this::lodestoneTrackerToTag, this::lodestoneTrackerFromTag);
         register(StructuredDataKey.FIREWORK_EXPLOSION, this::fireworkExplosionToTag, this::fireworkExplosionFromTag);
         register(StructuredDataKey.FIREWORKS, this::fireworksToTag, this::fireworksFromTag);
-        register(StructuredDataKey.PROFILE, this::profileToTag, this::profileFromTag);
+        register(StructuredDataKey.PROFILE1_20_5, this::profileToTag, this::profileFromTag);
         register(StructuredDataKey.NOTE_BLOCK_SOUND, this::noteBlockSoundToTag, this::noteBlockSoundFromTag);
         register(StructuredDataKey.BANNER_PATTERNS, this::bannerPatternsToTag, this::bannerPatternsFromTag);
         register(StructuredDataKey.BASE_COLOR, this::baseColorToTag, this::baseColorFromTag);
         register(StructuredDataKey.POT_DECORATIONS, this::potDecorationsToTag, this::potDecorationsFromTag);
         register(StructuredDataKey.V1_20_5.container, this::containerToTag, this::containerFromTag);
         register(StructuredDataKey.BLOCK_STATE, this::blockStateToTag, this::blockStateFromTag);
-        register(StructuredDataKey.BEES, this::beesToTag, this::beesFromTag);
-        register(StructuredDataKey.LOCK, this::lockToTag, this::lockFromTag);
+        register(StructuredDataKey.BEES1_20_5, this::beesToTag, this::beesFromTag);
+        register(StructuredDataKey.LOCK1_20_5, this::lockToTag, this::lockFromTag);
         register(StructuredDataKey.CONTAINER_LOOT, this::containerLootToTag, this::containerLootFromTag);
     }
 
@@ -1058,12 +1059,12 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Js
         return new ArmorTrim(material, pattern, showInTooltip);
     }
 
-    protected CompoundTag debugStickRateToTag(final CompoundTag value) {
-        return value;
+    protected CompoundTag debugStickStateToTag(final DebugStickState value) {
+        return value.tag();
     }
 
-    protected CompoundTag debugStickRateFromTag(final Tag value) {
-        return (CompoundTag) value;
+    protected DebugStickState debugStickStateFromTag(final Tag value) {
+        return new DebugStickState((CompoundTag) value);
     }
 
     protected CompoundTag entityDataToTag(final CompoundTag value) {
@@ -1386,8 +1387,8 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Js
         final ListTag<CompoundTag> tag = new ListTag<>(CompoundTag.class);
         for (final Bee bee : value) {
             final CompoundTag beeTag = new CompoundTag();
-            if (!bee.entityData().isEmpty()) {
-                beeTag.put("entity_data", nbtToTag(bee.entityData()));
+            if (!bee.entityData().tag().isEmpty()) {
+                beeTag.put("entity_data", nbtToTag(bee.entityData().tag()));
             }
             beeTag.putInt("ticks_in_hive", bee.ticksInHive());
             beeTag.putInt("min_ticks_in_hive", bee.minTicksInHive());

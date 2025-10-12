@@ -154,27 +154,14 @@ public class UserConnectionImpl implements UserConnection {
     }
 
     @Override
-    public void clearStoredObjects(boolean isServerSwitch) {
-        if (isServerSwitch) {
-            storedObjects.values().removeIf(storableObject -> {
-                if (storableObject.clearOnServerSwitch()) {
-                    storableObject.onRemove();
-                    return true;
-                }
-                return false;
-            });
-            for (EntityTracker tracker : entityTrackers.values()) {
-                tracker.clearEntities();
-            }
-        } else {
-            for (StorableObject object : storedObjects.values()) {
-                object.onRemove();
-            }
-            storedObjects.clear();
-            entityTrackers.clear();
-            itemHashers.clear();
-            clientWorlds.clear();
+    public void clearStoredObjects() {
+        for (StorableObject object : storedObjects.values()) {
+            object.onRemove();
         }
+        storedObjects.clear();
+        entityTrackers.clear();
+        itemHashers.clear();
+        clientWorlds.clear();
     }
 
     @Override
@@ -192,7 +179,7 @@ public class UserConnectionImpl implements UserConnection {
             sendRawPacketNow(packet);
         } else {
             try {
-                channel.eventLoop().submit(() -> sendRawPacketNow(packet));
+                channel.eventLoop().execute(() -> sendRawPacketNow(packet));
             } catch (Throwable e) {
                 packet.release(); // Couldn't schedule
                 e.printStackTrace();
@@ -282,7 +269,7 @@ public class UserConnectionImpl implements UserConnection {
                 fireChannelRead(context, buf);
             } else {
                 try {
-                    channel.eventLoop().submit(() -> fireChannelRead(context, buf));
+                    channel.eventLoop().execute(() -> fireChannelRead(context, buf));
                 } catch (Throwable t) {
                     // Couldn't schedule
                     buf.release();
@@ -307,7 +294,7 @@ public class UserConnectionImpl implements UserConnection {
             writeAndFlush(packet);
         } else {
             try {
-                getChannel().eventLoop().submit(() -> writeAndFlush(packet));
+                getChannel().eventLoop().execute(() -> writeAndFlush(packet));
             } catch (Throwable e) {
                 e.printStackTrace();
                 packet.release(); // Couldn't schedule
@@ -320,12 +307,16 @@ public class UserConnectionImpl implements UserConnection {
     }
 
     @Override
-    public boolean checkServerboundPacket() {
+    public boolean checkServerboundPacket(final int bytes) {
         if (pendingDisconnect) {
-            return false;
+            return false; // Cancel everything while disconnecting
         }
-        // Increment received + Check PPS
-        return !packetTracker.isPacketLimiterEnabled() || !packetTracker.incrementReceived() || !packetTracker.exceedsMaxPPS();
+        if (!packetTracker.isPacketLimiterEnabled()) {
+            return true;
+        }
+
+        packetTracker.incrementReceived(bytes);
+        return !packetTracker.exceedsLimits();
     }
 
     @Override

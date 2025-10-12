@@ -54,6 +54,7 @@ import com.viaversion.viaversion.api.minecraft.item.data.BannerPatternLayer;
 import com.viaversion.viaversion.api.minecraft.item.data.Bee;
 import com.viaversion.viaversion.api.minecraft.item.data.BlockPredicate;
 import com.viaversion.viaversion.api.minecraft.item.data.BlockStateProperties;
+import com.viaversion.viaversion.api.minecraft.item.data.DebugStickState;
 import com.viaversion.viaversion.api.minecraft.item.data.DyedColor;
 import com.viaversion.viaversion.api.minecraft.item.data.Enchantments;
 import com.viaversion.viaversion.api.minecraft.item.data.FilterableComponent;
@@ -480,7 +481,7 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
             }
 
             if (entityTag.contains("id")) {
-                data.set(StructuredDataKey.ENTITY_DATA, entityTag);
+                data.set(StructuredDataKey.ENTITY_DATA1_20_5, entityTag);
             }
         }
 
@@ -502,13 +503,13 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
 
             // Not always needed, e.g. shields that had the base color in a block entity tag before
             if (clonedTag.contains("id")) {
-                item.dataContainer().set(StructuredDataKey.BLOCK_ENTITY_DATA, clonedTag);
+                item.dataContainer().set(StructuredDataKey.BLOCK_ENTITY_DATA1_20_5, clonedTag);
             }
         }
 
         final CompoundTag debugProperty = tag.getCompoundTag("DebugProperty");
         if (debugProperty != null) {
-            data.set(StructuredDataKey.DEBUG_STICK_STATE, debugProperty.copy());
+            data.set(StructuredDataKey.DEBUG_STICK_STATE, new DebugStickState(debugProperty.copy()));
         }
 
         final NumberTag unbreakable = tag.getNumberTag("Unbreakable");
@@ -1300,7 +1301,7 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
         if (skullOwnerTag instanceof StringTag nameTag) {
             final String name = nameTag.getValue();
             if (isValidName(name)) {
-                data.set(StructuredDataKey.PROFILE, new GameProfile(name, null, EMPTY_PROPERTIES));
+                data.set(StructuredDataKey.PROFILE1_20_5, new GameProfile(name, null, EMPTY_PROPERTIES));
             }
         } else if (skullOwnerTag instanceof CompoundTag skullOwner) {
             String name = skullOwner.getString("Name", "");
@@ -1320,7 +1321,7 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
                 updateProperties(propertiesTag, properties);
             }
 
-            data.set(StructuredDataKey.PROFILE, new GameProfile(name, uuid, properties.toArray(EMPTY_PROPERTIES)));
+            data.set(StructuredDataKey.PROFILE1_20_5, new GameProfile(name, uuid, properties.toArray(EMPTY_PROPERTIES)));
         }
     }
 
@@ -1344,7 +1345,7 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
             return new Bee(entityData, ticksInHive, minOccupationTicks);
         }).filter(Objects::nonNull).toArray(Bee[]::new);
 
-        data.set(StructuredDataKey.BEES, bees);
+        data.set(StructuredDataKey.BEES1_20_5, bees);
     }
 
     private void updateProperties(final CompoundTag propertiesTag, final List<GameProfile.Property> properties) {
@@ -1448,7 +1449,7 @@ public final class BlockItemPacketRewriter1_20_5 extends ItemRewriter<Clientboun
         if (data != null) {
             final StringTag lockTag = tag.getStringTag("Lock");
             if (lockTag != null) {
-                data.set(StructuredDataKey.LOCK, lockTag);
+                data.set(StructuredDataKey.LOCK1_20_5, lockTag);
             }
 
             final ListTag<CompoundTag> beesTag = tag.getListTag("Bees", CompoundTag.class);

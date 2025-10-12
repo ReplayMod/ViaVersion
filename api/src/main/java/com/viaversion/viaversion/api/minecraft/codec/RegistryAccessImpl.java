@@ -66,6 +66,32 @@ final class RegistryAccessImpl implements CodecContext.RegistryAccess {
         return key(mappingData.getDataComponentSerializerMappings(), id);
     }
 
+    @Override
+    public Key entity(final int id) {
+        return key(mappingData.getEntityMappings(), id);
+    }
+
+    @Override
+    public Key blockEntity(final int id) {
+        return key(mappingData.getBlockEntityMappings(), id);
+    }
+
+    @Override
+    public Key sound(final int id) {
+        return key(mappingData.getFullSoundMappings(), id);
+    }
+
+    @Override
+    public Key key(final MappingData.MappingType mappingType, final int id) {
+        return key(mappingData.getFullMappings(mappingType), id);
+    }
+
+    @Override
+    public int id(final MappingData.MappingType mappingType, final String identifier) {
+        final FullMappings mappings = mappingData.getFullMappings(mappingType);
+        return mapped ? mappings.mappedId(identifier) : mappings.id(identifier);
+    }
+
     private Key key(final FullMappings mappings, final int id) {
         final String identifier = mapped ? mappings.mappedIdentifier(id) : mappings.identifier(id);
         return key(identifier, id);

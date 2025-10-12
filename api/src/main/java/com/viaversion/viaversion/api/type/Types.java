@@ -36,8 +36,10 @@ import com.viaversion.viaversion.api.minecraft.PlayerMessageSignature;
 import com.viaversion.viaversion.api.minecraft.ProfileKey;
 import com.viaversion.viaversion.api.minecraft.Quaternion;
 import com.viaversion.viaversion.api.minecraft.RegistryEntry;
+import com.viaversion.viaversion.api.minecraft.ResolvableProfile;
 import com.viaversion.viaversion.api.minecraft.SoundEvent;
 import com.viaversion.viaversion.api.minecraft.Vector;
+import com.viaversion.viaversion.api.minecraft.Vector3d;
 import com.viaversion.viaversion.api.minecraft.Vector3f;
 import com.viaversion.viaversion.api.minecraft.VillagerData;
 import com.viaversion.viaversion.api.minecraft.blockentity.BlockEntity;
@@ -70,6 +72,7 @@ import com.viaversion.viaversion.api.type.types.ShortType;
 import com.viaversion.viaversion.api.type.types.StringType;
 import com.viaversion.viaversion.api.type.types.UUIDType;
 import com.viaversion.viaversion.api.type.types.UnsignedByteType;
+import com.viaversion.viaversion.api.type.types.UnsignedIntType;
 import com.viaversion.viaversion.api.type.types.UnsignedShortType;
 import com.viaversion.viaversion.api.type.types.VarIntArrayType;
 import com.viaversion.viaversion.api.type.types.VarIntType;
@@ -100,6 +103,7 @@ import com.viaversion.viaversion.api.type.types.math.BlockPositionType1_8;
 import com.viaversion.viaversion.api.type.types.math.ChunkPositionType;
 import com.viaversion.viaversion.api.type.types.math.EulerAngleType;
 import com.viaversion.viaversion.api.type.types.math.GlobalBlockPositionType;
+import com.viaversion.viaversion.api.type.types.math.MovementVectorType;
 import com.viaversion.viaversion.api.type.types.math.QuaternionType;
 import com.viaversion.viaversion.api.type.types.math.Vector3fType;
 import com.viaversion.viaversion.api.type.types.math.VectorType;
@@ -114,6 +118,7 @@ import com.viaversion.viaversion.api.type.types.misc.PlayerMessageSignatureType;
 import com.viaversion.viaversion.api.type.types.misc.ProfileKeyType;
 import com.viaversion.viaversion.api.type.types.misc.ProfilePropertyType;
 import com.viaversion.viaversion.api.type.types.misc.SoundEventType;
+import com.viaversion.viaversion.api.type.types.misc.ResolvableProfileType;
 import com.viaversion.viaversion.api.type.types.misc.TagKeyType;
 import com.viaversion.viaversion.api.type.types.misc.TagType;
 import com.viaversion.viaversion.api.type.types.misc.TextComponentTagType;
@@ -144,6 +149,7 @@ public final class Types {
 
     public static final IntType INT = new IntType();
     public static final Type<int[]> INT_ARRAY_PRIMITIVE = new IntArrayType();
+    public static final UnsignedIntType UNSIGNED_INT = new UnsignedIntType();
 
     public static final FloatType FLOAT = new FloatType();
     public static final FloatType.OptionalFloatType OPTIONAL_FLOAT = new FloatType.OptionalFloatType();
@@ -192,6 +198,7 @@ public final class Types {
     public static final Type<Vector> VECTOR = new VectorType();
     public static final Type<Vector3f> VECTOR3F = new Vector3fType();
     public static final Type<Quaternion> QUATERNION = new QuaternionType();
+    public static final Type<Vector3d> MOVEMENT_VECTOR = new MovementVectorType();
 
     public static final Type<CompoundTag> NAMED_COMPOUND_TAG = new NamedCompoundTagType();
     public static final Type<CompoundTag> OPTIONAL_NAMED_COMPOUND_TAG = new NamedCompoundTagType.OptionalNamedCompoundTagType();
@@ -224,6 +231,7 @@ public final class Types {
     public static final Type<VillagerData> VILLAGER_DATA = new VillagerDataType();
 
     public static final Type<GameProfile> GAME_PROFILE = new GameProfileType();
+    public static final Type<ResolvableProfile> RESOLVABLE_PROFILE = new ResolvableProfileType();
     public static final Type<GameProfile.Property> PROFILE_PROPERTY = new ProfilePropertyType();
     public static final Type<GameProfile.Property[]> PROFILE_PROPERTY_ARRAY = new ArrayType<>(PROFILE_PROPERTY);
     public static final Type<ProfileKey> PROFILE_KEY = new ProfileKeyType();

@@ -23,12 +23,16 @@
 package com.viaversion.viaversion.api.minecraft.item.data;
 
 import com.viaversion.viaversion.api.connection.UserConnection;
+import com.viaversion.viaversion.api.data.MappingData;
 import com.viaversion.viaversion.api.minecraft.Holder;
 import com.viaversion.viaversion.api.minecraft.HolderSet;
 import com.viaversion.viaversion.api.minecraft.SoundEvent;
+import com.viaversion.viaversion.api.minecraft.codec.Ops;
 import com.viaversion.viaversion.api.protocol.Protocol;
 import com.viaversion.viaversion.api.type.Type;
 import com.viaversion.viaversion.api.type.Types;
+import com.viaversion.viaversion.api.type.types.misc.HolderSetType;
+import com.viaversion.viaversion.util.Key;
 import com.viaversion.viaversion.util.Rewritable;
 import io.netty.buffer.ByteBuf;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -101,6 +105,21 @@ public record Equippable(int equipmentSlot, Holder<SoundEvent> soundEvent, @Null
             buffer.writeBoolean(value.damageOnHurt());
             buffer.writeBoolean(value.equipOnInteract());
         }
+
+        @Override
+        public void write(final Ops ops, final Equippable value) {
+            final Holder<SoundEvent> defaultEquipSound = Holder.of(ops.context().registryAccess().id(MappingData.MappingType.SOUND, "item.armor.equip_generic"));
+            ops.writeMap(map -> map
+                .write("slot", EnumTypes.EQUIPMENT_SLOT, value.equipmentSlot)
+                .writeOptional("equip_sound", Types.SOUND_EVENT, value.soundEvent, defaultEquipSound)
+                .writeOptional("asset_id", Types.RESOURCE_LOCATION, value.model != null ? Key.of(value.model) : null)
+                .writeOptional("camera_overlay", Types.RESOURCE_LOCATION, value.cameraOverlay != null ? Key.of(value.cameraOverlay) : null)
+                .writeOptional("allowed_entities", new HolderSetType(MappingData.MappingType.ENTITY), value.allowedEntities)
+                .writeOptional("dispensable", Types.BOOLEAN, value.dispensable, true)
+                .writeOptional("swappable", Types.BOOLEAN, value.swappable, true)
+                .writeOptional("damage_on_hurt", Types.BOOLEAN, value.damageOnHurt, true)
+                .writeOptional("equip_on_interact", Types.BOOLEAN, value.equipOnInteract, false));
+        }
     };
     public static final Type<Equippable> TYPE1_21_6 = new Type<>(Equippable.class) {
         @Override
@@ -133,12 +152,32 @@ public record Equippable(int equipmentSlot, Holder<SoundEvent> soundEvent, @Null
             buffer.writeBoolean(value.canBeSheared());
             Types.SOUND_EVENT.write(buffer, value.shearingSound());
         }
+
+        @Override
+        public void write(final Ops ops, final Equippable value) {
+            final Holder<SoundEvent> defaultSound = Holder.of(ops.context().registryAccess().id(MappingData.MappingType.SOUND, "item.armor.equip_generic"));
+            final Holder<SoundEvent> defaultShearingSound = Holder.of(ops.context().registryAccess().id(MappingData.MappingType.SOUND, "item.shears.snip"));
+            ops.writeMap(map -> map
+                .write("slot", EnumTypes.EQUIPMENT_SLOT, value.equipmentSlot)
+                .writeOptional("equip_sound", Types.SOUND_EVENT, value.soundEvent, defaultSound)
+                .writeOptional("asset_id", Types.RESOURCE_LOCATION, value.model != null ? Key.of(value.model) : null)
+                .writeOptional("camera_overlay", Types.RESOURCE_LOCATION, value.cameraOverlay != null ? Key.of(value.cameraOverlay) : null)
+                .writeOptional("allowed_entities", new HolderSetType(MappingData.MappingType.ENTITY), value.allowedEntities)
+                .writeOptional("dispensable", Types.BOOLEAN, value.dispensable, true)
+                .writeOptional("swappable", Types.BOOLEAN, value.swappable, true)
+                .writeOptional("damage_on_hurt", Types.BOOLEAN, value.damageOnHurt, true)
+                .writeOptional("equip_on_interact", Types.BOOLEAN, value.equipOnInteract, false)
+                .writeOptional("can_be_sheared", Types.BOOLEAN, value.canBeSheared, false)
+                .writeOptional("shearing_sound", Types.SOUND_EVENT, value.shearingSound, defaultShearingSound));
+        }
     };
 
     @Override
     public Equippable rewrite(final UserConnection connection, final Protocol<?, ?, ?, ?> protocol, final boolean clientbound) {
         final Holder<SoundEvent> soundEvent = SoundEvent.rewriteHolder(this.soundEvent, Rewritable.soundRewriteFunction(protocol, clientbound));
         final Holder<SoundEvent> shearingSound = SoundEvent.rewriteHolder(this.shearingSound, Rewritable.soundRewriteFunction(protocol, clientbound));
-        return soundEvent == this.soundEvent && shearingSound == this.shearingSound ? this : new Equippable(equipmentSlot, soundEvent, model, cameraOverlay, allowedEntities, dispensable, swappable, damageOnHurt, equipOnInteract, canBeSheared, shearingSound);
+        final HolderSet allowedEntities = this.allowedEntities != null ? this.allowedEntities.rewrite(Rewritable.entityRewriteFunction(protocol, clientbound)) : null;
+        return soundEvent == this.soundEvent && shearingSound == this.shearingSound && allowedEntities == this.allowedEntities ? this
+            : new Equippable(equipmentSlot, soundEvent, model, cameraOverlay, allowedEntities, dispensable, swappable, damageOnHurt, equipOnInteract, canBeSheared, shearingSound);
     }
 }

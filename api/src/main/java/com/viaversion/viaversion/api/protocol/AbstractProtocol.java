@@ -100,9 +100,9 @@ public abstract class AbstractProtocol<CU extends ClientboundPacketType, CM exte
         Preconditions.checkArgument(!initialized, "Protocol has already been initialized");
         initialized = true;
 
-        // Create logger if protocol does not have one
-        if (getLogger() == null) {
-            logger = new ProtocolLogger(getClass());
+        // Create logger if the protocol doesn't have one
+        if (logger == null) {
+            logger = createLogger();
         }
         registerPackets();
         registerConfigurationChangeHandlers();
@@ -128,6 +128,10 @@ public abstract class AbstractProtocol<CU extends ClientboundPacketType, CM exte
         }
     }
 
+    protected ProtocolLogger createLogger() {
+        return new ProtocolLogger(getClass());
+    }
+
     protected void registerConfigurationChangeHandlers() {
         // Register handlers for protocol state switching
         // Assuming ids will change too often, it is cleaner to register them here instead of the base protocols,
@@ -139,7 +143,7 @@ public abstract class AbstractProtocol<CU extends ClientboundPacketType, CM exte
 
         final CU startConfigurationPacket = startConfigurationPacket();
         if (startConfigurationPacket != null) {
-            appendClientbound(startConfigurationPacket, setServerStateHandler(State.CONFIGURATION));
+            appendClientbound(startConfigurationPacket, startConfigurationHandler());
         }
 
         final SU finishConfigurationPacket = serverboundFinishConfigurationPacket();
@@ -474,6 +478,16 @@ public abstract class AbstractProtocol<CU extends ClientboundPacketType, CM exte
 
     private PacketHandler setServerStateHandler(final State state) {
         return wrapper -> wrapper.user().getProtocolInfo().setServerState(state);
+    }
+
+    private PacketHandler startConfigurationHandler() {
+        return setServerStateHandler(State.CONFIGURATION).then(wrapper -> {
+            // Mimic client behaviour
+            final EntityTracker tracker = wrapper.user().getEntityTracker(getClass());
+            if (tracker != null) {
+                tracker.clear();
+            }
+        });
     }
 
     @Override

@@ -285,7 +285,8 @@ public abstract class ComponentRewriterBase<C extends ClientboundPacketType> imp
 
     protected abstract void handleHoverEvent(final UserConnection connection, final CompoundTag hoverEventTag);
 
-    protected final void handleShowItem(final UserConnection connection, final CompoundTag itemTag) {
+    @Override
+    public final void handleShowItem(final UserConnection connection, final CompoundTag itemTag) {
         handleShowItem(connection, itemTag, itemTag.getCompoundTag("components"));
     }
 
@@ -300,6 +301,7 @@ public abstract class ComponentRewriterBase<C extends ClientboundPacketType> imp
             return;
         }
 
+        handleAttributeModifiers(componentsTag);
         handleWrittenBookContents(connection, componentsTag);
         handleContainerContents(connection, componentsTag);
         handleItemArrayContents(connection, componentsTag, "bundle_contents");
@@ -308,6 +310,33 @@ public abstract class ComponentRewriterBase<C extends ClientboundPacketType> imp
         if (useRemainder != null) {
             handleShowItem(connection, useRemainder);
         }
+
+        removeDataComponents(componentsTag, "lock", "debug_stick_state");
+    }
+
+    protected void handleAttributeModifiers(final CompoundTag tag) {
+        if (protocol.getMappingData().getAttributeMappings() == null) {
+            return;
+        }
+
+        final ListTag<CompoundTag> attributeModifiers = TagUtil.getNamespacedCompoundTagList(tag, "attribute_modifiers");
+        if (attributeModifiers == null) {
+            return;
+        }
+
+        attributeModifiers.getValue().removeIf(attributeTag -> {
+            final StringTag typeTag = attributeTag.getStringTag("type");
+            if (typeTag == null) {
+                return false;
+            }
+
+            final String mappedId = protocol.getMappingData().getAttributeMappings().mappedIdentifier(typeTag.getValue());
+            if (mappedId != null) {
+                typeTag.setValue(mappedId);
+                return false;
+            }
+            return true;
+        });
     }
 
     protected void handleContainerContents(final UserConnection connection, final CompoundTag tag) {

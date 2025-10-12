@@ -18,19 +18,18 @@
 package com.viaversion.viaversion.protocols.template;
 
 import com.viaversion.viaversion.api.minecraft.entities.EntityType;
-import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_21_4;
-import com.viaversion.viaversion.api.minecraft.entitydata.types.EntityDataTypes1_21_5;
-import com.viaversion.viaversion.protocols.v1_20_5to1_21.packet.ClientboundConfigurationPackets1_21;
-import com.viaversion.viaversion.protocols.v1_21to1_21_2.packet.ClientboundPacket1_21_2;
-import com.viaversion.viaversion.protocols.v1_21to1_21_2.packet.ClientboundPackets1_21_2;
+import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_21_9;
+import com.viaversion.viaversion.api.minecraft.entitydata.types.EntityDataTypes1_21_9;
+import com.viaversion.viaversion.protocols.v1_21_5to1_21_6.packet.ClientboundConfigurationPackets1_21_6;
+import com.viaversion.viaversion.protocols.v1_21_5to1_21_6.packet.ClientboundPacket1_21_6;
+import com.viaversion.viaversion.protocols.v1_21_5to1_21_6.packet.ClientboundPackets1_21_6;
 import com.viaversion.viaversion.rewriter.EntityRewriter;
 import com.viaversion.viaversion.rewriter.RegistryDataRewriter;
 
 // Replace if needed
-//  Types1_OLD
 //  VersionedTypes
-//  EntityTypes1_21_4
-final class EntityPacketRewriter1_99 extends EntityRewriter<ClientboundPacket1_21_2, Protocol1_98To1_99> {
+//  EntityTypes1_21_9
+final class EntityPacketRewriter1_99 extends EntityRewriter<ClientboundPacket1_21_6, Protocol1_98To1_99> {
 
     public EntityPacketRewriter1_99(final Protocol1_98To1_99 protocol) {
         super(protocol);
@@ -39,21 +38,21 @@ final class EntityPacketRewriter1_99 extends EntityRewriter<ClientboundPacket1_2
     @Override
     public void registerPackets() {
         // Tracks entities, applies entity data rewrites registered below, untracks entities
-        registerTrackerWithData1_19(ClientboundPackets1_21_2.ADD_ENTITY, EntityTypes1_21_4.FALLING_BLOCK);
-        registerSetEntityData(ClientboundPackets1_21_2.SET_ENTITY_DATA);
-        registerRemoveEntities(ClientboundPackets1_21_2.REMOVE_ENTITIES);
-        registerPlayerAbilities(ClientboundPackets1_21_2.PLAYER_ABILITIES);
-        registerGameEvent(ClientboundPackets1_21_2.GAME_EVENT);
-        registerLogin1_20_5(ClientboundPackets1_21_2.LOGIN);
-        registerRespawn1_20_5(ClientboundPackets1_21_2.RESPAWN);
+        registerTrackerWithData1_21_9(ClientboundPackets1_21_6.ADD_ENTITY, EntityTypes1_21_9.FALLING_BLOCK);
+        registerSetEntityData(ClientboundPackets1_21_6.SET_ENTITY_DATA);
+        registerRemoveEntities(ClientboundPackets1_21_6.REMOVE_ENTITIES);
+        registerPlayerAbilities(ClientboundPackets1_21_6.PLAYER_ABILITIES);
+        registerGameEvent(ClientboundPackets1_21_6.GAME_EVENT);
+        registerLogin1_20_5(ClientboundPackets1_21_6.LOGIN);
+        registerRespawn1_20_5(ClientboundPackets1_21_6.RESPAWN);
 
         final RegistryDataRewriter registryDataRewriter = new RegistryDataRewriter(protocol);
-        protocol.registerClientbound(ClientboundConfigurationPackets1_21.REGISTRY_DATA, registryDataRewriter::handle);
+        protocol.registerClientbound(ClientboundConfigurationPackets1_21_6.REGISTRY_DATA, registryDataRewriter::handle);
     }
 
     @Override
     protected void registerRewrites() {
-        final EntityDataTypes1_21_5 entityDataTypes = protocol.types().entityDataTypes();
+        final EntityDataTypes1_21_9 entityDataTypes = protocol.mappedTypes().entityDataTypes();
         /* Uncomment if entity data classes changed
         filter().mapDataType(typeId -> {
             int id = typeId;
@@ -83,6 +82,6 @@ final class EntityPacketRewriter1_99 extends EntityRewriter<ClientboundPacket1_2
 
     @Override
     public EntityType typeFromId(final int type) {
-        return EntityTypes1_21_4.getTypeFromId(type);
+        return EntityTypes1_21_9.getTypeFromId(type);
     }
 }

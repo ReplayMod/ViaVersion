@@ -9,7 +9,7 @@ tasks {
         val ver = project.version.toString()
         val desc = project.description
         filesMatching(listOf("plugin.yml", "META-INF/sponge_plugins.json", "fabric.mod.json")) {
-            expand("version" to ver, "description" to desc)
+            expand(mapOf("version" to ver, "description" to desc))
         }
     }
     javadoc {
@@ -19,6 +19,7 @@ tasks {
     compileJava {
         options.encoding = Charsets.UTF_8.name()
         options.compilerArgs.addAll(listOf("-nowarn", "-Xlint:-unchecked", "-Xlint:-deprecation"))
+        options.isFork = true
     }
     test {
         useJUnitPlatform()

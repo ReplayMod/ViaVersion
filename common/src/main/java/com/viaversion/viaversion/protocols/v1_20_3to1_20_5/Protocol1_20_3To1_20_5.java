@@ -52,6 +52,7 @@ import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.rewriter.EntityPacket
 import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.rewriter.ParticleRewriter1_20_5;
 import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.storage.AcknowledgedMessagesStorage;
 import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.storage.ArmorTrimStorage;
+import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.storage.ScoreboardTeamStorage;
 import com.viaversion.viaversion.protocols.v1_20_3to1_20_5.storage.TagKeys;
 import com.viaversion.viaversion.protocols.v1_20to1_20_2.packet.ServerboundConfigurationPackets1_20_2;
 import com.viaversion.viaversion.rewriter.SoundRewriter;
@@ -60,6 +61,9 @@ import com.viaversion.viaversion.rewriter.TagRewriter;
 import com.viaversion.viaversion.rewriter.text.JsonNBTComponentRewriter;
 import com.viaversion.viaversion.util.ProtocolLogger;
 import java.util.BitSet;
+import java.util.HashSet;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 import static com.viaversion.viaversion.util.ProtocolUtil.packetTypeMap;
@@ -222,6 +226,53 @@ public final class Protocol1_20_3To1_20_5 extends AbstractProtocol<ClientboundPa
             wrapper.write(Types.BOOLEAN, strictErrorHandling);
         });
 
+        registerClientbound(ClientboundPackets1_20_3.SET_PLAYER_TEAM, wrapper -> {
+            final ScoreboardTeamStorage storage = wrapper.user().get(ScoreboardTeamStorage.class);
+
+            final String teamName = wrapper.passthrough(Types.STRING);
+            final byte action = wrapper.passthrough(Types.BYTE);
+            if (action == 0) {
+                wrapper.passthrough(Types.TAG); // Display name
+                wrapper.passthrough(Types.BYTE); // Flags
+                wrapper.passthrough(Types.STRING); // Name Tag Visibility
+                wrapper.passthrough(Types.STRING); // Collision rule
+                wrapper.passthrough(Types.VAR_INT); // Color
+                wrapper.passthrough(Types.TAG); // Prefix
+                wrapper.passthrough(Types.TAG); // Suffix
+                storage.createTeam(teamName);
+                final String[] players = wrapper.passthrough(Types.STRING_ARRAY);
+                storage.addPlayerToTeam(teamName, players);
+            } else if (action == 1) {
+                storage.removeTeam(teamName);
+            } else if (action == 3) {
+                final String[] players = wrapper.passthrough(Types.STRING_ARRAY);
+                storage.addPlayerToTeam(teamName, players);
+            }
+
+            if (action != 4) {
+                return;
+            }
+
+            final String[] players = wrapper.read(Types.STRING_ARRAY);
+            // Drop invalid remove packets to not break when plugins do that, since strict error handling is enforced in newer protocols.
+            final Set<String> filteredPlayers = new HashSet<>();
+            for (final String player : players) {
+                final String team = storage.getPlayerTeam(player);
+                if (!Objects.equals(team, teamName)) {
+                    break;
+                }
+
+                storage.removeFromTeam(teamName, player);
+                filteredPlayers.add(player);
+            }
+
+            if (!filteredPlayers.isEmpty()) {
+                wrapper.write(Types.STRING_ARRAY, filteredPlayers.toArray(new String[0]));
+            } else {
+                wrapper.cancel();
+            }
+        });
+
         cancelServerbound(State.LOGIN, ServerboundLoginPackets.COOKIE_RESPONSE.getId());
         cancelServerbound(ServerboundConfigurationPackets1_20_5.COOKIE_RESPONSE);
         cancelServerbound(ServerboundConfigurationPackets1_20_5.SELECT_KNOWN_PACKS);
@@ -277,13 +328,13 @@ public final class Protocol1_20_3To1_20_5 extends AbstractProtocol<ClientboundPa
             .add(StructuredDataKey.MAP_ID).add(StructuredDataKey.MAP_DECORATIONS).add(StructuredDataKey.MAP_POST_PROCESSING)
             .add(StructuredDataKey.POTION_CONTENTS1_20_5)
             .add(StructuredDataKey.SUSPICIOUS_STEW_EFFECTS).add(StructuredDataKey.WRITABLE_BOOK_CONTENT).add(StructuredDataKey.WRITTEN_BOOK_CONTENT)
-            .add(StructuredDataKey.TRIM1_20_5).add(StructuredDataKey.DEBUG_STICK_STATE).add(StructuredDataKey.ENTITY_DATA)
-            .add(StructuredDataKey.BUCKET_ENTITY_DATA).add(StructuredDataKey.BLOCK_ENTITY_DATA).add(StructuredDataKey.INSTRUMENT1_20_5)
+            .add(StructuredDataKey.TRIM1_20_5).add(StructuredDataKey.DEBUG_STICK_STATE).add(StructuredDataKey.ENTITY_DATA1_20_5)
+            .add(StructuredDataKey.BUCKET_ENTITY_DATA).add(StructuredDataKey.BLOCK_ENTITY_DATA1_20_5).add(StructuredDataKey.INSTRUMENT1_20_5)
             .add(StructuredDataKey.RECIPES).add(StructuredDataKey.LODESTONE_TRACKER).add(StructuredDataKey.FIREWORK_EXPLOSION)
-            .add(StructuredDataKey.FIREWORKS).add(StructuredDataKey.PROFILE).add(StructuredDataKey.NOTE_BLOCK_SOUND)
+            .add(StructuredDataKey.FIREWORKS).add(StructuredDataKey.PROFILE1_20_5).add(StructuredDataKey.NOTE_BLOCK_SOUND)
             .add(StructuredDataKey.BANNER_PATTERNS).add(StructuredDataKey.BASE_COLOR).add(StructuredDataKey.POT_DECORATIONS)
-            .add(StructuredDataKey.BLOCK_STATE).add(StructuredDataKey.BEES)
-            .add(StructuredDataKey.LOCK).add(StructuredDataKey.CONTAINER_LOOT).add(StructuredDataKey.TOOL1_20_5)
+            .add(StructuredDataKey.BLOCK_STATE).add(StructuredDataKey.BEES1_20_5)
+            .add(StructuredDataKey.LOCK1_20_5).add(StructuredDataKey.CONTAINER_LOOT).add(StructuredDataKey.TOOL1_20_5)
             .add(StructuredDataKey.ITEM_NAME).add(StructuredDataKey.OMINOUS_BOTTLE_AMPLIFIER)
             .add(VersionedTypes.V1_20_5.structuredDataKeys().keys());
 
@@ -300,6 +351,7 @@ public final class Protocol1_20_3To1_20_5 extends AbstractProtocol<ClientboundPa
         addEntityTracker(connection, new EntityTrackerBase(connection, EntityTypes1_20_5.PLAYER));
         connection.put(new AcknowledgedMessagesStorage());
         connection.put(new ArmorTrimStorage());
+        connection.put(new ScoreboardTeamStorage());
     }
 
     @Override

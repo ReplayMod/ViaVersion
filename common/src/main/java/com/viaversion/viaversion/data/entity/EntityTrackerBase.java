@@ -41,6 +41,7 @@ public class EntityTrackerBase implements EntityTracker, ClientEntityIdChangeLis
     private int currentWorldSectionHeight = -1;
     private int currentMinY;
     private String currentWorld;
+    private int currentDimensionId = -1;
     private int biomesSent = -1;
     private Map<String, DimensionData> dimensions = Collections.emptyMap();
     private boolean instaBuild;
@@ -107,6 +108,16 @@ public class EntityTrackerBase implements EntityTracker, ClientEntityIdChangeLis
     }
 
     @Override
+    public void clear() {
+        // Call wrapper function in case protocols need to do additional removals
+        for (final int id : entities.keySet().toIntArray()) {
+            removeEntity(id);
+        }
+
+        clientEntityId = null;
+    }
+
+    @Override
     public boolean hasClientEntityId() {
         return clientEntityId != null;
     }
@@ -170,6 +181,16 @@ public class EntityTrackerBase implements EntityTracker, ClientEntityIdChangeLis
     @Override
     public void setCurrentWorld(final String currentWorld) {
         this.currentWorld = currentWorld;
+    }
+
+    @Override
+    public int currentDimensionId() {
+        return currentDimensionId;
+    }
+
+    @Override
+    public void setCurrentDimensionId(final int currentDimensionId) {
+        this.currentDimensionId = currentDimensionId;
     }
 
     @Override

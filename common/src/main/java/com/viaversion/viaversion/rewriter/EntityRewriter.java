@@ -32,6 +32,7 @@ import com.viaversion.viaversion.api.data.entity.EntityTracker;
 import com.viaversion.viaversion.api.data.entity.TrackedEntity;
 import com.viaversion.viaversion.api.minecraft.GameMode;
 import com.viaversion.viaversion.api.minecraft.Particle;
+import com.viaversion.viaversion.api.minecraft.Vector3d;
 import com.viaversion.viaversion.api.minecraft.entities.EntityType;
 import com.viaversion.viaversion.api.minecraft.entitydata.EntityData;
 import com.viaversion.viaversion.api.minecraft.entitydata.EntityDataType;
@@ -313,6 +314,27 @@ public abstract class EntityRewriter<C extends ClientboundPacketType, T extends 
         });
     }
 
+    public void registerTrackerWithData1_21_9(C packetType, EntityType fallingBlockType) {
+        protocol.registerClientbound(packetType, wrapper -> {
+            final int entityId = wrapper.passthrough(Types.VAR_INT);
+            wrapper.passthrough(Types.UUID); // Entity UUID
+            final int entityTypeId = wrapper.passthrough(Types.VAR_INT);
+            wrapper.passthrough(Types.DOUBLE); // X
+            wrapper.passthrough(Types.DOUBLE); // Y
+            wrapper.passthrough(Types.DOUBLE); // Z
+            wrapper.passthrough(Types.MOVEMENT_VECTOR); // Movement
+            wrapper.passthrough(Types.BYTE); // Pitch
+            wrapper.passthrough(Types.BYTE); // Yaw
+            wrapper.passthrough(Types.BYTE); // Head yaw
+            final int data = wrapper.passthrough(Types.VAR_INT);
+            final EntityType entityType = trackAndRewrite(wrapper, entityTypeId, entityId);
+            if (protocol.getMappingData() != null && entityType == fallingBlockType) {
+                final int mappedBlockStateId = protocol.getMappingData().getNewBlockStateId(data);
+                wrapper.set(Types.VAR_INT, 2, mappedBlockStateId);
+            }
+        });
+    }
+
     /**
      * Registers an entity tracker for the extra spawn packets like player, painting, or xp orb spawns.
      *
@@ -514,6 +536,7 @@ public abstract class EntityRewriter<C extends ClientboundPacketType, T extends 
             dimensionData = tracker.dimensionData("overworld");
             Preconditions.checkNotNull(dimensionData, "Overworld data missing");
         }
+        tracker.setCurrentDimensionId(dimensionId);
         tracker.setCurrentWorldSectionHeight(dimensionData.height() >> 4);
         tracker.setCurrentMinY(dimensionData.minY());
         trackWorld(connection, world);

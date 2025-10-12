@@ -250,7 +250,7 @@ public final class StructuredDataConverter {
             }
         });
         register(StructuredDataKey.FIREWORK_EXPLOSION, (data, tag) -> tag.put("Explosion", convertExplosion(data)));
-        register(StructuredDataKey.PROFILE, (data, tag) -> {
+        register(StructuredDataKey.PROFILE1_20_5, (data, tag) -> {
             if (data.name() != null && data.id() == null && data.properties().length == 0) {
                 tag.putString("SkullOwner", data.name());
                 return;
@@ -307,18 +307,18 @@ public final class StructuredDataConverter {
                 tag.putString("instrument", identifier);
             }
         });
-        register(StructuredDataKey.BEES, (data, tag) -> {
+        register(StructuredDataKey.BEES1_20_5, (data, tag) -> {
             final ListTag<CompoundTag> bees = new ListTag<>(CompoundTag.class);
             for (final Bee bee : data) {
                 final CompoundTag beeTag = new CompoundTag();
-                beeTag.put("EntityData", bee.entityData());
+                beeTag.put("EntityData", bee.entityData().tag());
                 beeTag.putInt("TicksInHive", bee.ticksInHive());
                 beeTag.putInt("MinOccupationTicks", bee.minTicksInHive());
                 bees.add(beeTag);
             }
             getBlockEntityTag(tag, "beehive").put("Bees", bees);
         });
-        register(StructuredDataKey.LOCK, (data, tag) -> getBlockEntityTag(tag).put("Lock", data));
+        register(StructuredDataKey.LOCK1_20_5, (data, tag) -> getBlockEntityTag(tag).put("Lock", data));
         register(StructuredDataKey.NOTE_BLOCK_SOUND, (data, tag) -> getBlockEntityTag(tag, "player_head").putString("note_block_sound", data.original()));
         register(StructuredDataKey.POT_DECORATIONS, (data, tag) -> {
             IntArrayTag originalSherds = null;
@@ -341,9 +341,9 @@ public final class StructuredDataConverter {
             }
             getBlockEntityTag(tag, "decorated_pot").put("sherds", sherds);
         });
-        register(StructuredDataKey.DEBUG_STICK_STATE, (data, tag) -> tag.put("DebugProperty", data));
+        register(StructuredDataKey.DEBUG_STICK_STATE, (data, tag) -> tag.put("DebugProperty", data.tag()));
         register(StructuredDataKey.RECIPES, (data, tag) -> tag.put("Recipes", data));
-        register(StructuredDataKey.ENTITY_DATA, (data, tag) -> tag.put("EntityTag", data));
+        register(StructuredDataKey.ENTITY_DATA1_20_5, (data, tag) -> tag.put("EntityTag", data));
         register(StructuredDataKey.BUCKET_ENTITY_DATA, (data, tag) -> {
             for (final String mobTagName : BlockItemPacketRewriter1_20_5.MOB_TAGS) {
                 if (data.contains(mobTagName)) {
@@ -351,7 +351,7 @@ public final class StructuredDataConverter {
                 }
             }
         });
-        register(StructuredDataKey.BLOCK_ENTITY_DATA, (data, tag) -> {
+        register(StructuredDataKey.BLOCK_ENTITY_DATA1_20_5, (data, tag) -> {
             // Handling of previously block entity tags is done using the getBlockEntityTag method
             // Merge with already added tag if needed
             final CompoundTag blockEntityTag = tag.getCompoundTag("BlockEntityTag");

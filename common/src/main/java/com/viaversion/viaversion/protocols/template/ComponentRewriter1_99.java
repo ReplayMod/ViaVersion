@@ -19,10 +19,10 @@ package com.viaversion.viaversion.protocols.template;
 
 import com.viaversion.nbt.tag.CompoundTag;
 import com.viaversion.viaversion.api.connection.UserConnection;
-import com.viaversion.viaversion.protocols.v1_21to1_21_2.packet.ClientboundPacket1_21_2;
+import com.viaversion.viaversion.protocols.v1_21_5to1_21_6.packet.ClientboundPacket1_21_6;
 import com.viaversion.viaversion.rewriter.text.NBTComponentRewriter;
 
-final class ComponentRewriter1_99 extends NBTComponentRewriter<ClientboundPacket1_21_2> {
+final class ComponentRewriter1_99 extends NBTComponentRewriter<ClientboundPacket1_21_6> {
 
     public ComponentRewriter1_99(final Protocol1_98To1_99 protocol) {
         super(protocol);

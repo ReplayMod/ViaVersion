@@ -34,7 +34,7 @@ public class TestInjector implements ViaInjector {
 
     @Override
     public ProtocolVersion getServerProtocolVersion() {
-        return ProtocolVersion.v1_15_2;
+        return ProtocolVersion.v1_21_7;
     }
 
     @Override

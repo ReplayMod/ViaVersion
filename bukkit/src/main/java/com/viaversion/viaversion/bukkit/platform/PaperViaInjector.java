@@ -27,7 +27,6 @@ import org.bukkit.Bukkit;
 public final class PaperViaInjector {
     public static final boolean PAPER_INJECTION_METHOD = hasPaperInjectionMethod();
     public static final boolean PAPER_PROTOCOL_METHOD = hasServerProtocolMethod();
-    public static final boolean PAPER_PACKET_LIMITER = hasPacketLimiter();
     public static final boolean PAPER_IS_STOPPING_METHOD = hasIsStoppingMethod();
 
     private PaperViaInjector() {
@@ -76,10 +75,6 @@ public final class PaperViaInjector {
         return hasMethod(Bukkit.class, "isStopping");
     }
 
-    private static boolean hasPacketLimiter() {
-        return hasClass("com.destroystokyo.paper.PaperConfig$PacketLimit") || hasClass("io.papermc.paper.configuration.GlobalConfiguration$PacketLimiter");
-    }
-
     public static boolean hasClass(final String className) {
         try {
             Class.forName(className);
@@ -102,6 +97,14 @@ public final class PaperViaInjector {
         try {
             clazz.getDeclaredMethod(method, params);
             return true;
+        } catch (final NoSuchMethodException e) {
+            return false;
+        }
+    }
+
+    public static boolean hasMethod(final Class<?> clazz, final Class<?> returnType, final String method, final Class<?>... params) {
+        try {
+            return clazz.getDeclaredMethod(method, params).getReturnType().equals(returnType);
         } catch (final NoSuchMethodException e) {
             return false;
         }

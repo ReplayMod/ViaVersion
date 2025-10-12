@@ -20,7 +20,6 @@ package com.viaversion.viaversion.protocols.v1_8to1_9.rewriter;
 import com.viaversion.nbt.tag.CompoundTag;
 import com.viaversion.nbt.tag.StringTag;
 import com.viaversion.viaversion.api.Via;
-import com.viaversion.viaversion.api.minecraft.BlockFace;
 import com.viaversion.viaversion.api.minecraft.BlockPosition;
 import com.viaversion.viaversion.api.minecraft.ChunkPosition;
 import com.viaversion.viaversion.api.minecraft.chunks.BaseChunk;
@@ -150,14 +149,20 @@ public class WorldPacketRewriter1_9 {
 
                 // Unload the empty chunks
                 if (Via.getConfig().isChunkBorderFix()) {
-                    for (BlockFace face : BlockFace.HORIZONTAL) {
-                        int chunkX = chunk.getX() + face.modX();
-                        int chunkZ = chunk.getZ() + face.modZ();
-                        if (!clientWorld.getLoadedChunks().contains(ChunkPosition.chunkKey(chunkX, chunkZ))) {
-                            PacketWrapper unloadChunk = wrapper.create(ClientboundPackets1_9.FORGET_LEVEL_CHUNK);
-                            unloadChunk.write(Types.INT, chunkX);
-                            unloadChunk.write(Types.INT, chunkZ);
-                            unloadChunk.send(Protocol1_8To1_9.class);
+                    for (int modX = -1; modX <= 1; modX++) {
+                        for (int modZ = -1; modZ <= 1; modZ++) {
+                            if (modX == 0 && modZ == 0) {
+                                continue; // Skip the center chunk
+                            }
+
+                            int chunkX = chunk.getX() + modX;
+                            int chunkZ = chunk.getZ() + modZ;
+                            if (!clientWorld.getLoadedChunks().contains(ChunkPosition.chunkKey(chunkX, chunkZ))) {
+                                PacketWrapper unloadChunk = wrapper.create(ClientboundPackets1_9.FORGET_LEVEL_CHUNK);
+                                unloadChunk.write(Types.INT, chunkX);
+                                unloadChunk.write(Types.INT, chunkZ);
+                                unloadChunk.send(Protocol1_8To1_9.class);
+                            }
                         }
                     }
                 }
@@ -169,14 +174,20 @@ public class WorldPacketRewriter1_9 {
 
                 // Send empty chunks surrounding the loaded chunk to force 1.9+ clients to render the new chunk
                 if (Via.getConfig().isChunkBorderFix()) {
-                    for (BlockFace face : BlockFace.HORIZONTAL) {
-                        int chunkX = chunk.getX() + face.modX();
-                        int chunkZ = chunk.getZ() + face.modZ();
-                        if (!clientWorld.getLoadedChunks().contains(ChunkPosition.chunkKey(chunkX, chunkZ))) {
-                            PacketWrapper emptyChunk = wrapper.create(ClientboundPackets1_9.LEVEL_CHUNK);
-                            Chunk c = new BaseChunk(chunkX, chunkZ, true, false, 0, new ChunkSection[16], new int[256], new ArrayList<>());
-                            emptyChunk.write(chunkType, c);
-                            emptyChunk.send(Protocol1_8To1_9.class);
+                    for (int modX = -1; modX <= 1; modX++) {
+                        for (int modZ = -1; modZ <= 1; modZ++) {
+                            if (modX == 0 && modZ == 0) {
+                                continue; // Skip the center chunk
+                            }
+
+                            int chunkX = chunk.getX() + modX;
+                            int chunkZ = chunk.getZ() + modZ;
+                            if (!clientWorld.getLoadedChunks().contains(ChunkPosition.chunkKey(chunkX, chunkZ))) {
+                                PacketWrapper emptyChunk = wrapper.create(ClientboundPackets1_9.LEVEL_CHUNK);
+                                Chunk c = new BaseChunk(chunkX, chunkZ, true, false, 0, new ChunkSection[16], new int[256], new ArrayList<>());
+                                emptyChunk.write(chunkType, c);
+                                emptyChunk.send(Protocol1_8To1_9.class);
+                            }
                         }
                     }
                 }
@@ -196,12 +207,23 @@ public class WorldPacketRewriter1_9 {
                 chunkData.send(Protocol1_8To1_9.class);
 
                 clientWorld.getLoadedChunks().add(ChunkPosition.chunkKey(chunk.getX(), chunk.getZ()));
+            }
 
-                // Send empty chunks surrounding the loaded chunk to force 1.9+ clients to render the new chunk
-                if (Via.getConfig().isChunkBorderFix()) {
-                    for (BlockFace face : BlockFace.HORIZONTAL) {
-                        int chunkX = chunk.getX() + face.modX();
-                        int chunkZ = chunk.getZ() + face.modZ();
+            if (!Via.getConfig().isChunkBorderFix()) {
+                return;
+            }
+
+            // Send empty chunks surrounding the loaded chunk to force 1.9+ clients to render the new chunk
+            // We do this after the bulk to prevent packet spam, as the bulk might already send surrounding chunks
+            for (Chunk chunk : chunks) {
+                for (int modX = -1; modX <= 1; modX++) {
+                    for (int modZ = -1; modZ <= 1; modZ++) {
+                        if (modX == 0 && modZ == 0) {
+                            continue; // Skip the center chunk
+                        }
+
+                        int chunkX = chunk.getX() + modX;
+                        int chunkZ = chunk.getZ() + modZ;
                         if (!clientWorld.getLoadedChunks().contains(ChunkPosition.chunkKey(chunkX, chunkZ))) {
                             PacketWrapper emptyChunk = wrapper.create(ClientboundPackets1_9.LEVEL_CHUNK);
                             Chunk c = new BaseChunk(chunkX, chunkZ, true, false, 0, new ChunkSection[16], new int[256], new ArrayList<>());
@@ -300,7 +322,7 @@ public class WorldPacketRewriter1_9 {
             Item item = Via.getManager().getProviders().get(HandItemProvider.class).getHandItem(wrapper.user());
             // Blocking patch for 1.9-1.21.3 clients
             if (Via.getConfig().isShieldBlocking() &&
-                    wrapper.user().getProtocolInfo().protocolVersion().olderThan(ProtocolVersion.v1_21_4)) {
+                wrapper.user().getProtocolInfo().protocolVersion().olderThan(ProtocolVersion.v1_21_4)) {
                 EntityTracker1_9 tracker = wrapper.user().getEntityTracker(Protocol1_8To1_9.class);
 
                 // Check if the shield is already there or if we have to give it here

@@ -201,6 +201,10 @@ public class EntityPacketRewriter1_16 extends EntityRewriter<ClientboundPackets1
         });
 
         protocol.registerServerbound(ServerboundPackets1_16.SWING, wrapper -> {
+            if (!Via.getConfig().cancelSwingInInventory()) {
+                return;
+            }
+
             InventoryTracker1_16 inventoryTracker = wrapper.user().get(InventoryTracker1_16.class);
             // Don't send an arm swing if the player has an inventory opened.
             if (inventoryTracker.isInventoryOpen()) {

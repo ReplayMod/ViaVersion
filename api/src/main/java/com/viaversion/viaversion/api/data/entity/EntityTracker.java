@@ -83,6 +83,11 @@ public interface EntityTracker {
     void clearEntities();
 
     /**
+     * Clears all stored data, including entity types, entity data and client entity id.
+     */
+    void clear();
+
+    /**
      * Returns the stored entity data if an entity with the id is tracked, else null.
      * If no data has been initialized yet, it will be done and returned by this method.
      *
@@ -179,6 +184,20 @@ public interface EntityTracker {
      * @param currentWorld name of the current world
      */
     void setCurrentWorld(String currentWorld);
+
+    /**
+     * Returns the id of the current dimension, or -1 if unset (i.e. before 1.20.5).
+     *
+     * @return id of the current dimension, or -1 if unset
+     */
+    int currentDimensionId();
+
+    /**
+     * Sets the id of the current dimension.
+     *
+     * @param currentDimensionId id of the current dimension
+     */
+    void setCurrentDimensionId(int currentDimensionId);
 
     int biomesSent();
 
