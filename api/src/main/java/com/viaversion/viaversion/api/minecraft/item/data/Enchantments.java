@@ -88,8 +88,8 @@ public record Enchantments(Int2IntMap enchantments, boolean showInTooltip) imple
         public void write(final Ops ops, final Enchantments value) {
             ops.writeMap(map -> {
                 for (final Int2IntMap.Entry entry : value.enchantments.int2IntEntrySet()) {
-                    final Key key = ops.context().registryAccess().enchantment(entry.getIntKey());
-                    map.write(Types.RESOURCE_LOCATION, key, Types.VAR_INT, entry.getIntValue());
+                    final Key key = ops.context().registryAccess().registryKey("enchantment", entry.getIntKey());
+                    map.write(Types.IDENTIFIER, key, Types.VAR_INT, entry.getIntValue());
                 }
             });
         }

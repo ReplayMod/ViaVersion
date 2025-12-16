@@ -20,11 +20,9 @@ package com.viaversion.viaversion.protocols.template;
 import com.viaversion.viaversion.api.minecraft.entities.EntityType;
 import com.viaversion.viaversion.api.minecraft.entities.EntityTypes1_21_9;
 import com.viaversion.viaversion.api.minecraft.entitydata.types.EntityDataTypes1_21_9;
-import com.viaversion.viaversion.protocols.v1_21_5to1_21_6.packet.ClientboundConfigurationPackets1_21_6;
 import com.viaversion.viaversion.protocols.v1_21_5to1_21_6.packet.ClientboundPacket1_21_6;
 import com.viaversion.viaversion.protocols.v1_21_5to1_21_6.packet.ClientboundPackets1_21_6;
 import com.viaversion.viaversion.rewriter.EntityRewriter;
-import com.viaversion.viaversion.rewriter.RegistryDataRewriter;
 
 // Replace if needed
 //  VersionedTypes
@@ -45,15 +43,13 @@ final class EntityPacketRewriter1_99 extends EntityRewriter<ClientboundPacket1_2
         registerGameEvent(ClientboundPackets1_21_6.GAME_EVENT);
         registerLogin1_20_5(ClientboundPackets1_21_6.LOGIN);
         registerRespawn1_20_5(ClientboundPackets1_21_6.RESPAWN);
-
-        final RegistryDataRewriter registryDataRewriter = new RegistryDataRewriter(protocol);
-        protocol.registerClientbound(ClientboundConfigurationPackets1_21_6.REGISTRY_DATA, registryDataRewriter::handle);
     }
 
     @Override
     protected void registerRewrites() {
         final EntityDataTypes1_21_9 entityDataTypes = protocol.mappedTypes().entityDataTypes();
-        /* Uncomment if entity data classes changed
+        filter().mapDataType(entityDataTypes::byId);
+        /* ... or something this if entity data classes changed
         filter().mapDataType(typeId -> {
             int id = typeId;
             if (id >= SomeAddedIndex) {

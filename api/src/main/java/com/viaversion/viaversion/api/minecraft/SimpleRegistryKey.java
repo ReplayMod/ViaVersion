@@ -20,29 +20,14 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package com.viaversion.viaversion.api.type.types;
+package com.viaversion.viaversion.api.minecraft;
 
-import com.viaversion.viaversion.api.minecraft.codec.Ops;
-import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.util.Key;
 
-public final class RegistryValueType extends VarIntType {
-
-    private final String[] names;
-
-    public RegistryValueType(final String... names) {
-        this.names = names;
-        for (int i = 0; i < names.length; i++) {
-            names[i] = Key.namespaced(names[i]);
-        }
-    }
+record SimpleRegistryKey(Key key) implements RegistryKey {
 
     @Override
-    public void write(final Ops ops, final Integer value) {
-        Types.STRING.write(ops, names[value]);
-    }
-
-    public String[] names() {
-        return names;
+    public String toString() {
+        return key.toString();
     }
 }

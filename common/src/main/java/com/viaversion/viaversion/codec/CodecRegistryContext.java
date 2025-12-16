@@ -30,13 +30,7 @@ public record CodecRegistryContext(Protocol<?, ?, ?, ?> protocol, RegistryAccess
 
     // Generally from hardcoded, but highly variable client data
     private static final Set<StructuredDataKey<?>> NOT_IMPLEMENTED = new ReferenceOpenHashSet<>(List.of(
-        StructuredDataKey.TRIM1_21_5, StructuredDataKey.TOOL1_21_5, StructuredDataKey.PROVIDES_TRIM_MATERIAL,
-        StructuredDataKey.CONSUMABLE1_21_2, StructuredDataKey.JUKEBOX_PLAYABLE1_21_5, StructuredDataKey.INSTRUMENT1_21_5,
-        StructuredDataKey.DEATH_PROTECTION, StructuredDataKey.BLOCKS_ATTACKS, StructuredDataKey.SUSPICIOUS_STEW_EFFECTS,
-        StructuredDataKey.BANNER_PATTERNS, StructuredDataKey.POT_DECORATIONS,
-        StructuredDataKey.WOLF_VARIANT, StructuredDataKey.WOLF_SOUND_VARIANT, StructuredDataKey.PIG_VARIANT,
-        StructuredDataKey.COW_VARIANT, StructuredDataKey.CHICKEN_VARIANT, StructuredDataKey.FROG_VARIANT,
-        StructuredDataKey.PAINTING_VARIANT, StructuredDataKey.CAT_VARIANT
+        StructuredDataKey.DAMAGE_TYPE
     ));
 
     public CodecRegistryContext(final Protocol<?, ?, ?, ?> protocol, final RegistryAccess registryAccess, final boolean mapped) {
@@ -52,6 +46,6 @@ public record CodecRegistryContext(Protocol<?, ?, ?, ?> protocol, RegistryAccess
         }
 
         final VersionedTypesHolder types = mapped ? protocol.mappedTypes() : protocol.types();
-        return !NOT_IMPLEMENTED.contains(key) && types.structuredDataKeys().supportsOps(key);
+        return (NOT_IMPLEMENTED.isEmpty() || !NOT_IMPLEMENTED.contains(key)) && types.structuredDataKeys().supportsOps(key);
     }
 }

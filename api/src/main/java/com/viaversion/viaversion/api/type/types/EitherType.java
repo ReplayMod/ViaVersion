@@ -27,7 +27,7 @@ import com.viaversion.viaversion.util.Either;
 import io.netty.buffer.ByteBuf;
 
 // Yuck - only use when necessary
-public final class EitherType<T, V> extends Type<Either<T, V>> {
+public class EitherType<T, V> extends Type<Either<T, V>> {
     private final Type<T> leftType;
     private final Type<V> rightType;
 

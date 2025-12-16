@@ -38,6 +38,7 @@ import com.viaversion.viaversion.protocols.v1_21_5to1_21_6.packet.ServerboundPac
 import com.viaversion.viaversion.protocols.v1_21_5to1_21_6.packet.ServerboundPackets1_21_6;
 import com.viaversion.viaversion.rewriter.AttributeRewriter;
 import com.viaversion.viaversion.rewriter.ParticleRewriter;
+import com.viaversion.viaversion.rewriter.RegistryDataRewriter;
 import com.viaversion.viaversion.rewriter.SoundRewriter;
 import com.viaversion.viaversion.rewriter.StatisticsRewriter;
 import com.viaversion.viaversion.rewriter.TagRewriter;
@@ -60,6 +61,7 @@ final class Protocol1_98To1_99 extends AbstractProtocol<ClientboundPacket1_21_6,
     private final ParticleRewriter<ClientboundPacket1_21_6> particleRewriter = new ParticleRewriter<>(this);
     private final TagRewriter<ClientboundPacket1_21_6> tagRewriter = new TagRewriter<>(this);
     private final NBTComponentRewriter<ClientboundPacket1_21_6> componentRewriter = new ComponentRewriter1_99(this);
+    private final RegistryDataRewriter registryDataRewriter = new RegistryDataRewriter(this);
 
     public Protocol1_98To1_99() {
         // Passing the class types into the super constructor is needed for automatic packet type id remapping, but can otherwise be omitted
@@ -69,6 +71,8 @@ final class Protocol1_98To1_99 extends AbstractProtocol<ClientboundPacket1_21_6,
     @Override
     protected void registerPackets() {
         super.registerPackets();
+
+        registerClientbound(ClientboundConfigurationPackets1_21_6.REGISTRY_DATA, registryDataRewriter::handle);
 
         tagRewriter.registerGeneric(ClientboundPackets1_21_6.UPDATE_TAGS);
         tagRewriter.registerGeneric(ClientboundConfigurationPackets1_21_6.UPDATE_TAGS);
@@ -81,6 +85,7 @@ final class Protocol1_98To1_99 extends AbstractProtocol<ClientboundPacket1_21_6,
         componentRewriter.registerBossEvent(ClientboundPackets1_21_6.BOSS_EVENT);
         componentRewriter.registerComponentPacket(ClientboundPackets1_21_6.DISCONNECT);
         componentRewriter.registerTabList(ClientboundPackets1_21_6.TAB_LIST);
+        componentRewriter.registerSetPlayerTeam1_21_5(ClientboundPackets1_21_6.SET_PLAYER_TEAM);
         componentRewriter.registerPlayerCombatKill1_20(ClientboundPackets1_21_6.PLAYER_COMBAT_KILL);
         componentRewriter.registerPlayerInfoUpdate1_21_4(ClientboundPackets1_21_6.PLAYER_INFO_UPDATE);
         componentRewriter.registerComponentPacket(ClientboundPackets1_21_6.SYSTEM_CHAT);
@@ -120,7 +125,7 @@ final class Protocol1_98To1_99 extends AbstractProtocol<ClientboundPacket1_21_6,
 
         // Uncomment if a new particle was added = ids shifted; requires a new Types_ class copied from the last
         /*mappedTypes().particle.filler(this)
-            .reader("block", ParticleType.Readers.BLOCK)
+          .reader("block", ParticleType.Readers.BLOCK)
             .reader("block_marker", ParticleType.Readers.BLOCK)
             .reader("dust_pillar", ParticleType.Readers.BLOCK)
             .reader("falling_dust", ParticleType.Readers.BLOCK)
@@ -133,6 +138,10 @@ final class Protocol1_98To1_99 extends AbstractProtocol<ClientboundPacket1_21_6,
             .reader("entity_effect", ParticleType.Readers.COLOR)
             .reader("tinted_leaves", ParticleType.Readers.COLOR)
             .reader("trail", ParticleType.Readers.TRAIL1_21_4)
+            .reader("dragon_breath", ParticleType.Readers.POWER)
+            .reader("effect", ParticleType.Readers.SPELL)
+            .reader("instant_effect", ParticleType.Readers.SPELL)
+            .reader("flash", ParticleType.Readers.COLOR)
             .reader("item", ParticleType.Readers.item(itemRewriter.mappedItemType()));*/
 
         super.onMappingDataLoaded(); // Calls load methods on rewriters. Last in case the rewriters access the above filled data
@@ -160,6 +169,11 @@ final class Protocol1_98To1_99 extends AbstractProtocol<ClientboundPacket1_21_6,
     @Override
     public BlockItemPacketRewriter1_99 getItemRewriter() {
         return itemRewriter;
+    }
+
+    @Override
+    public RegistryDataRewriter getRegistryDataRewriter() {
+        return registryDataRewriter;
     }
 
     @Override

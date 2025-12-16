@@ -32,6 +32,7 @@ import com.viaversion.viaversion.api.type.TypeConverter;
 import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.exception.CancelException;
 import com.viaversion.viaversion.exception.InformativeException;
+import com.viaversion.viaversion.util.ArrayUtil;
 import com.viaversion.viaversion.util.PipelineUtil;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelFuture;
@@ -429,6 +430,18 @@ public class PacketWrapperImpl implements PacketWrapper {
     }
 
     @Override
+    public PacketWrapperImpl create(final PacketType packetType) {
+        return new PacketWrapperImpl(packetType, null, user());
+    }
+
+    @Override
+    public PacketWrapperImpl create(final PacketType packetType, final PacketHandler handler) throws InformativeException {
+        PacketWrapperImpl wrapper = create(packetType);
+        handler.handle(wrapper);
+        return wrapper;
+    }
+
+    @Override
     public void apply(Direction direction, State state, List<Protocol> pipeline) throws InformativeException, CancelException {
         // Indexed loop to allow additions to the tail
         for (int i = 0, size = pipeline.size(); i < size; i++) {
@@ -624,7 +637,7 @@ public class PacketWrapperImpl implements PacketWrapper {
 
         @Override
         public String toString() {
-            return "{" + type + ": " + value + "}";
+            return "{" + type + ": " + ArrayUtil.toString(value) + "}";
         }
     }
 }

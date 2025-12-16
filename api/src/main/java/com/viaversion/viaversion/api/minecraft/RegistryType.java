@@ -22,11 +22,12 @@
  */
 package com.viaversion.viaversion.api.minecraft;
 
+import com.viaversion.viaversion.util.Key;
 import java.util.HashMap;
 import java.util.Map;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
-public enum RegistryType {
+public enum RegistryType implements RegistryKey {
 
     BLOCK("block"),
     ITEM("item"),
@@ -40,7 +41,7 @@ public enum RegistryType {
 
     static {
         for (RegistryType type : getValues()) {
-            MAP.put(type.resourceLocation, type);
+            MAP.put(type.identifier, type);
         }
     }
 
@@ -48,17 +49,22 @@ public enum RegistryType {
         return VALUES;
     }
 
-    public static @Nullable RegistryType getByKey(String resourceKey) {
-        return MAP.get(resourceKey);
+    public static @Nullable RegistryType getByKey(String identifier) {
+        return MAP.get(identifier);
     }
 
-    private final String resourceLocation;
+    private final String identifier;
 
-    RegistryType(final String resourceLocation) {
-        this.resourceLocation = resourceLocation;
+    RegistryType(final String identifier) {
+        this.identifier = identifier;
     }
 
-    public String resourceLocation() {
-        return resourceLocation;
+    public String identifier() {
+        return identifier;
+    }
+
+    @Override
+    public Key key() {
+        return Key.of(identifier);
     }
 }
