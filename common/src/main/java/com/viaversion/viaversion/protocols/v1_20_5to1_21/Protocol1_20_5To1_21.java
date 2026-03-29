@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2025 ViaVersion and contributors
+ * Copyright (C) 2016-2026 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -99,7 +99,7 @@ public final class Protocol1_20_5To1_21 extends AbstractProtocol<ClientboundPack
         particleRewriter.registerExplode1_20_5(ClientboundPackets1_20_5.EXPLODE); // Rewrites the included sound and particles
 
         registerClientbound(ClientboundPackets1_20_5.DISGUISED_CHAT, wrapper -> {
-            componentRewriter.processTag(wrapper.user(), wrapper.passthrough(Types.TAG)); // Message
+            componentRewriter.processTag(wrapper.user(), wrapper.passthrough(Types.TRUSTED_TAG)); // Message
 
             // Holder time
             final int chatType = wrapper.read(Types.VAR_INT);
@@ -121,7 +121,7 @@ public final class Protocol1_20_5To1_21 extends AbstractProtocol<ClientboundPack
                 }
             }
 
-            componentRewriter.processTag(wrapper.user(), wrapper.passthrough(Types.OPTIONAL_TAG)); // Unsigned content
+            componentRewriter.processTag(wrapper.user(), wrapper.passthrough(Types.TRUSTED_OPTIONAL_TAG)); // Unsigned content
 
             final int filterMaskType = wrapper.passthrough(Types.VAR_INT);
             if (filterMaskType == 2) {
@@ -130,8 +130,8 @@ public final class Protocol1_20_5To1_21 extends AbstractProtocol<ClientboundPack
 
             final int chatType = wrapper.read(Types.VAR_INT);
             wrapper.write(ChatType.TYPE, Holder.of(chatType));
-            componentRewriter.processTag(wrapper.user(), wrapper.passthrough(Types.TAG)); // Name
-            componentRewriter.processTag(wrapper.user(), wrapper.passthrough(Types.OPTIONAL_TAG)); // Target Name
+            componentRewriter.processTag(wrapper.user(), wrapper.passthrough(Types.TRUSTED_TAG)); // Name
+            componentRewriter.processTag(wrapper.user(), wrapper.passthrough(Types.TRUSTED_OPTIONAL_TAG)); // Target Name
         });
 
         registerClientbound(ClientboundPackets1_20_5.UPDATE_ATTRIBUTES, wrapper -> {

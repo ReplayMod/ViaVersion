@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2025 ViaVersion and contributors
+ * Copyright (C) 2016-2026 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -20,21 +20,17 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package com.viaversion.viaversion.api.minecraft.item.data;
+package com.viaversion.viaversion.api.platform;
 
-import com.viaversion.viaversion.api.minecraft.codec.Ops;
-import com.viaversion.viaversion.api.type.TransformingType;
-import com.viaversion.viaversion.api.type.Type;
-import com.viaversion.viaversion.api.type.Types;
-import com.viaversion.viaversion.util.Key;
+import com.viaversion.viaversion.api.scheduler.Task;
 
-public record DamageResistant(Key typesTagKey) {
+/**
+ * Implements {@link PlatformTask} for Via's own scheduler. If present and possible, platform schedulers should be used over this.
+ */
+public record ViaPlatformTask(Task task) implements PlatformTask<Task> {
 
-    public static final Type<DamageResistant> TYPE = new TransformingType<>(Types.IDENTIFIER, DamageResistant.class, DamageResistant::new, DamageResistant::typesTagKey) {
-
-        @Override
-        public void write(final Ops ops, final DamageResistant value) {
-            ops.writeMap(map -> map.write("types", Types.TAG_KEY, value.typesTagKey));
-        }
-    };
+    @Override
+    public void cancel() {
+        task.cancel();
+    }
 }

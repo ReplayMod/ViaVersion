@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2025 ViaVersion and contributors
+ * Copyright (C) 2016-2026 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -396,7 +396,7 @@ public class EntityPacketRewriter1_11 extends EntityRewriter<ClientboundPackets1
                 }
             }
         } catch (Exception e) {
-            if (!Via.getConfig().isSuppressMetadataErrors() || Via.getManager().isDebug()) {
+            if (Via.getConfig().logEntityDataErrors()) {
                 protocol.getLogger().warning("An error occurred with entity type rewriter");
                 protocol.getLogger().warning("Entity data: " + entityData);
                 protocol.getLogger().log(Level.WARNING, "Error: ", e);

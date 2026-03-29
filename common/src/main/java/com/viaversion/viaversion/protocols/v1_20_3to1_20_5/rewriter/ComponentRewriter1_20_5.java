@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2025 ViaVersion and contributors
+ * Copyright (C) 2016-2026 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -218,7 +218,7 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Js
         try {
             tagTag = tag != null ? (CompoundTag) inputSerializerVersion().toTag(tag.getValue()) : null;
         } catch (final Exception e) {
-            if (!Via.getConfig().isSuppressTextComponentConversionWarnings()) {
+            if (Via.getConfig().logTextComponentConversionErrors()) {
                 protocol.getLogger().log(Level.WARNING, "Error reading NBT in show_item: " + StringUtil.forLogging(itemTag), e);
             }
             return;
@@ -252,7 +252,7 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Js
             try {
                 components = toTag(connection, data);
             } catch (final Exception e) {
-                if (!Via.getConfig().isSuppressTextComponentConversionWarnings()) {
+                if (Via.getConfig().logTextComponentConversionErrors()) {
                     protocol.getLogger().log(Level.WARNING, "Error writing components in show_item!", e);
                 }
                 return;
@@ -827,11 +827,12 @@ public class ComponentRewriter1_20_5<C extends ClientboundPacketType> extends Js
             potionEffectToTag(effectTag, effect);
             customEffects.add(effectTag);
         }
-        tag.put("custom_effects", customEffects);
+        if (!customEffects.isEmpty()) {
+            tag.put("custom_effects", customEffects);
+        }
         if (value.customName() != null) {
             tag.putString("custom_name", value.customName());
         }
-        tag.put("custom_effects", customEffects);
         return tag;
     }
 

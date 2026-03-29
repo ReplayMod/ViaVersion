@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2025 ViaVersion and contributors
+ * Copyright (C) 2016-2026 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -30,6 +30,7 @@ import com.viaversion.viaversion.api.minecraft.codec.Ops;
 import com.viaversion.viaversion.api.type.OptionalType;
 import com.viaversion.viaversion.api.type.Type;
 import com.viaversion.viaversion.api.type.Types;
+import com.viaversion.viaversion.api.type.types.VarIntArrayType;
 import com.viaversion.viaversion.util.Key;
 import io.netty.buffer.ByteBuf;
 
@@ -58,12 +59,7 @@ public class HolderSetType extends Type<HolderSet> {
             final String tag = Types.STRING.read(buffer);
             return HolderSet.of(tag);
         }
-
-        final int[] values = new int[size];
-        for (int i = 0; i < size; i++) {
-            values[i] = Types.VAR_INT.readPrimitive(buffer);
-        }
-        return HolderSet.of(values);
+        return HolderSet.of(new VarIntArrayType(size).read(buffer));
     }
 
     @Override

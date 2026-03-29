@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2025 ViaVersion and contributors
+ * Copyright (C) 2016-2026 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -33,12 +33,15 @@ import com.viaversion.viaversion.bukkit.platform.BukkitViaTask;
 import com.viaversion.viaversion.bukkit.platform.BukkitViaTaskTask;
 import com.viaversion.viaversion.bukkit.platform.FoliaViaTask;
 import com.viaversion.viaversion.bukkit.platform.PaperViaInjector;
+import com.viaversion.viaversion.connection.ConnectionDetails;
 import com.viaversion.viaversion.dump.PluginInfo;
 import com.viaversion.viaversion.util.GsonUtil;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.block.Block;
@@ -118,6 +121,8 @@ public class ViaVersionPlugin extends JavaPlugin implements ViaPlatform<Player> 
             manager.onServerLoaded();
         }
 
+        getServer().getMessenger().registerOutgoingPluginChannel(this, ConnectionDetails.SERVER_CHANNEL);
+
         getCommand("viaversion").setExecutor(commandHandler);
         getCommand("viaversion").setTabCompleter(commandHandler);
     }
@@ -135,11 +140,6 @@ public class ViaVersionPlugin extends JavaPlugin implements ViaPlatform<Player> 
     @Override
     public String getPlatformVersion() {
         return Bukkit.getServer().getVersion();
-    }
-
-    @Override
-    public String getPluginVersion() {
-        return getDescription().getVersion();
     }
 
     @Override
@@ -214,13 +214,43 @@ public class ViaVersionPlugin extends JavaPlugin implements ViaPlatform<Player> 
     @Override
     public boolean kickPlayer(UserConnection connection, String message) {
         UUID uuid = connection.getProtocolInfo().getUuid();
-        Player player = Bukkit.getPlayer(uuid);
-        if (player != null) {
+        Player player;
+        if (uuid != null && (player = Bukkit.getPlayer(uuid)) != null) {
             player.kickPlayer(message);
             return true;
         } else {
             return false;
         }
+    }
+
+    @Override
+    public void sendCustomPayload(final UserConnection connection, final String channel, final byte[] message) {
+        UUID uuid = connection.getProtocolInfo().getUuid();
+        Player player = Bukkit.getPlayer(uuid);
+        if (player != null) {
+            Bukkit.getMessenger().dispatchIncomingMessage(player, channel, message);
+        }
+    }
+
+    @Override
+    public void sendCustomPayloadToClient(final UserConnection connection, final String channel, final byte[] message) {
+        UUID uuid = connection.getProtocolInfo().getUuid();
+        Player player = Bukkit.getPlayer(uuid);
+        if (player == null) {
+            return;
+        }
+
+        // Because the messaging sucks
+        try {
+            final String className = Bukkit.getServer().getClass().getName();
+            final String craftBukkitPackage = className.substring(0, className.lastIndexOf('.'));
+            Class.forName(craftBukkitPackage + ".entity.CraftPlayer").getMethod("addChannel", String.class).invoke(player, channel);
+        } catch (final IllegalAccessException | InvocationTargetException | NoSuchMethodException | ClassNotFoundException e) {
+            getLogger().log(Level.SEVERE, "Failed to register custom payload channel " + channel + " for player " + player.getName(), e);
+            return;
+        }
+
+        player.sendPluginMessage(this, channel, message);
     }
 
     @Override

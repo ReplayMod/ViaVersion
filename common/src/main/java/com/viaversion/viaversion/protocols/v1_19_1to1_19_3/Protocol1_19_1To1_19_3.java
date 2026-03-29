@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2025 ViaVersion and contributors
+ * Copyright (C) 2016-2026 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -117,6 +117,7 @@ public final class Protocol1_19_1To1_19_3 extends AbstractProtocol<ClientboundPa
         componentRewriter.registerOpenScreen1_14(ClientboundPackets1_19_1.OPEN_SCREEN);
         componentRewriter.registerPlayerCombatKill(ClientboundPackets1_19_1.PLAYER_COMBAT_KILL);
         componentRewriter.registerSetPlayerTeam1_13(ClientboundPackets1_19_1.SET_PLAYER_TEAM);
+        componentRewriter.registerSetObjective(ClientboundPackets1_19_1.SET_OBJECTIVE);
         componentRewriter.registerPing();
 
         final CommandRewriter<ClientboundPackets1_19_1> commandRewriter = new CommandRewriter<>(this) {
@@ -128,17 +129,6 @@ public final class Protocol1_19_1To1_19_3 extends AbstractProtocol<ClientboundPa
                     case "minecraft:entity_summon" -> wrapper.write(Types.STRING, "minecraft:entity_type");
                     default -> super.handleArgument(wrapper, argumentType);
                 }
-            }
-
-            @Override
-            public String handleArgumentType(final String argumentType) {
-                return switch (argumentType) {
-                    case "minecraft:resource" -> "minecraft:resource_key";
-                    case "minecraft:resource_or_tag" -> "minecraft:resource_or_tag_key";
-                    case "minecraft:entity_summon", "minecraft:item_enchantment", "minecraft:mob_effect" ->
-                        "minecraft:resource";
-                    default -> argumentType;
-                };
             }
         };
         commandRewriter.registerDeclareCommands1_19(ClientboundPackets1_19_1.COMMANDS);

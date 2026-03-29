@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2025 ViaVersion and contributors
+ * Copyright (C) 2016-2026 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,6 +17,7 @@
  */
 package com.viaversion.viaversion.protocols.v1_8to1_9.rewriter;
 
+import com.google.gson.JsonPrimitive;
 import com.viaversion.nbt.tag.CompoundTag;
 import com.viaversion.nbt.tag.StringTag;
 import com.viaversion.viaversion.api.Via;
@@ -279,7 +280,7 @@ public class WorldPacketRewriter1_9 {
                 handler(wrapper -> {
                     for (int i = 0; i < 4; i++) {
                         final String line = wrapper.read(Types.STRING);
-                        wrapper.write(Types.COMPONENT, ComponentUtil.plainToJson(line));
+                        wrapper.write(Types.COMPONENT, new JsonPrimitive(line));
                     }
                 });
             }

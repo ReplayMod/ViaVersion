@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2025 ViaVersion and contributors
+ * Copyright (C) 2016-2026 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -28,7 +28,12 @@ import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.api.type.types.EitherType;
 import com.viaversion.viaversion.util.Either;
 
+/**
+ * 1.21.11-only damage type.
+ *
+ * @param id registry int or string id
+ */
 public record DamageType(Either<Integer, String> id) {
 
-    public static final Type<DamageType> TYPE = TransformingType.of(new EitherType<>(Types.VAR_INT, Types.STRING), DamageType.class, DamageType::new, DamageType::id);
+    public static final Type<DamageType> TYPE1_21_11 = TransformingType.of(new EitherType<>(Types.VAR_INT, Types.STRING), DamageType.class, DamageType::new, DamageType::id);
 }

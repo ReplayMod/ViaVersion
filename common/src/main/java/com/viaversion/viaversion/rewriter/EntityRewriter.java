@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2025 ViaVersion and contributors
+ * Copyright (C) 2016-2026 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -32,7 +32,6 @@ import com.viaversion.viaversion.api.data.entity.EntityTracker;
 import com.viaversion.viaversion.api.data.entity.TrackedEntity;
 import com.viaversion.viaversion.api.minecraft.GameMode;
 import com.viaversion.viaversion.api.minecraft.Particle;
-import com.viaversion.viaversion.api.minecraft.Vector3d;
 import com.viaversion.viaversion.api.minecraft.entities.EntityType;
 import com.viaversion.viaversion.api.minecraft.entitydata.EntityData;
 import com.viaversion.viaversion.api.minecraft.entitydata.EntityDataType;
@@ -322,7 +321,7 @@ public abstract class EntityRewriter<C extends ClientboundPacketType, T extends 
             wrapper.passthrough(Types.DOUBLE); // X
             wrapper.passthrough(Types.DOUBLE); // Y
             wrapper.passthrough(Types.DOUBLE); // Z
-            wrapper.passthrough(Types.MOVEMENT_VECTOR); // Movement
+            wrapper.passthrough(Types.LOW_PRECISION_VECTOR); // Movement
             wrapper.passthrough(Types.BYTE); // Pitch
             wrapper.passthrough(Types.BYTE); // Yaw
             wrapper.passthrough(Types.BYTE); // Head yaw
@@ -648,7 +647,7 @@ public abstract class EntityRewriter<C extends ClientboundPacketType, T extends 
     // ---------------------------------------------------------------------------
 
     private void logException(Exception e, @Nullable EntityType type, List<EntityData> entityDataList, EntityData entityData) {
-        if (!Via.getConfig().isSuppressMetadataErrors() || Via.getManager().isDebug()) {
+        if (Via.getConfig().logEntityDataErrors()) {
             protocol.getLogger().severe("An error occurred in entity data handler " + this.getClass().getSimpleName()
                 + " for " + (type != null ? type.name() : "untracked") + " entity type: " + entityData);
             protocol.getLogger().severe(entityDataList.stream().sorted(Comparator.comparingInt(EntityData::id))

@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2025 ViaVersion and contributors
+ * Copyright (C) 2016-2026 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -425,7 +425,9 @@ public final class StructuredDataConverter {
 
                 customPotionEffectsTag.add(effectTag);
             }
-            tag.put("custom_potion_effects", customPotionEffectsTag);
+            if (!customPotionEffectsTag.isEmpty()) {
+                tag.put("custom_potion_effects", customPotionEffectsTag);
+            }
         });
         register(StructuredDataKey.SUSPICIOUS_STEW_EFFECTS, (data, tag) -> {
             final ListTag<CompoundTag> effectsTag = new ListTag<>(CompoundTag.class);

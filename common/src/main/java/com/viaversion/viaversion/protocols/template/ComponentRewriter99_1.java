@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2025 ViaVersion and contributors
+ * Copyright (C) 2016-2026 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,12 +19,12 @@ package com.viaversion.viaversion.protocols.template;
 
 import com.viaversion.nbt.tag.CompoundTag;
 import com.viaversion.viaversion.api.connection.UserConnection;
-import com.viaversion.viaversion.protocols.v1_21_5to1_21_6.packet.ClientboundPacket1_21_6;
+import com.viaversion.viaversion.protocols.v1_21_11to26_1.packet.ClientboundPacket26_1;
 import com.viaversion.viaversion.rewriter.text.NBTComponentRewriter;
 
-final class ComponentRewriter1_99 extends NBTComponentRewriter<ClientboundPacket1_21_6> {
+final class ComponentRewriter99_1 extends NBTComponentRewriter<ClientboundPacket26_1> {
 
-    public ComponentRewriter1_99(final Protocol1_98To1_99 protocol) {
+    public ComponentRewriter99_1(final Protocol98_1To99_1 protocol) {
         super(protocol);
     }
 

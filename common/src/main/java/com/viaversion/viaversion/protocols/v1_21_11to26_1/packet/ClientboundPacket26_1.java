@@ -15,30 +15,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.viaversion.viaversion.common.dummy;
+package com.viaversion.viaversion.protocols.v1_21_11to26_1.packet;
 
-import com.google.gson.JsonObject;
-import com.viaversion.viaversion.api.platform.ViaInjector;
-import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
+import com.viaversion.viaversion.api.protocol.packet.ClientboundPacketType;
 
-public class TestInjector implements ViaInjector {
-
-    @Override
-    public void inject() {
-    }
-
-    @Override
-    public void uninject() {
-
-    }
-
-    @Override
-    public ProtocolVersion getServerProtocolVersion() {
-        return ProtocolVersion.v1_21_7;
-    }
-
-    @Override
-    public JsonObject getDump() {
-        return null;
-    }
+public interface ClientboundPacket26_1 extends ClientboundPacketType {
 }

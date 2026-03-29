@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2025 ViaVersion and contributors
+ * Copyright (C) 2016-2026 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -76,6 +76,26 @@ public class ViaManagerImpl implements ViaManager {
         this.injector = injector;
         this.commandHandler = commandHandler;
         this.loader = loader;
+    }
+
+    /**
+     * Initialized and completes the full loading process of ViaVersion.
+     *
+     * @param platform       platform
+     * @param injector       platform injector
+     * @param commandHandler command handler
+     * @return the initialized and loaded manager
+     */
+    public static ViaManager initAndLoad(ViaPlatform<?> platform, ViaInjector injector, ViaCommandHandler commandHandler, ViaPlatformLoader loader, Runnable... enableListeners) {
+        final ViaManagerImpl manager = new ViaManagerImpl(platform, injector, commandHandler, loader);
+        Via.init(manager);
+        platform.getConf().reload();
+        for (final Runnable listener : enableListeners) {
+            manager.addEnableListener(listener);
+        }
+        manager.init();
+        manager.onServerLoaded();
+        return manager;
     }
 
     public static ViaManagerBuilder builder() {
@@ -350,10 +370,10 @@ public class ViaManagerImpl implements ViaManager {
     }
 
     public static final class ViaManagerBuilder {
+        private ViaPlatformLoader loader = ViaPlatformLoader.NOOP;
         private ViaPlatform<?> platform;
         private ViaInjector injector;
         private ViaCommandHandler commandHandler;
-        private ViaPlatformLoader loader;
 
         public ViaManagerBuilder platform(ViaPlatform<?> platform) {
             this.platform = platform;

@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2025 ViaVersion and contributors
+ * Copyright (C) 2016-2026 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,9 +18,8 @@
 package com.viaversion.viaversion.protocols.v1_21_4to1_21_5.rewriter;
 
 import com.viaversion.nbt.tag.CompoundTag;
-import com.viaversion.nbt.tag.ListTag;
+import com.viaversion.nbt.tag.IntTag;
 import com.viaversion.nbt.tag.LongArrayTag;
-import com.viaversion.nbt.tag.StringTag;
 import com.viaversion.nbt.tag.Tag;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.data.FullMappings;
@@ -29,7 +28,6 @@ import com.viaversion.viaversion.api.data.Mappings;
 import com.viaversion.viaversion.api.data.entity.EntityTracker;
 import com.viaversion.viaversion.api.minecraft.EitherHolder;
 import com.viaversion.viaversion.api.minecraft.Holder;
-import com.viaversion.viaversion.api.minecraft.blockentity.BlockEntity;
 import com.viaversion.viaversion.api.minecraft.chunks.Chunk;
 import com.viaversion.viaversion.api.minecraft.chunks.Chunk1_21_5;
 import com.viaversion.viaversion.api.minecraft.chunks.DataPalette;
@@ -52,6 +50,7 @@ import com.viaversion.viaversion.api.minecraft.item.data.DyedColor;
 import com.viaversion.viaversion.api.minecraft.item.data.Enchantments;
 import com.viaversion.viaversion.api.minecraft.item.data.JukeboxPlayable;
 import com.viaversion.viaversion.api.minecraft.item.data.TooltipDisplay;
+import com.viaversion.viaversion.api.minecraft.item.data.TropicalFishPattern;
 import com.viaversion.viaversion.api.minecraft.item.data.Unbreakable;
 import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
@@ -102,17 +101,15 @@ public final class BlockItemPacketRewriter1_21_5 extends StructuredItemRewriter<
         StructuredDataKey.FOX_VARIANT, StructuredDataKey.SALMON_SIZE, StructuredDataKey.PARROT_VARIANT,
         StructuredDataKey.TROPICAL_FISH_PATTERN, StructuredDataKey.TROPICAL_FISH_BASE_COLOR, StructuredDataKey.TROPICAL_FISH_PATTERN_COLOR,
         StructuredDataKey.MOOSHROOM_VARIANT, StructuredDataKey.RABBIT_VARIANT, StructuredDataKey.COW_VARIANT,
-        StructuredDataKey.PIG_VARIANT, StructuredDataKey.CHICKEN_VARIANT, StructuredDataKey.FROG_VARIANT,
+        StructuredDataKey.PIG_VARIANT, StructuredDataKey.CHICKEN_VARIANT1_21_5, StructuredDataKey.FROG_VARIANT,
         StructuredDataKey.HORSE_VARIANT, StructuredDataKey.PAINTING_VARIANT, StructuredDataKey.LLAMA_VARIANT,
         StructuredDataKey.AXOLOTL_VARIANT, StructuredDataKey.CAT_VARIANT, StructuredDataKey.CAT_COLLAR,
-        StructuredDataKey.SHEEP_COLOR, StructuredDataKey.SHULKER_COLOR, StructuredDataKey.BLOCKS_ATTACKS,
-        StructuredDataKey.PROVIDES_TRIM_MATERIAL, StructuredDataKey.BREAK_SOUND, StructuredDataKey.WOLF_SOUND_VARIANT,
-        StructuredDataKey.PROVIDES_BANNER_PATTERNS
+        StructuredDataKey.SHEEP_COLOR, StructuredDataKey.SHULKER_COLOR, StructuredDataKey.BLOCKS_ATTACKS1_21_5,
+        StructuredDataKey.PROVIDES_TRIM_MATERIAL1_21_5, StructuredDataKey.BREAK_SOUND, StructuredDataKey.WOLF_SOUND_VARIANT,
+        StructuredDataKey.PROVIDES_BANNER_PATTERNS1_21_5
     );
     private static final DataComponentMatchers EMPTY_DATA_MATCHERS = new DataComponentMatchers(new StructuredData[0], new DataComponentPredicate[0]);
     private static final Heightmap[] EMPTY_HEIGHTMAPS = new Heightmap[0];
-    private static final int SIGN_BOCK_ENTITY_ID = 7;
-    private static final int HANGING_SIGN_BOCK_ENTITY_ID = 8;
 
     public BlockItemPacketRewriter1_21_5(final Protocol1_21_4To1_21_5 protocol) {
         super(protocol);
@@ -120,12 +117,12 @@ public final class BlockItemPacketRewriter1_21_5 extends StructuredItemRewriter<
 
     @Override
     public void registerPackets() {
-        final BlockRewriter<ClientboundPacket1_21_2> blockRewriter = BlockRewriter.for1_20_2(protocol);
+        final BlockRewriter<ClientboundPacket1_21_2> blockRewriter = new BlockPacketRewriter1_21_5(protocol);
         blockRewriter.registerBlockEvent(ClientboundPackets1_21_2.BLOCK_EVENT);
         blockRewriter.registerBlockUpdate(ClientboundPackets1_21_2.BLOCK_UPDATE);
         blockRewriter.registerSectionBlocksUpdate1_20(ClientboundPackets1_21_2.SECTION_BLOCKS_UPDATE);
         blockRewriter.registerLevelEvent1_21(ClientboundPackets1_21_2.LEVEL_EVENT, 2001);
-        blockRewriter.registerBlockEntityData(ClientboundPackets1_21_2.BLOCK_ENTITY_DATA, this::handleBlockEntity);
+        blockRewriter.registerBlockEntityData(ClientboundPackets1_21_2.BLOCK_ENTITY_DATA);
 
         protocol.registerClientbound(ClientboundPackets1_21_2.LEVEL_CHUNK_WITH_LIGHT, wrapper -> {
             final EntityTracker tracker = protocol.getEntityRewriter().tracker(wrapper.user());
@@ -149,7 +146,7 @@ public final class BlockItemPacketRewriter1_21_5 extends StructuredItemRewriter<
             }
 
             final Chunk mappedChunk = new Chunk1_21_5(chunk.getX(), chunk.getZ(), chunk.getSections(), heightmaps.toArray(EMPTY_HEIGHTMAPS), chunk.blockEntities());
-            blockRewriter.handleBlockEntities(this::handleBlockEntity, chunk, wrapper.user());
+            blockRewriter.handleBlockEntities(chunk, wrapper.user());
             wrapper.write(newChunkType, mappedChunk);
         });
 
@@ -214,8 +211,8 @@ public final class BlockItemPacketRewriter1_21_5 extends StructuredItemRewriter<
 
                 // Display data
                 if (wrapper.passthrough(Types.BOOLEAN)) {
-                    final Tag title = wrapper.passthrough(Types.TAG);
-                    final Tag description = wrapper.passthrough(Types.TAG);
+                    final Tag title = wrapper.passthrough(Types.TRUSTED_TAG);
+                    final Tag description = wrapper.passthrough(Types.TRUSTED_TAG);
                     final ComponentRewriter componentRewriter = protocol.getComponentRewriter();
                     if (componentRewriter != null) {
                         componentRewriter.processTag(wrapper.user(), title);
@@ -285,37 +282,6 @@ public final class BlockItemPacketRewriter1_21_5 extends StructuredItemRewriter<
             wrapper.write(Types.STRING, namespace + ":" + stripped);
         } else {
             wrapper.write(Types.STRING, namespace + ":" + path);
-        }
-    }
-
-    private void handleBlockEntity(final UserConnection connection, final BlockEntity blockEntity) {
-        final CompoundTag tag = blockEntity.tag();
-        if (tag == null) {
-            return;
-        }
-
-        if (blockEntity.typeId() == SIGN_BOCK_ENTITY_ID || blockEntity.typeId() == HANGING_SIGN_BOCK_ENTITY_ID) {
-            updateSignMessages(connection, tag.getCompoundTag("front_text"));
-            updateSignMessages(connection, tag.getCompoundTag("back_text"));
-        }
-
-        final String customName = tag.getString("CustomName");
-        if (customName != null) {
-            tag.put("CustomName", protocol.getComponentRewriter().uglyJsonToTag(connection, customName));
-        }
-    }
-
-    private void updateSignMessages(final UserConnection connection, final CompoundTag tag) {
-        if (tag == null) {
-            return;
-        }
-
-        final ListTag<StringTag> messages = tag.getListTag("messages", StringTag.class);
-        tag.put("messages", protocol.getComponentRewriter().updateComponentList(connection, messages, true));
-
-        final ListTag<StringTag> filteredMessages = tag.getListTag("filtered_messages", StringTag.class);
-        if (filteredMessages != null) {
-            tag.put("filtered_messages", protocol.getComponentRewriter().updateComponentList(connection, filteredMessages, true));
         }
     }
 
@@ -436,6 +402,7 @@ public final class BlockItemPacketRewriter1_21_5 extends StructuredItemRewriter<
             dataContainer.set(StructuredDataKey.TOOLTIP_DISPLAY, new TooltipDisplay(hideTooltip, hiddenComponents));
         }
 
+        updateBucketVariant(dataContainer);
         dataContainer.replace(StructuredDataKey.UNBREAKABLE1_20_5, StructuredDataKey.UNBREAKABLE1_21_5, unbreakable -> Unit.INSTANCE);
         dataContainer.replace(StructuredDataKey.CAN_PLACE_ON1_20_5, StructuredDataKey.V1_21_5.canPlaceOn, BlockItemPacketRewriter1_21_5::updateAdventureModePredicate);
         dataContainer.replace(StructuredDataKey.CAN_BREAK1_20_5, StructuredDataKey.V1_21_5.canBreak, BlockItemPacketRewriter1_21_5::updateAdventureModePredicate);
@@ -458,6 +425,24 @@ public final class BlockItemPacketRewriter1_21_5 extends StructuredItemRewriter<
         return new AdventureModePredicate(blockPredicates);
     }
 
+    private static void updateBucketVariant(final StructuredDataContainer dataContainer) {
+        final CompoundTag bucketEntityData = dataContainer.get(StructuredDataKey.BUCKET_ENTITY_DATA);
+        if (bucketEntityData == null) {
+            return;
+        }
+
+        final IntTag bucketVariantTag = bucketEntityData.removeUnchecked("BucketVariantTag");
+        if (bucketVariantTag == null) {
+            return;
+        }
+
+        // Unpack into new item components
+        final int packedVariant = bucketVariantTag.asInt();
+        dataContainer.set(StructuredDataKey.TROPICAL_FISH_BASE_COLOR, packedVariant >> 16 & 0xFF);
+        dataContainer.set(StructuredDataKey.TROPICAL_FISH_PATTERN_COLOR, packedVariant >> 24 & 0xFF);
+        dataContainer.set(StructuredDataKey.TROPICAL_FISH_PATTERN, new TropicalFishPattern(packedVariant & 65535));
+    }
+
     public static void downgradeItemData(final Item item) {
         final StructuredDataContainer dataContainer = item.dataContainer();
         dataContainer.replaceKey(StructuredDataKey.TOOL1_21_5, StructuredDataKey.TOOL1_20_5);
@@ -476,6 +461,7 @@ public final class BlockItemPacketRewriter1_21_5 extends StructuredItemRewriter<
             }
         }
 
+        downgradeBucketVariant(dataContainer);
         dataContainer.replace(StructuredDataKey.UNBREAKABLE1_21_5, StructuredDataKey.UNBREAKABLE1_20_5, unbreakable -> new Unbreakable(shouldShowToServer(tooltipDisplay, StructuredDataKey.UNBREAKABLE1_20_5)));
         updateShowInTooltip(dataContainer, tooltipDisplay, StructuredDataKey.DYED_COLOR1_21_5, StructuredDataKey.DYED_COLOR1_20_5, dyedColor -> new DyedColor(dyedColor.rgb(), false));
         updateShowInTooltip(dataContainer, tooltipDisplay, StructuredDataKey.ATTRIBUTE_MODIFIERS1_21_5, StructuredDataKey.ATTRIBUTE_MODIFIERS1_21, attributeModifiers -> new AttributeModifiers1_21(attributeModifiers.modifiers(), false));
@@ -487,6 +473,27 @@ public final class BlockItemPacketRewriter1_21_5 extends StructuredItemRewriter<
         updateShowInTooltip(dataContainer, tooltipDisplay, StructuredDataKey.JUKEBOX_PLAYABLE1_21_5, StructuredDataKey.JUKEBOX_PLAYABLE1_21, playable -> new JukeboxPlayable(playable.song(), false));
 
         dataContainer.remove(NEW_DATA_TO_REMOVE);
+    }
+
+    private static void downgradeBucketVariant(final StructuredDataContainer dataContainer) {
+        final TropicalFishPattern tropicalFishPattern = dataContainer.get(StructuredDataKey.TROPICAL_FISH_PATTERN);
+        if (tropicalFishPattern == null) {
+            return;
+        }
+
+        final Integer base = dataContainer.get(StructuredDataKey.TROPICAL_FISH_BASE_COLOR);
+        final Integer pattern = dataContainer.get(StructuredDataKey.TROPICAL_FISH_PATTERN_COLOR);
+
+        // Pack into legacy tag again
+        final int baseColor = base != null ? base : 16777215;
+        final int patternColor = pattern != null ? pattern : 16777215;
+        final int packedVariant = (patternColor & 0xFF) << 24 | (baseColor & 0xFF) << 16 | (tropicalFishPattern.packedId() & 0xFFFF);
+
+        CompoundTag bucketEntityData = dataContainer.get(StructuredDataKey.BUCKET_ENTITY_DATA);
+        if (bucketEntityData == null) {
+            dataContainer.set(StructuredDataKey.BUCKET_ENTITY_DATA, bucketEntityData = new CompoundTag());
+        }
+        bucketEntityData.put("BucketVariantTag", new IntTag(packedVariant));
     }
 
     private StructuredItem convertHashedItemToStructuredItem(final UserConnection connection, final HashedItem hashedItem) {
@@ -511,7 +518,7 @@ public final class BlockItemPacketRewriter1_21_5 extends StructuredItemRewriter<
         if (serverVersion.olderThanOrEqualTo(ProtocolVersion.v1_8)) {
             if (item.identifier() == 858 || item.identifier() == 863 || item.identifier() == 873 || item.identifier() == 868 || item.identifier() == 878) { // swords
                 item.dataContainer().remove(StructuredDataKey.CONSUMABLE1_21_2);
-                item.dataContainer().set(StructuredDataKey.BLOCKS_ATTACKS,
+                item.dataContainer().set(StructuredDataKey.BLOCKS_ATTACKS1_21_5,
                     new BlocksAttacks(
                         0F,
                         0F,

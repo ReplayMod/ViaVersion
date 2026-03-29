@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2025 ViaVersion and contributors
+ * Copyright (C) 2016-2026 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -34,7 +34,9 @@ public enum RegistryType implements RegistryKey {
     FLUID("fluid"),
     ENTITY("entity_type"),
     GAME_EVENT("game_event"),
-    ENCHANTMENT("enchantment");
+    ENCHANTMENT("enchantment"),
+    DAMAGE_TYPE("damage_type"),
+    BANNER_PATTERN("banner_pattern");
 
     private static final Map<String, RegistryType> MAP = new HashMap<>();
     private static final RegistryType[] VALUES = values();

@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2025 ViaVersion and contributors
+ * Copyright (C) 2016-2026 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -29,6 +29,11 @@ import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.util.Key;
 import io.netty.buffer.ByteBuf;
 
+/**
+ * Mess for certain pre 26.1 things.
+ *
+ * @param <T> held type
+ */
 public final class EitherHolderType<T> extends Type<EitherHolder<T>> {
     private final HolderType<T> holderType;
 

@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2025 ViaVersion and contributors
+ * Copyright (C) 2016-2026 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -170,7 +170,7 @@ public class EntityPacketRewriter1_16 extends EntityRewriter<ClientboundPackets1
                 if (attributeIdentifier == null) {
                     attributeIdentifier = Key.namespaced(key);
                     if (!Key.isValid(attributeIdentifier)) {
-                        if (!Via.getConfig().isSuppressConversionWarnings()) {
+                        if (Via.getConfig().logOtherConversionWarnings()) {
                             protocol.getLogger().warning("Invalid attribute: " + key);
                         }
                         actualSize--;

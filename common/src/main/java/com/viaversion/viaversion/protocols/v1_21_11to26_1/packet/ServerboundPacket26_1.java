@@ -15,17 +15,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.viaversion.viaversion.common.dummy;
+package com.viaversion.viaversion.protocols.v1_21_11to26_1.packet;
 
-import com.viaversion.viaversion.api.platform.ViaPlatformLoader;
+import com.viaversion.viaversion.api.protocol.packet.ServerboundPacketType;
 
-public class TestLoader implements ViaPlatformLoader {
-
-    @Override
-    public void load() {
-    }
-
-    @Override
-    public void unload() {
-    }
+public interface ServerboundPacket26_1 extends ServerboundPacketType {
 }

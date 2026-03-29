@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2025 ViaVersion and contributors
+ * Copyright (C) 2016-2026 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -45,6 +45,7 @@ public class MappingDataBase implements MappingData {
     protected FullMappings entityMappings;
     protected FullMappings recipeSerializerMappings;
     protected FullMappings itemDataSerializerMappings;
+    protected FullMappings slotDisplayMappings;
     protected FullMappings attributeMappings;
     protected FullMappings blockEntityMappings;
     protected ParticleMappings particleMappings;
@@ -89,6 +90,7 @@ public class MappingDataBase implements MappingData {
 
             entityMappings = loadFullMappings(data, unmappedIdentifierData, mappedIdentifierData, "entities");
             argumentTypeMappings = loadFullMappings(data, unmappedIdentifierData, mappedIdentifierData, "argumenttypes");
+            slotDisplayMappings = loadFullMappings(data, unmappedIdentifierData, mappedIdentifierData, "slot_displays");
             recipeSerializerMappings = loadFullMappings(data, unmappedIdentifierData, mappedIdentifierData, "recipe_serializers");
             itemDataSerializerMappings = loadFullMappings(data, unmappedIdentifierData, mappedIdentifierData, "data_component_type");
             attributeMappings = loadFullMappings(data, unmappedIdentifierData, mappedIdentifierData, "attributes");
@@ -336,6 +338,11 @@ public class MappingDataBase implements MappingData {
     }
 
     @Override
+    public @Nullable FullMappings getSlotDisplayMappings() {
+        return slotDisplayMappings;
+    }
+
+    @Override
     public @Nullable IntSet changedBlocks() {
         return changedBlocks;
     }
@@ -354,7 +361,7 @@ public class MappingDataBase implements MappingData {
      */
     protected int checkValidity(final int id, final int mappedId, final String type) {
         if (mappedId == -1) {
-            if (!Via.getConfig().isSuppressConversionWarnings()) {
+            if (Via.getConfig().logOtherConversionWarnings()) {
                 getLogger().warning(String.format("Missing %s %s for %s %s %d", mappedVersion, type, unmappedVersion, type, id));
             }
             return 0;

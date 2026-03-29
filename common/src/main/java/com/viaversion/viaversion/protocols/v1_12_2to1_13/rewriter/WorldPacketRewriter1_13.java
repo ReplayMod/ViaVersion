@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2025 ViaVersion and contributors
+ * Copyright (C) 2016-2026 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -88,7 +88,7 @@ public class WorldPacketRewriter1_13 {
                     String motive = wrapper.read(Types.STRING);
 
                     Optional<Integer> id = provider.getIntByIdentifier(motive);
-                    if (id.isEmpty() && !Via.getConfig().isSuppressConversionWarnings()) {
+                    if (id.isEmpty() && Via.getConfig().logOtherConversionWarnings()) {
                         Protocol1_12_2To1_13.LOGGER.warning("Could not find painting motive: " + motive + " falling back to default (0)");
                     }
                     wrapper.write(Types.VAR_INT, id.orElse(0));
@@ -302,13 +302,15 @@ public class WorldPacketRewriter1_13 {
         protocol.registerClientbound(ClientboundPackets1_12_1.FORGET_LEVEL_CHUNK, new PacketHandlers() {
             @Override
             public void register() {
-                if (Via.getConfig().isServersideBlockConnections()) {
-                    handler(wrapper -> {
-                        int x = wrapper.passthrough(Types.INT);
-                        int z = wrapper.passthrough(Types.INT);
+                handler(wrapper -> {
+                    int x = wrapper.passthrough(Types.INT);
+                    int z = wrapper.passthrough(Types.INT);
+
+                    wrapper.user().get(BlockStorage.class).removeChunk(x, z);
+                    if (Via.getConfig().isServersideBlockConnections()) {
                         ConnectionData.blockConnectionProvider.unloadChunk(wrapper.user(), x, z);
-                    });
-                }
+                    }
+                });
             }
         });
 
@@ -408,7 +410,7 @@ public class WorldPacketRewriter1_13 {
                     if (!VALID_BIOMES.contains(biome)) {
                         if (biome != 255 // is it generated naturally? *shrug*
                             && latestBiomeWarn != biome) {
-                            if (!Via.getConfig().isSuppressConversionWarnings()) {
+                            if (Via.getConfig().logOtherConversionWarnings()) {
                                 Protocol1_12_2To1_13.LOGGER.warning("Received invalid biome id: " + biome);
                             }
                             latestBiomeWarn = biome;
@@ -571,12 +573,12 @@ public class WorldPacketRewriter1_13 {
         }
         newId = Protocol1_12_2To1_13.MAPPINGS.getBlockMappings().getNewId(IdAndData.removeData(oldId)); // Remove data
         if (newId != -1) {
-            if (!Via.getConfig().isSuppressConversionWarnings()) {
+            if (Via.getConfig().logOtherConversionWarnings()) {
                 Protocol1_12_2To1_13.LOGGER.warning("Missing block " + oldId);
             }
             return newId;
         }
-        if (!Via.getConfig().isSuppressConversionWarnings()) {
+        if (Via.getConfig().logOtherConversionWarnings()) {
             Protocol1_12_2To1_13.LOGGER.warning("Missing block completely " + oldId);
         }
         // Default air

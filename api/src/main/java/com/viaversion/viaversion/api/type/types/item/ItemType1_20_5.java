@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2025 ViaVersion and contributors
+ * Copyright (C) 2016-2026 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -58,7 +58,7 @@ public class ItemType1_20_5 extends Type<Item> {
         return new StructuredItem(id, amount, new StructuredDataContainer(data));
     }
 
-    private Map<StructuredDataKey<?>, StructuredData<?>> readData(final ByteBuf buffer) {
+    protected Map<StructuredDataKey<?>, StructuredData<?>> readData(final ByteBuf buffer) {
         final int valuesSize = Types.VAR_INT.readPrimitive(buffer);
         final int markersSize = Types.VAR_INT.readPrimitive(buffer);
         if (valuesSize == 0 && markersSize == 0) {
@@ -92,6 +92,10 @@ public class ItemType1_20_5 extends Type<Item> {
         Types.VAR_INT.writePrimitive(buffer, object.amount());
         Types.VAR_INT.writePrimitive(buffer, object.identifier());
 
+        writeData(buffer, object);
+    }
+
+    protected void writeData(final ByteBuf buffer, final Item object) {
         final Map<StructuredDataKey<?>, StructuredData<?>> data = object.dataContainer().data();
         int valuesSize = 0;
         int markersSize = 0;

@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2025 ViaVersion and contributors
+ * Copyright (C) 2016-2026 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -67,6 +67,7 @@ import com.viaversion.viaversion.rewriter.text.NBTComponentRewriter;
 import com.viaversion.viaversion.util.Key;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
@@ -75,6 +76,7 @@ import static com.viaversion.viaversion.util.ProtocolUtil.packetTypeMap;
 public final class Protocol1_21_9To1_21_11 extends AbstractProtocol<ClientboundPacket1_21_9, ClientboundPacket1_21_11, ServerboundPacket1_21_9, ServerboundPacket1_21_9> {
 
     public static final MappingData1_21_11 MAPPINGS = new MappingData1_21_11();
+    private static final Set<String> REMOVE_SKY_COLOR_FROM_BIOMES = Set.of("warped_forest", "basalt_deltas", "nether_wastes", "soul_sand_valley", "crimson_forest"); // rendered via the already defined fog instead
     private final EntityPacketRewriter1_21_11 entityRewriter = new EntityPacketRewriter1_21_11(this);
     private final BlockItemPacketRewriter1_21_11 itemRewriter = new BlockItemPacketRewriter1_21_11(this);
     private final ParticleRewriter<ClientboundPacket1_21_9> particleRewriter = new ParticleRewriter<>(this);
@@ -115,8 +117,9 @@ public final class Protocol1_21_9To1_21_11 extends AbstractProtocol<ClientboundP
             final CompoundTag attributes = new CompoundTag();
             tag.put("attributes", attributes);
 
+            // Fill in the new defaults
             if (Key.equals(key, "the_nether")) {
-                tag.put("timelines", new ListTag<>(List.of(new StringTag("villager_schedule"))));
+                tag.put("timelines", new ListTag<>(List.of(new StringTag("villager_schedule")))); // inline the actual tag values
                 tag.putString("skybox", "none");
                 tag.putString("cardinal_light", "nether");
                 attributes.putString("visual/sky_light_color", "#7a7aff");
@@ -128,12 +131,30 @@ public final class Protocol1_21_9To1_21_11 extends AbstractProtocol<ClientboundP
                 tag.putString("skybox", "end");
                 attributes.putString("visual/fog_color", "#181318");
                 attributes.putString("visual/sky_color", "#000000");
-                attributes.putString("visual/sky_light_color", "#e580ff");
+                attributes.putString("visual/sky_light_color", "#ac60cd");
+                addAmbientCaveSound(attributes);
+
+                final CompoundTag backgroundMusic = new CompoundTag();
+                backgroundMusic.put("default", backgroundMusicEntry("music.end", true, 6000));
+                attributes.put("audio/background_music", backgroundMusic);
             } else {
                 final ListTag<StringTag> timelines = new ListTag<>(List.of(new StringTag("day"), new StringTag("moon"), new StringTag("early_game")));
                 tag.put("timelines", timelines);
+                attributes.putString("visual/fog_color", "#c0d8ff");
+                attributes.putString("visual/sky_color", "#78a7ff");
+                addAmbientCaveSound(attributes);
+
+                final CompoundTag backgroundMusic = new CompoundTag();
+                backgroundMusic.put("default", backgroundMusicEntry("music.game", false, 12000));
+                backgroundMusic.put("creative", backgroundMusicEntry("music.creative", false, 12000));
+                attributes.put("audio/background_music", backgroundMusic);
             }
 
+            // Migrate existing values
+            final Tag fixedTime = tag.remove("fixed_time");
+            if (fixedTime != null) {
+                tag.putBoolean("has_fixed_time", true);
+            }
             if (!tag.getBoolean("natural")) {
                 attributes.putFloat("visual/sky_light_factor", 0F);
             }
@@ -144,7 +165,7 @@ public final class Protocol1_21_9To1_21_11 extends AbstractProtocol<ClientboundP
             }
 
             moveAttribute(tag, attributes, "cloud_height", "visual/cloud_height", cloudHeight -> {
-                if (cloudHeight instanceof NumberTag numberTag) {
+                if (cloudHeight instanceof final NumberTag numberTag) {
                     attributes.putString("visual/cloud_color", "#ccffffff");
                     return new FloatTag(numberTag.asFloat());
                 }
@@ -160,10 +181,68 @@ public final class Protocol1_21_9To1_21_11 extends AbstractProtocol<ClientboundP
             final CompoundTag effects = tag.getCompoundTag("effects");
             final CompoundTag attributes = new CompoundTag();
             tag.put("attributes", attributes);
-            moveAttribute(effects, attributes, "sky_color", "visual/sky_color", Function.identity(), new IntTag(0));
+
+            // Move color attributes
+            if (!REMOVE_SKY_COLOR_FROM_BIOMES.contains(Key.stripMinecraftNamespace(key))) {
+                moveAttribute(effects, attributes, "sky_color", "visual/sky_color", Function.identity(), new IntTag(0));
+            }
             if (!Key.equals(key, "the_end")) {
                 moveAttribute(effects, attributes, "water_fog_color", "visual/water_fog_color", Function.identity(), new IntTag(-16448205));
                 moveAttribute(effects, attributes, "fog_color", "visual/fog_color", Function.identity(), new IntTag(0));
+            }
+
+            // Move music and sound attributes
+            final ListTag<CompoundTag> musicTag = effects.getListTag("music", CompoundTag.class);
+            if (musicTag != null && !musicTag.isEmpty()) {
+                final CompoundTag data = musicTag.get(0).getCompoundTag("data");
+                if (data != null) {
+                    final CompoundTag defaultMusic = new CompoundTag();
+                    final Tag maxDelay = data.get("max_delay");
+                    final Tag minDelay = data.get("min_delay");
+                    final Tag sound = data.get("sound");
+                    if (maxDelay != null) {
+                        defaultMusic.put("max_delay", maxDelay);
+                    }
+                    if (minDelay != null) {
+                        defaultMusic.put("min_delay", minDelay);
+                    }
+                    if (sound != null) {
+                        defaultMusic.put("sound", sound);
+                    }
+
+                    final CompoundTag backgroundMusic = new CompoundTag();
+                    backgroundMusic.put("default", defaultMusic);
+                    attributes.put("audio/background_music", backgroundMusic);
+                }
+            }
+
+            final CompoundTag ambientSounds = new CompoundTag();
+            final Tag moodSound = effects.get("mood_sound");
+            if (moodSound != null) {
+                ambientSounds.put("mood", moodSound);
+            }
+            final Tag additionsSound = effects.get("additions_sound");
+            if (additionsSound != null) {
+                ambientSounds.put("additions", additionsSound);
+            }
+            final Tag loopSound = effects.get("ambient_sound");
+            if (loopSound != null) {
+                ambientSounds.put("loop", loopSound);
+            }
+            if (!ambientSounds.isEmpty()) {
+                attributes.put("audio/ambient_sounds", ambientSounds);
+            }
+
+            // Move particles
+            final CompoundTag particleTag = effects.getCompoundTag("particle");
+            if (particleTag != null) {
+                final CompoundTag entry = new CompoundTag();
+                entry.put("probability", particleTag.get("probability"));
+                entry.put("particle", particleTag.get("options"));
+
+                final ListTag<CompoundTag> ambientParticles = new ListTag<>(CompoundTag.class);
+                ambientParticles.add(entry);
+                attributes.put("visual/ambient_particles", ambientParticles);
             }
         });
         registerClientbound(ClientboundConfigurationPackets1_21_9.REGISTRY_DATA, registryDataRewriter::handle);
@@ -177,12 +256,15 @@ public final class Protocol1_21_9To1_21_11 extends AbstractProtocol<ClientboundP
         componentRewriter.registerComponentPacket(ClientboundPackets1_21_9.SET_SUBTITLE_TEXT);
         componentRewriter.registerBossEvent(ClientboundPackets1_21_9.BOSS_EVENT);
         componentRewriter.registerComponentPacket(ClientboundPackets1_21_9.DISCONNECT);
+        componentRewriter.registerComponentPacket(ClientboundConfigurationPackets1_21_9.DISCONNECT);
         componentRewriter.registerTabList(ClientboundPackets1_21_9.TAB_LIST);
         componentRewriter.registerPlayerCombatKill1_20(ClientboundPackets1_21_9.PLAYER_COMBAT_KILL);
         componentRewriter.registerPlayerInfoUpdate1_21_4(ClientboundPackets1_21_9.PLAYER_INFO_UPDATE);
         componentRewriter.registerComponentPacket(ClientboundPackets1_21_9.SYSTEM_CHAT);
         componentRewriter.registerDisguisedChat(ClientboundPackets1_21_9.DISGUISED_CHAT);
         componentRewriter.registerPlayerChat1_21_5(ClientboundPackets1_21_9.PLAYER_CHAT);
+        componentRewriter.registerSetObjective(ClientboundPackets1_21_9.SET_OBJECTIVE);
+        componentRewriter.registerSetScore1_20_3(ClientboundPackets1_21_9.SET_SCORE);
         componentRewriter.registerPing();
 
         particleRewriter.registerLevelParticles1_21_4(ClientboundPackets1_21_9.LEVEL_PARTICLES);
@@ -194,6 +276,28 @@ public final class Protocol1_21_9To1_21_11 extends AbstractProtocol<ClientboundP
 
         new StatisticsRewriter<>(this).register(ClientboundPackets1_21_9.AWARD_STATS);
         new AttributeRewriter<>(this).register1_21(ClientboundPackets1_21_9.UPDATE_ATTRIBUTES);
+    }
+
+    private void addAmbientCaveSound(final CompoundTag attributes) {
+        final CompoundTag ambientSounds = new CompoundTag();
+        final CompoundTag moodSound = new CompoundTag();
+        moodSound.putInt("tick_delay", 6000);
+        moodSound.putFloat("offset", 2);
+        moodSound.putString("sound", "ambient.cave");
+        moodSound.putInt("block_search_extent", 8);
+        ambientSounds.put("mood", moodSound);
+        attributes.put("audio/ambient_sounds", ambientSounds);
+    }
+
+    private CompoundTag backgroundMusicEntry(final String soundKey, final boolean replaceCurrentMusic, final int minDelay) {
+        final CompoundTag sound = new CompoundTag();
+        if (replaceCurrentMusic) {
+            sound.putBoolean("replace_current_music", true);
+        }
+        sound.putInt("max_delay", 24000);
+        sound.putString("sound", soundKey);
+        sound.putInt("min_delay", minDelay);
+        return sound;
     }
 
     @Override
@@ -219,9 +323,9 @@ public final class Protocol1_21_9To1_21_11 extends AbstractProtocol<ClientboundP
             .reader("flash", ParticleType.Readers.COLOR)
             .reader("item", ParticleType.Readers.item(itemRewriter.mappedItemType()));
         mappedTypes().structuredData.filler(this).add(StructuredDataKey.CUSTOM_DATA, StructuredDataKey.MAX_STACK_SIZE, StructuredDataKey.MAX_DAMAGE,
-            StructuredDataKey.UNBREAKABLE1_21_5, StructuredDataKey.RARITY, StructuredDataKey.TOOLTIP_DISPLAY, StructuredDataKey.DAMAGE_RESISTANT,
+            StructuredDataKey.UNBREAKABLE1_21_5, StructuredDataKey.RARITY, StructuredDataKey.TOOLTIP_DISPLAY, StructuredDataKey.DAMAGE_RESISTANT1_21_2,
             StructuredDataKey.CUSTOM_NAME, StructuredDataKey.LORE, StructuredDataKey.ENCHANTMENTS1_21_5,
-            StructuredDataKey.CUSTOM_MODEL_DATA1_21_4, StructuredDataKey.BLOCKS_ATTACKS, StructuredDataKey.PROVIDES_BANNER_PATTERNS,
+            StructuredDataKey.CUSTOM_MODEL_DATA1_21_4, StructuredDataKey.BLOCKS_ATTACKS1_21_5, StructuredDataKey.PROVIDES_BANNER_PATTERNS1_21_5,
             StructuredDataKey.REPAIR_COST, StructuredDataKey.CREATIVE_SLOT_LOCK, StructuredDataKey.ENCHANTMENT_GLINT_OVERRIDE,
             StructuredDataKey.INTANGIBLE_PROJECTILE, StructuredDataKey.STORED_ENCHANTMENTS1_21_5, StructuredDataKey.DYED_COLOR1_21_5,
             StructuredDataKey.MAP_COLOR, StructuredDataKey.MAP_ID, StructuredDataKey.MAP_DECORATIONS, StructuredDataKey.MAP_POST_PROCESSING,
@@ -241,10 +345,10 @@ public final class Protocol1_21_9To1_21_11 extends AbstractProtocol<ClientboundP
             StructuredDataKey.TROPICAL_FISH_BASE_COLOR, StructuredDataKey.TROPICAL_FISH_PATTERN_COLOR, StructuredDataKey.MOOSHROOM_VARIANT,
             StructuredDataKey.RABBIT_VARIANT, StructuredDataKey.PIG_VARIANT, StructuredDataKey.FROG_VARIANT, StructuredDataKey.HORSE_VARIANT,
             StructuredDataKey.PAINTING_VARIANT, StructuredDataKey.LLAMA_VARIANT, StructuredDataKey.AXOLOTL_VARIANT, StructuredDataKey.CAT_VARIANT,
-            StructuredDataKey.CAT_COLLAR, StructuredDataKey.SHEEP_COLOR, StructuredDataKey.SHULKER_COLOR, StructuredDataKey.PROVIDES_TRIM_MATERIAL,
-            StructuredDataKey.BREAK_SOUND, StructuredDataKey.COW_VARIANT, StructuredDataKey.CHICKEN_VARIANT, StructuredDataKey.WOLF_SOUND_VARIANT,
-            StructuredDataKey.USE_EFFECTS, StructuredDataKey.MINIMUM_ATTACK_CHARGE, StructuredDataKey.DAMAGE_TYPE, StructuredDataKey.PIERCING_WEAPON,
-            StructuredDataKey.KINETIC_WEAPON, StructuredDataKey.SWING_ANIMATION, StructuredDataKey.ZOMBIE_NAUTILUS_VARIANT);
+            StructuredDataKey.CAT_COLLAR, StructuredDataKey.SHEEP_COLOR, StructuredDataKey.SHULKER_COLOR, StructuredDataKey.PROVIDES_TRIM_MATERIAL1_21_5,
+            StructuredDataKey.BREAK_SOUND, StructuredDataKey.COW_VARIANT, StructuredDataKey.CHICKEN_VARIANT1_21_5, StructuredDataKey.WOLF_SOUND_VARIANT,
+            StructuredDataKey.USE_EFFECTS, StructuredDataKey.MINIMUM_ATTACK_CHARGE, StructuredDataKey.DAMAGE_TYPE1_21_11, StructuredDataKey.PIERCING_WEAPON,
+            StructuredDataKey.KINETIC_WEAPON, StructuredDataKey.SWING_ANIMATION, StructuredDataKey.ZOMBIE_NAUTILUS_VARIANT1_21_11);
         super.onMappingDataLoaded();
     }
 

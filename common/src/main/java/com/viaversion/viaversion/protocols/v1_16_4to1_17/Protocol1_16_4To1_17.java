@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2025 ViaVersion and contributors
+ * Copyright (C) 2016-2026 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -93,6 +93,7 @@ public final class Protocol1_16_4To1_17 extends AbstractProtocol<ClientboundPack
         componentRewriter.registerTabList(ClientboundPackets1_16_2.TAB_LIST);
         componentRewriter.registerOpenScreen1_14(ClientboundPackets1_16_2.OPEN_SCREEN);
         componentRewriter.registerSetPlayerTeam1_13(ClientboundPackets1_16_2.SET_PLAYER_TEAM);
+        componentRewriter.registerSetObjective(ClientboundPackets1_16_2.SET_OBJECTIVE);
         componentRewriter.registerPing();
 
         SoundRewriter<ClientboundPackets1_16_2> soundRewriter = new SoundRewriter<>(this);

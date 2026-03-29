@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2025 ViaVersion and contributors
+ * Copyright (C) 2016-2026 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,6 +26,7 @@ import com.viaversion.viaversion.api.minecraft.item.data.ChatType;
 import com.viaversion.viaversion.api.protocol.Protocol;
 import com.viaversion.viaversion.api.protocol.packet.ClientboundPacketType;
 import com.viaversion.viaversion.api.type.Types;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * Rewrites nbt serialized components from 1.21.5 upwards. Can also handle json components outside of hover events.
@@ -68,11 +69,8 @@ public class NBTComponentRewriter<C extends ClientboundPacketType> extends Compo
     }
 
     @Override
-    protected void handleNestedComponent(final UserConnection connection, final CompoundTag parent, final String key) {
-        final Tag tag = parent.get(key);
-        if (tag != null) {
-            processTag(connection, tag);
-        }
+    protected void handleNestedComponent(final UserConnection connection, @Nullable final Tag tag) {
+        processTag(connection, tag);
     }
 
     @Override
@@ -98,7 +96,7 @@ public class NBTComponentRewriter<C extends ClientboundPacketType> extends Compo
                 }
             }
 
-            processTag(wrapper.user(), wrapper.passthrough(Types.OPTIONAL_TAG)); // Unsigned content
+            processTag(wrapper.user(), wrapper.passthrough(Types.TRUSTED_OPTIONAL_TAG)); // Unsigned content
 
             final int filterMaskType = wrapper.passthrough(Types.VAR_INT);
             if (filterMaskType == 2) { // Partially filtered
@@ -106,8 +104,8 @@ public class NBTComponentRewriter<C extends ClientboundPacketType> extends Compo
             }
 
             wrapper.passthrough(ChatType.TYPE); // Chat Type
-            processTag(wrapper.user(), wrapper.passthrough(Types.TAG)); // Name
-            processTag(wrapper.user(), wrapper.passthrough(Types.OPTIONAL_TAG)); // Target Name
+            processTag(wrapper.user(), wrapper.passthrough(Types.TRUSTED_TAG)); // Name
+            processTag(wrapper.user(), wrapper.passthrough(Types.TRUSTED_OPTIONAL_TAG)); // Target Name
         });
     }
 }

@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2025 ViaVersion and contributors
+ * Copyright (C) 2016-2026 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -239,7 +239,7 @@ public final class EntityPacketRewriter1_19 extends EntityRewriter<ClientboundPa
         addMonsterSpawnData(currentDimension);
         String dimensionKey = registryStorage.dimensionKey(currentDimension);
         if (dimensionKey == null) {
-            if (!Via.getConfig().isSuppressConversionWarnings()) {
+            if (Via.getConfig().logOtherConversionWarnings()) {
                 protocol.getLogger().warning("The server tried to send dimension data from a dimension the client wasn't told about on join. " +
                     "Plugins and mods have to make sure they are not creating new dimension types while players are online, and proxies need to make sure they don't scramble dimension data." +
                     " Received dimension: " + currentDimension + ". Known dimensions: " + registryStorage.dimensions());

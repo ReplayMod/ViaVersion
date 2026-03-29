@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2025 ViaVersion and contributors
+ * Copyright (C) 2016-2026 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -29,7 +29,7 @@ import com.viaversion.viaversion.api.type.types.UnsignedIntType;
 import com.viaversion.viaversion.util.MathUtil;
 import io.netty.buffer.ByteBuf;
 
-public class MovementVectorType extends Type<Vector3d> {
+public class LowPrecisionVectorType extends Type<Vector3d> {
     // Using 15 bits, steal short constants for it
     private static final double MAX_QUANTIZED_VALUE = Short.MAX_VALUE - 1;
     private static final int SCALE_BITS = 2; // first 2 bits for the scale
@@ -38,7 +38,7 @@ public class MovementVectorType extends Type<Vector3d> {
     private static final double ABS_MAX_VALUE = (1L << Integer.SIZE + SCALE_BITS) - 1; // Unsigned int + the first two scale bits
     private static final double ABS_MIN_VALUE = 1 / MAX_QUANTIZED_VALUE;
 
-    public MovementVectorType() {
+    public LowPrecisionVectorType() {
         super(Vector3d.class);
     }
 

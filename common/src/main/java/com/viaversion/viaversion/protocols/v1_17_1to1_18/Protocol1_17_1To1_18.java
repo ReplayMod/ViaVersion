@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2025 ViaVersion and contributors
+ * Copyright (C) 2016-2026 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -80,6 +80,7 @@ public final class Protocol1_17_1To1_18 extends AbstractProtocol<ClientboundPack
         componentRewriter.registerOpenScreen1_14(ClientboundPackets1_17_1.OPEN_SCREEN);
         componentRewriter.registerPlayerCombatKill(ClientboundPackets1_17_1.PLAYER_COMBAT_KILL);
         componentRewriter.registerSetPlayerTeam1_13(ClientboundPackets1_17_1.SET_PLAYER_TEAM);
+        componentRewriter.registerSetObjective(ClientboundPackets1_17_1.SET_OBJECTIVE);
         componentRewriter.registerPing();
 
         registerServerbound(ServerboundPackets1_17.CLIENT_INFORMATION, new PacketHandlers() {

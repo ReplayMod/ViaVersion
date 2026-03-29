@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2025 ViaVersion and contributors
+ * Copyright (C) 2016-2026 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,10 +22,17 @@
  */
 package com.viaversion.viaversion.api.rewriter;
 
+import com.viaversion.nbt.tag.CompoundTag;
+import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.util.KeyMappings;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 public interface RegistryDataRewriter {
 
-    @Nullable KeyMappings getMappings(String registryKey);
+    @Nullable
+    KeyMappings getMappings(String registryKey);
+
+    boolean shouldRemoveRegistry(String registryKey);
+
+    void updateDialog(UserConnection connection, CompoundTag tag);
 }

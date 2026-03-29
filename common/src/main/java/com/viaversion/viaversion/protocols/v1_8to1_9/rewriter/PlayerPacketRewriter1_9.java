@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2025 ViaVersion and contributors
+ * Copyright (C) 2016-2026 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -331,9 +331,12 @@ public class PlayerPacketRewriter1_9 {
         /* Removed packets */
         protocol.registerClientbound(ClientboundPackets1_8.SET_COMPRESSION, null, wrapper -> {
             wrapper.cancel();
-            CompressionProvider provider = Via.getManager().getProviders().get(CompressionProvider.class);
 
-            provider.handlePlayCompression(wrapper.user(), wrapper.read(Types.VAR_INT));
+            int threshold = wrapper.read(Types.VAR_INT);
+            wrapper.user().getProtocolInfo().setCompressionEnabled(threshold >= 0);
+
+            CompressionProvider provider = Via.getManager().getProviders().get(CompressionProvider.class);
+            provider.handlePlayCompression(wrapper.user(), threshold);
         });
 
 

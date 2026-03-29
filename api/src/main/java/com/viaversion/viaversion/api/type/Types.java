@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2025 ViaVersion and contributors
+ * Copyright (C) 2016-2026 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -103,10 +103,11 @@ import com.viaversion.viaversion.api.type.types.math.BlockPositionType1_8;
 import com.viaversion.viaversion.api.type.types.math.ChunkPositionType;
 import com.viaversion.viaversion.api.type.types.math.EulerAngleType;
 import com.viaversion.viaversion.api.type.types.math.GlobalBlockPositionType;
-import com.viaversion.viaversion.api.type.types.math.MovementVectorType;
+import com.viaversion.viaversion.api.type.types.math.LowPrecisionVectorType;
 import com.viaversion.viaversion.api.type.types.math.QuaternionType;
 import com.viaversion.viaversion.api.type.types.math.Vector3fType;
 import com.viaversion.viaversion.api.type.types.math.VectorType;
+import com.viaversion.viaversion.api.type.types.misc.CompoundTagHolderType;
 import com.viaversion.viaversion.api.type.types.misc.CompoundTagType;
 import com.viaversion.viaversion.api.type.types.misc.GameProfileType;
 import com.viaversion.viaversion.api.type.types.misc.HolderSetType;
@@ -117,8 +118,8 @@ import com.viaversion.viaversion.api.type.types.misc.NamedCompoundTagType;
 import com.viaversion.viaversion.api.type.types.misc.PlayerMessageSignatureType;
 import com.viaversion.viaversion.api.type.types.misc.ProfileKeyType;
 import com.viaversion.viaversion.api.type.types.misc.ProfilePropertyType;
-import com.viaversion.viaversion.api.type.types.misc.SoundEventType;
 import com.viaversion.viaversion.api.type.types.misc.ResolvableProfileType;
+import com.viaversion.viaversion.api.type.types.misc.SoundEventType;
 import com.viaversion.viaversion.api.type.types.misc.TagKeyType;
 import com.viaversion.viaversion.api.type.types.misc.TagType;
 import com.viaversion.viaversion.api.type.types.misc.TextComponentTagType;
@@ -198,18 +199,27 @@ public final class Types {
     public static final Type<Vector> VECTOR = new VectorType();
     public static final Type<Vector3f> VECTOR3F = new Vector3fType();
     public static final Type<Quaternion> QUATERNION = new QuaternionType();
-    public static final Type<Vector3d> MOVEMENT_VECTOR = new MovementVectorType();
+    public static final Type<Vector3d> LOW_PRECISION_VECTOR = new LowPrecisionVectorType();
+    @Deprecated(forRemoval = true)
+    public static final Type<Vector3d> MOVEMENT_VECTOR = LOW_PRECISION_VECTOR;
 
     public static final Type<CompoundTag> NAMED_COMPOUND_TAG = new NamedCompoundTagType();
     public static final Type<CompoundTag> OPTIONAL_NAMED_COMPOUND_TAG = new NamedCompoundTagType.OptionalNamedCompoundTagType();
     public static final Type<CompoundTag[]> NAMED_COMPOUND_TAG_ARRAY = new ArrayType<>(Types.NAMED_COMPOUND_TAG);
     public static final Type<CompoundTag> COMPOUND_TAG = new CompoundTagType();
-    public static final Type<CompoundTag> OPTIONAL_COMPOUND_TAG = new CompoundTagType.OptionalCompoundTagType();
+    public static final Type<CompoundTag> OPTIONAL_COMPOUND_TAG = CompoundTagType.OptionalCompoundTagType.type();
+    public static final HolderType<CompoundTag> TRUSTED_COMPOUND_TAG_HOLDER = new CompoundTagHolderType();
+
     public static final Type<Tag> TAG = new TagType();
     public static final Type<Tag[]> TAG_ARRAY = new ArrayType<>(TAG);
-    public static final Type<Tag> OPTIONAL_TAG = new TagType.OptionalTagType();
+    public static final Type<Tag> OPTIONAL_TAG = TagType.OptionalTagType.type();
     public static final Type<Tag> TEXT_COMPONENT_TAG = new TextComponentTagType(); // only strictly needed for hashing
     public static final Type<Tag> CUSTOM_CLICK_ACTION_TAG = new LengthPrefixedTagType(65536);
+
+    public static final Type<Tag> TRUSTED_TAG = new TagType(false);
+    public static final Type<Tag> TRUSTED_OPTIONAL_TAG = TagType.OptionalTagType.trustedType();
+    public static final Type<CompoundTag> TRUSTED_COMPOUND_TAG = new CompoundTagType(false);
+    public static final Type<CompoundTag> TRUSTED_OPTIONAL_COMPOUND_TAG = CompoundTagType.OptionalCompoundTagType.trustedType();
 
     public static final Type<GlobalBlockPosition> GLOBAL_POSITION = new GlobalBlockPositionType();
     public static final Type<GlobalBlockPosition> OPTIONAL_GLOBAL_POSITION = new GlobalBlockPositionType.OptionalGlobalPositionType();

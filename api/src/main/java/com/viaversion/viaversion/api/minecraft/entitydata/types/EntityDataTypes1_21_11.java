@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2025 ViaVersion and contributors
+ * Copyright (C) 2016-2026 ViaVersion and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -34,8 +34,8 @@ public final class EntityDataTypes1_21_11 extends AbstractEntityDataTypes {
     public final EntityDataType longType = add(2, Types.VAR_LONG);
     public final EntityDataType floatType = add(3, Types.FLOAT);
     public final EntityDataType stringType = add(4, Types.STRING);
-    public final EntityDataType componentType = add(5, Types.TAG);
-    public final EntityDataType optionalComponentType = add(6, Types.OPTIONAL_TAG);
+    public final EntityDataType componentType = add(5, Types.TRUSTED_TAG);
+    public final EntityDataType optionalComponentType = add(6, Types.TRUSTED_OPTIONAL_TAG);
     public final EntityDataType itemType;
     public final EntityDataType booleanType = add(8, Types.BOOLEAN);
     public final EntityDataType rotationsType = add(9, Types.ROTATIONS);
@@ -47,7 +47,7 @@ public final class EntityDataTypes1_21_11 extends AbstractEntityDataTypes {
     public final EntityDataType optionalBlockStateType = add(15, Types.VAR_INT);
     public final EntityDataType particleType;
     public final EntityDataType particlesType;
-    public final EntityDataType villagerDatatType = add(18, Types.VILLAGER_DATA);
+    public final EntityDataType villagerDataType = add(18, Types.VILLAGER_DATA);
     public final EntityDataType optionalVarIntType = add(19, Types.OPTIONAL_VAR_INT);
     public final EntityDataType poseType = add(20, Types.VAR_INT);
     public final EntityDataType catVariantType = add(21, Types.VAR_INT);

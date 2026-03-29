@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2025 ViaVersion and contributors
+ * Copyright (C) 2016-2026 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -110,8 +110,11 @@ public final class Protocol1_20_3To1_20_5 extends AbstractProtocol<ClientboundPa
         componentRewriter.registerComponentPacket(ClientboundPackets1_20_3.SET_SUBTITLE_TEXT);
         componentRewriter.registerBossEvent(ClientboundPackets1_20_3.BOSS_EVENT);
         componentRewriter.registerComponentPacket(ClientboundPackets1_20_3.DISCONNECT);
+        componentRewriter.registerComponentPacket(ClientboundConfigurationPackets1_20_3.DISCONNECT);
         componentRewriter.registerTabList(ClientboundPackets1_20_3.TAB_LIST);
         componentRewriter.registerPlayerInfoUpdate1_20_3(ClientboundPackets1_20_3.PLAYER_INFO_UPDATE);
+        componentRewriter.registerSetObjective(ClientboundPackets1_20_3.SET_OBJECTIVE);
+        componentRewriter.registerSetScore1_20_3(ClientboundPackets1_20_3.SET_SCORE);
         componentRewriter.registerPing();
 
         registerClientbound(State.LOGIN, ClientboundLoginPackets.HELLO, wrapper -> {
@@ -122,7 +125,7 @@ public final class Protocol1_20_3To1_20_5 extends AbstractProtocol<ClientboundPa
         });
 
         registerClientbound(ClientboundPackets1_20_3.SERVER_DATA, wrapper -> {
-            wrapper.passthrough(Types.TAG); // MOTD
+            wrapper.passthrough(Types.TRUSTED_TAG); // MOTD
             wrapper.passthrough(Types.OPTIONAL_BYTE_ARRAY_PRIMITIVE); // Icon
 
             // Moved to join game

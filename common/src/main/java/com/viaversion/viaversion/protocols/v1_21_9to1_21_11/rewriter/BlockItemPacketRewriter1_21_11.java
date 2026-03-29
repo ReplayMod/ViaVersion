@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2025 ViaVersion and contributors
+ * Copyright (C) 2016-2026 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,14 +17,18 @@
  */
 package com.viaversion.viaversion.protocols.v1_21_9to1_21_11.rewriter;
 
+import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.minecraft.data.StructuredDataContainer;
 import com.viaversion.viaversion.api.minecraft.data.StructuredDataKey;
 import com.viaversion.viaversion.api.minecraft.item.Item;
+import com.viaversion.viaversion.api.minecraft.item.data.AttackRange;
+import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.api.type.types.chunk.ChunkType1_21_5;
 import com.viaversion.viaversion.protocols.v1_21_4to1_21_5.rewriter.RecipeDisplayRewriter1_21_5;
 import com.viaversion.viaversion.protocols.v1_21_5to1_21_6.packet.ServerboundPackets1_21_6;
+import com.viaversion.viaversion.protocols.v1_21_7to1_21_9.packet.ClientboundConfigurationPackets1_21_9;
 import com.viaversion.viaversion.protocols.v1_21_7to1_21_9.packet.ClientboundPacket1_21_9;
 import com.viaversion.viaversion.protocols.v1_21_7to1_21_9.packet.ClientboundPackets1_21_9;
 import com.viaversion.viaversion.protocols.v1_21_7to1_21_9.packet.ServerboundPacket1_21_9;
@@ -33,6 +37,7 @@ import com.viaversion.viaversion.protocols.v1_21_9to1_21_11.storage.GameTimeStor
 import com.viaversion.viaversion.rewriter.BlockRewriter;
 import com.viaversion.viaversion.rewriter.RecipeDisplayRewriter;
 import com.viaversion.viaversion.rewriter.StructuredItemRewriter;
+import com.viaversion.viaversion.rewriter.block.BlockRewriter1_21_5;
 
 public final class BlockItemPacketRewriter1_21_11 extends StructuredItemRewriter<ClientboundPacket1_21_9, ServerboundPacket1_21_9, Protocol1_21_9To1_21_11> {
 
@@ -42,7 +47,7 @@ public final class BlockItemPacketRewriter1_21_11 extends StructuredItemRewriter
 
     @Override
     public void registerPackets() {
-        final BlockRewriter<ClientboundPacket1_21_9> blockRewriter = BlockRewriter.for1_20_2(protocol);
+        final BlockRewriter<ClientboundPacket1_21_9> blockRewriter = new BlockRewriter1_21_5<>(protocol);
         blockRewriter.registerBlockEvent(ClientboundPackets1_21_9.BLOCK_EVENT);
         blockRewriter.registerBlockUpdate(ClientboundPackets1_21_9.BLOCK_UPDATE);
         blockRewriter.registerSectionBlocksUpdate1_20(ClientboundPackets1_21_9.SECTION_BLOCKS_UPDATE);
@@ -60,12 +65,26 @@ public final class BlockItemPacketRewriter1_21_11 extends StructuredItemRewriter
         registerMerchantOffers1_20_5(ClientboundPackets1_21_9.MERCHANT_OFFERS);
         registerContainerClick1_21_5(ServerboundPackets1_21_6.CONTAINER_CLICK);
         registerSetCreativeModeSlot1_21_5(ServerboundPackets1_21_6.SET_CREATIVE_MODE_SLOT);
+        registerShowDialog(ClientboundPackets1_21_9.SHOW_DIALOG);
+        registerShowDialogDirect(ClientboundConfigurationPackets1_21_9.SHOW_DIALOG);
 
         final RecipeDisplayRewriter<ClientboundPacket1_21_9> recipeRewriter = new RecipeDisplayRewriter1_21_5<>(protocol);
         recipeRewriter.registerUpdateRecipes(ClientboundPackets1_21_9.UPDATE_RECIPES);
         recipeRewriter.registerRecipeBookAdd(ClientboundPackets1_21_9.RECIPE_BOOK_ADD);
         recipeRewriter.registerPlaceGhostRecipe(ClientboundPackets1_21_9.PLACE_GHOST_RECIPE);
 
+        protocol.registerClientbound(ClientboundPackets1_21_9.SET_BORDER_LERP_SIZE, wrapper -> {
+            wrapper.passthrough(Types.DOUBLE); // oldSize
+            wrapper.passthrough(Types.DOUBLE); // newSize
+            wrapper.write(Types.VAR_LONG, wrapper.read(Types.VAR_LONG) / 50); // lerpTime
+        });
+        protocol.registerClientbound(ClientboundPackets1_21_9.INITIALIZE_BORDER, wrapper -> {
+            wrapper.passthrough(Types.DOUBLE); // newCenterX
+            wrapper.passthrough(Types.DOUBLE); // newCenterZ
+            wrapper.passthrough(Types.DOUBLE); // oldSize
+            wrapper.passthrough(Types.DOUBLE); // newSize
+            wrapper.write(Types.VAR_LONG, wrapper.read(Types.VAR_LONG) / 50); // lerpTime
+        });
         protocol.registerClientbound(ClientboundPackets1_21_9.SET_TIME, wrapper -> {
             final long gameTime = wrapper.passthrough(Types.LONG);
             wrapper.user().get(GameTimeStorage.class).setGameTime(gameTime);
@@ -78,6 +97,10 @@ public final class BlockItemPacketRewriter1_21_11 extends StructuredItemRewriter
     @Override
     protected void handleItemDataComponentsToClient(final UserConnection connection, final Item item, final StructuredDataContainer container) {
         upgradeData(item, container);
+
+        // Add data components to fix issues in older protocols
+        appendItemDataFixComponents(connection, item);
+
         super.handleItemDataComponentsToClient(connection, item, container);
     }
 
@@ -87,6 +110,14 @@ public final class BlockItemPacketRewriter1_21_11 extends StructuredItemRewriter
         super.handleItemDataComponentsToServer(connection, item, container);
     }
 
+    private void appendItemDataFixComponents(final UserConnection connection, final Item item) {
+        final ProtocolVersion serverVersion = connection.getProtocolInfo().serverProtocolVersion();
+        if (Via.getConfig().use1_8HitboxMargin() && serverVersion.olderThanOrEqualTo(ProtocolVersion.v1_8)) {
+            // Set 0.1 hitbox margin like in 1.8. Creative range is 4F instead of default 5F as measured empirically.
+            item.dataContainer().set(StructuredDataKey.ATTACK_RANGE, new AttackRange(0F, 3F, 0F, 4F, 0.1F, 1F));
+        }
+    }
+
     public static void upgradeData(final Item item, final StructuredDataContainer container) {
     }
 
@@ -94,10 +125,10 @@ public final class BlockItemPacketRewriter1_21_11 extends StructuredItemRewriter
         container.remove(StructuredDataKey.SWING_ANIMATION);
         container.remove(StructuredDataKey.KINETIC_WEAPON);
         container.remove(StructuredDataKey.PIERCING_WEAPON);
-        container.remove(StructuredDataKey.DAMAGE_TYPE);
+        container.remove(StructuredDataKey.DAMAGE_TYPE1_21_11);
         container.remove(StructuredDataKey.MINIMUM_ATTACK_CHARGE);
         container.remove(StructuredDataKey.USE_EFFECTS);
-        container.remove(StructuredDataKey.ZOMBIE_NAUTILUS_VARIANT);
+        container.remove(StructuredDataKey.ZOMBIE_NAUTILUS_VARIANT1_21_11);
         container.remove(StructuredDataKey.ATTACK_RANGE);
     }
 }

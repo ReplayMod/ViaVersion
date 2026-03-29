@@ -1,6 +1,6 @@
 /*
  * This file is part of ViaVersion - https://github.com/ViaVersion/ViaVersion
- * Copyright (C) 2016-2025 ViaVersion and contributors
+ * Copyright (C) 2016-2026 ViaVersion and contributors
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -62,6 +62,11 @@ public final class EntityPacketRewriter1_19_4 extends EntityRewriter<Clientbound
                     final CompoundTag registry = wrapper.get(Types.NAMED_COMPOUND_TAG, 0);
                     final CompoundTag damageTypeRegistry = protocol.getMappingData().damageTypesRegistry();
                     registry.put("minecraft:damage_type", damageTypeRegistry);
+
+                    final CompoundTag trimMaterialRegistry = new CompoundTag();
+                    trimMaterialRegistry.putString("type", "minecraft:trim_material");
+                    trimMaterialRegistry.put("value", new ListTag<>(CompoundTag.class));
+                    registry.put("minecraft:trim_material", trimMaterialRegistry);
 
                     final ListTag<CompoundTag> biomes = TagUtil.getRegistryEntries(registry, "worldgen/biome");
                     for (final CompoundTag biomeTag : biomes) {
