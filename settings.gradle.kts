@@ -14,7 +14,7 @@ dependencyResolutionManagement {
 pluginManagement {
     // default plugin versions
     plugins {
-        id("com.gradleup.shadow") version "9.4.1"
+        id("com.gradleup.shadow") version "9.4.2"
         id("net.kyori.blossom") version "2.2.0"
         id("org.jetbrains.gradle.plugin.idea-ext") version "1.4.1"
 
@@ -37,6 +37,8 @@ setupViaSubproject("bukkit-legacy")
 setupViaSubproject("velocity")
 setupViaSubproject("sponge")
 setupViaSubproject("fabric")
+
+//include("benchmark")
 
 setupSubproject("viaversion") {
     projectDir = file("universal")

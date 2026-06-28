@@ -20,7 +20,9 @@ package com.viaversion.viaversion.codec.hash;
 @FunctionalInterface
 public interface HashFunction {
 
-    HashFunction CRC32C = new CRC32C();
+    static HashFunction crc32c() {
+        return Runtime.version().feature() < 9 ? new FallbackCRC32C() : new JavaCRC32C();
+    }
 
     int hashBytes(byte[] data, int length);
 

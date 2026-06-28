@@ -34,11 +34,12 @@ import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 import com.viaversion.viaversion.api.protocol.packet.provider.PacketTypesProvider;
 import com.viaversion.viaversion.api.protocol.packet.provider.SimplePacketTypesProvider;
 import com.viaversion.viaversion.api.type.Types;
+import com.viaversion.viaversion.api.type.types.chunk.ChunkType1_21_5;
+import com.viaversion.viaversion.api.type.types.chunk.ChunkType26_1;
 import com.viaversion.viaversion.api.type.types.misc.ParticleType;
 import com.viaversion.viaversion.api.type.types.version.Types1_20_5;
 import com.viaversion.viaversion.api.type.types.version.VersionedTypes;
 import com.viaversion.viaversion.data.entity.EntityTrackerBase;
-import com.viaversion.viaversion.data.item.ItemHasherBase;
 import com.viaversion.viaversion.protocols.v1_21_11to26_1.data.MappingData26_1;
 import com.viaversion.viaversion.protocols.v1_21_11to26_1.packet.ClientboundPacket26_1;
 import com.viaversion.viaversion.protocols.v1_21_11to26_1.packet.ClientboundPackets26_1;
@@ -47,18 +48,22 @@ import com.viaversion.viaversion.protocols.v1_21_11to26_1.packet.ServerboundPack
 import com.viaversion.viaversion.protocols.v1_21_11to26_1.rewriter.BlockItemPacketRewriter26_1;
 import com.viaversion.viaversion.protocols.v1_21_11to26_1.rewriter.ComponentRewriter26_1;
 import com.viaversion.viaversion.protocols.v1_21_11to26_1.rewriter.EntityPacketRewriter26_1;
+import com.viaversion.viaversion.protocols.v1_21_11to26_1.rewriter.RegistryDataRewriter26_1;
+import com.viaversion.viaversion.protocols.v1_21_11to26_1.storage.PlayerSneaking;
+import com.viaversion.viaversion.protocols.v1_21_11to26_1.storage.TagsSent;
+import com.viaversion.viaversion.protocols.v1_21_4to1_21_5.rewriter.RecipeDisplayRewriter1_21_5;
 import com.viaversion.viaversion.protocols.v1_21_5to1_21_6.packet.ServerboundPackets1_21_6;
 import com.viaversion.viaversion.protocols.v1_21_7to1_21_9.packet.ClientboundConfigurationPackets1_21_9;
 import com.viaversion.viaversion.protocols.v1_21_7to1_21_9.packet.ServerboundConfigurationPackets1_21_9;
 import com.viaversion.viaversion.protocols.v1_21_7to1_21_9.packet.ServerboundPacket1_21_9;
 import com.viaversion.viaversion.protocols.v1_21_9to1_21_11.packet.ClientboundPacket1_21_11;
 import com.viaversion.viaversion.protocols.v1_21_9to1_21_11.packet.ClientboundPackets1_21_11;
-import com.viaversion.viaversion.rewriter.AttributeRewriter;
+import com.viaversion.viaversion.rewriter.BlockRewriter;
 import com.viaversion.viaversion.rewriter.ParticleRewriter;
+import com.viaversion.viaversion.rewriter.RecipeDisplayRewriter;
 import com.viaversion.viaversion.rewriter.RegistryDataRewriter;
-import com.viaversion.viaversion.rewriter.SoundRewriter;
-import com.viaversion.viaversion.rewriter.StatisticsRewriter;
 import com.viaversion.viaversion.rewriter.TagRewriter;
+import com.viaversion.viaversion.rewriter.block.BlockRewriter1_21_5;
 import com.viaversion.viaversion.rewriter.text.NBTComponentRewriter;
 import com.viaversion.viaversion.util.Key;
 import java.util.Map;
@@ -73,7 +78,9 @@ public final class Protocol1_21_11To26_1 extends AbstractProtocol<ClientboundPac
     private final ParticleRewriter<ClientboundPacket1_21_11> particleRewriter = new ParticleRewriter<>(this);
     private final TagRewriter<ClientboundPacket1_21_11> tagRewriter = new TagRewriter<>(this);
     private final NBTComponentRewriter<ClientboundPacket1_21_11> componentRewriter = new ComponentRewriter26_1(this);
-    private final RegistryDataRewriter registryDataRewriter = new RegistryDataRewriter(this);
+    private final RegistryDataRewriter registryDataRewriter = new RegistryDataRewriter26_1(this);
+    private final RecipeDisplayRewriter<ClientboundPacket1_21_11> recipeRewriter = new RecipeDisplayRewriter1_21_5<>(this);
+    private final BlockRewriter<ClientboundPacket1_21_11> blockRewriter = new BlockRewriter1_21_5<>(this, ChunkType1_21_5::new, ChunkType26_1::new);
 
     public Protocol1_21_11To26_1() {
         super(ClientboundPacket1_21_11.class, ClientboundPacket26_1.class, ServerboundPacket1_21_9.class, ServerboundPacket26_1.class);
@@ -83,16 +90,26 @@ public final class Protocol1_21_11To26_1 extends AbstractProtocol<ClientboundPac
     protected void registerPackets() {
         super.registerPackets();
 
-        registerFinishConfiguration(ClientboundConfigurationPackets1_21_9.FINISH_CONFIGURATION, wrapper -> {
+        appendClientbound(ClientboundConfigurationPackets1_21_9.FINISH_CONFIGURATION, wrapper -> {
             final PacketWrapper clocksPacket = wrapper.create(ClientboundConfigurationPackets1_21_9.REGISTRY_DATA);
             clocksPacket.write(Types.STRING, "world_clock");
-            clocksPacket.write(Types.REGISTRY_ENTRY_ARRAY, new RegistryEntry[]{new RegistryEntry("minecraft:overworld", new CompoundTag())});
+            clocksPacket.write(Types.REGISTRY_ENTRY_ARRAY, new RegistryEntry[]{
+                new RegistryEntry("minecraft:overworld", new CompoundTag()),
+                new RegistryEntry("minecraft:the_end", new CompoundTag())
+            });
             clocksPacket.send(Protocol1_21_11To26_1.class);
 
             sendSoundVariants(wrapper, "cat_sound_variant", MAPPINGS.catSoundVariants());
             sendSoundVariants(wrapper, "cow_sound_variant", MAPPINGS.cowSoundVariants());
             sendSoundVariants(wrapper, "pig_sound_variant", MAPPINGS.pigSoundVariants());
             sendSoundVariants(wrapper, "chicken_sound_variant", MAPPINGS.chickenSoundVariants());
+
+            // Make sure the client gets damage types and banner patterns, even if the server doesn't send tags
+            if (!wrapper.user().has(TagsSent.class)) {
+                final PacketWrapper tagsPacket = wrapper.create(ClientboundConfigurationPackets1_21_9.UPDATE_TAGS);
+                tagsPacket.write(Types.VAR_INT, 0);
+                tagsPacket.send(Protocol1_21_11To26_1.class, false);
+            }
         });
 
         addRequiredRegistryEntries();
@@ -109,8 +126,12 @@ public final class Protocol1_21_11To26_1 extends AbstractProtocol<ClientboundPac
             tag.put("baby_sounds", sounds.copy());
         });
         registryDataRewriter.addHandler("wolf_variant", (key, tag) -> {
-            final Tag assets = tag.get("assets");
-            tag.put("baby_assets", assets.copy());
+            final CompoundTag assets = tag.getCompoundTag("assets");
+            final CompoundTag babyAssets = new CompoundTag();
+            for (final Map.Entry<String, Tag> entry : assets.entrySet()) {
+                babyAssets.putString(entry.getKey(), entry.getValue().getValue() + "_baby");
+            }
+            tag.put("baby_assets", babyAssets);
         });
         registryDataRewriter.addHandler("frog_variant", (key, tag) -> swapEntityNameAffix("frog", tag));
         swapAffixAndAddAssetId("chicken_variant", "chicken");
@@ -118,7 +139,7 @@ public final class Protocol1_21_11To26_1 extends AbstractProtocol<ClientboundPac
         swapAffixAndAddAssetId("pig_variant", "pig");
         registryDataRewriter.addHandler("cat_variant", (key, tag) -> {
             addEntityNamePrefix("cat", tag);
-            addBabyAssetId("cat", tag);
+            addBabyAssetId(tag);
         });
         registryDataRewriter.addHandler("dimension_type", (key, tag) -> {
             tag.putBoolean("has_ender_dragon_fight", Key.equals(key, "the_end"));
@@ -134,36 +155,6 @@ public final class Protocol1_21_11To26_1 extends AbstractProtocol<ClientboundPac
                 attributes.putInt("visual/ambient_light_color", ambientLightColor);
             }
         });
-        registerClientbound(ClientboundConfigurationPackets1_21_9.REGISTRY_DATA, registryDataRewriter::handle);
-
-        tagRewriter.registerGeneric(ClientboundPackets1_21_11.UPDATE_TAGS);
-        tagRewriter.registerGeneric(ClientboundConfigurationPackets1_21_9.UPDATE_TAGS);
-
-        componentRewriter.registerOpenScreen1_14(ClientboundPackets1_21_11.OPEN_SCREEN);
-        componentRewriter.registerComponentPacket(ClientboundPackets1_21_11.SET_ACTION_BAR_TEXT);
-        componentRewriter.registerComponentPacket(ClientboundPackets1_21_11.SET_TITLE_TEXT);
-        componentRewriter.registerComponentPacket(ClientboundPackets1_21_11.SET_SUBTITLE_TEXT);
-        componentRewriter.registerBossEvent(ClientboundPackets1_21_11.BOSS_EVENT);
-        componentRewriter.registerComponentPacket(ClientboundPackets1_21_11.DISCONNECT);
-        componentRewriter.registerTabList(ClientboundPackets1_21_11.TAB_LIST);
-        componentRewriter.registerSetPlayerTeam1_21_5(ClientboundPackets1_21_11.SET_PLAYER_TEAM);
-        componentRewriter.registerPlayerCombatKill1_20(ClientboundPackets1_21_11.PLAYER_COMBAT_KILL);
-        componentRewriter.registerPlayerInfoUpdate1_21_4(ClientboundPackets1_21_11.PLAYER_INFO_UPDATE);
-        componentRewriter.registerComponentPacket(ClientboundPackets1_21_11.SYSTEM_CHAT);
-        componentRewriter.registerDisguisedChat(ClientboundPackets1_21_11.DISGUISED_CHAT);
-        componentRewriter.registerPlayerChat1_21_5(ClientboundPackets1_21_11.PLAYER_CHAT);
-        componentRewriter.registerPing();
-
-        particleRewriter.registerLevelParticles1_21_4(ClientboundPackets1_21_11.LEVEL_PARTICLES);
-        particleRewriter.registerExplode1_21_9(ClientboundPackets1_21_11.EXPLODE);
-
-        final SoundRewriter<ClientboundPacket1_21_11> soundRewriter = new SoundRewriter<>(this);
-        soundRewriter.registerSound1_19_3(ClientboundPackets1_21_11.SOUND);
-        soundRewriter.registerSound1_19_3(ClientboundPackets1_21_11.SOUND_ENTITY);
-
-        new StatisticsRewriter<>(this).register(ClientboundPackets1_21_11.AWARD_STATS);
-        new AttributeRewriter<>(this).register1_21(ClientboundPackets1_21_11.UPDATE_ATTRIBUTES);
-
         registerClientbound(ClientboundPackets1_21_11.SET_TIME, wrapper -> {
             wrapper.passthrough(Types.LONG); // Game time
 
@@ -176,7 +167,22 @@ public final class Protocol1_21_11To26_1 extends AbstractProtocol<ClientboundPac
             wrapper.write(Types.FLOAT, 0F); // Partial tick
             wrapper.write(Types.FLOAT, tickDayTime ? 1F : 0F); // Tick rate
         });
+
+        replaceClientbound(ClientboundPackets1_21_11.UPDATE_TAGS, this::handleTags);
+        replaceClientbound(ClientboundConfigurationPackets1_21_9.UPDATE_TAGS, this::handleTags);
+
         cancelServerbound(ServerboundPackets26_1.SET_GAME_RULE);
+        registerServerbound(ServerboundPackets26_1.CLIENT_COMMAND, wrapper -> {
+            final int action = wrapper.passthrough(Types.VAR_INT);
+            if (action == 2) { // Request game rule values
+                wrapper.cancel();
+            }
+        });
+    }
+
+    private void handleTags(final PacketWrapper wrapper) {
+        tagRewriter.handleGeneric(wrapper);
+        wrapper.user().put(new TagsSent());
     }
 
     private void sendSoundVariants(final PacketWrapper wrapper, final String key, final CompoundTag tag) {
@@ -195,6 +201,9 @@ public final class Protocol1_21_11To26_1 extends AbstractProtocol<ClientboundPac
         spearDamageType.putString("scaling", "when_caused_by_living_non_player");
         registryDataRewriter.addEntries("damage_type", new RegistryEntry("spear", spearDamageType));
 
+        final CompoundTag temperateChicken = new CompoundTag();
+        temperateChicken.putString("asset_id", "entity/chicken/chicken_temperate");
+        temperateChicken.putString("baby_asset_id", "entity/chicken/chicken_temperate_baby");
         final CompoundTag coldChicken = new CompoundTag();
         coldChicken.putString("asset_id", "entity/chicken/chicken_cold");
         coldChicken.putString("baby_asset_id", "entity/chicken/chicken_cold_baby");
@@ -202,7 +211,7 @@ public final class Protocol1_21_11To26_1 extends AbstractProtocol<ClientboundPac
         final CompoundTag warmChicken = new CompoundTag();
         warmChicken.putString("asset_id", "entity/chicken/chicken_warm");
         warmChicken.putString("baby_asset_id", "entity/chicken/chicken_warm_baby");
-        registryDataRewriter.addEntries("chicken_variant", new RegistryEntry("cold", coldChicken), new RegistryEntry("warm", warmChicken));
+        registryDataRewriter.addEntries("chicken_variant", new RegistryEntry("temperate", temperateChicken), new RegistryEntry("cold", coldChicken), new RegistryEntry("warm", warmChicken));
 
         final CompoundTag ponderGoatHornInstrument = new CompoundTag();
         final CompoundTag ponderGoatHornDescription = new CompoundTag();
@@ -211,7 +220,7 @@ public final class Protocol1_21_11To26_1 extends AbstractProtocol<ClientboundPac
         ponderGoatHornInstrument.putString("sound_event", "item.goat_horn.sound.0");
         ponderGoatHornInstrument.putFloat("use_duration", 7F);
         ponderGoatHornInstrument.putFloat("range", 256F);
-        registryDataRewriter.addEntries("instrument", new RegistryEntry("spear", ponderGoatHornInstrument));
+        registryDataRewriter.addEntries("instrument", new RegistryEntry("ponder_goat_horn", ponderGoatHornInstrument));
 
         addJukeboxPlayables("11", "13", "5", "blocks", "cat", "chirp", "far", "mall", "mellohi", "otherside", "pigstep", "relic", "stal", "strad", "wait", "ward", "creator", "creator_music_box", "lava_chicken", "tears", "precipice");
         addTrimMaterials("quartz", "iron", "netherite", "redstone", "copper", "gold", "emerald", "diamond", "lapis", "amethyst", "resin");
@@ -230,25 +239,29 @@ public final class Protocol1_21_11To26_1 extends AbstractProtocol<ClientboundPac
 
     private void addJukeboxPlayables(final String... songs) {
         for (final String song : songs) {
-            final CompoundTag songTag = new CompoundTag();
-            final CompoundTag songDescription = new CompoundTag();
-            songDescription.putString("translate", "jukebox_song.minecraft." + song);
-            songTag.put("description", songDescription);
-            songTag.putString("sound_event", "music_disc." + song);
-            songTag.putFloat("length_in_seconds", 175F);
-            songTag.putInt("comparator_output", 10);
-            registryDataRewriter.addEntries("jukebox_song", new RegistryEntry(song, songTag));
+            registryDataRewriter.addEntries("jukebox_song", createJukeboxPlayableEntry(song));
         }
+    }
+
+    public static RegistryEntry createJukeboxPlayableEntry(final String song) {
+        final CompoundTag songTag = new CompoundTag();
+        final CompoundTag songDescription = new CompoundTag();
+        songDescription.putString("translate", "jukebox_song.minecraft." + song);
+        songTag.put("description", songDescription);
+        songTag.putString("sound_event", "music_disc." + song);
+        songTag.putFloat("length_in_seconds", 175F);
+        songTag.putInt("comparator_output", 10);
+        return new RegistryEntry(song, songTag);
     }
 
     private void swapAffixAndAddAssetId(final String registryKey, final String affix) {
         registryDataRewriter.addHandler(registryKey, (key, tag) -> {
             swapEntityNameAffix(affix, tag);
-            addBabyAssetId(affix, tag);
+            addBabyAssetId(tag);
         });
     }
 
-    private void addBabyAssetId(final String key, final CompoundTag tag) {
+    private void addBabyAssetId(final CompoundTag tag) {
         final String assetId = tag.getString("asset_id");
         tag.putString("baby_asset_id", assetId + "_baby");
     }
@@ -274,30 +287,13 @@ public final class Protocol1_21_11To26_1 extends AbstractProtocol<ClientboundPac
     @Override
     public void init(final UserConnection connection) {
         addEntityTracker(connection, new EntityTrackerBase(connection, EntityTypes1_21_11.PLAYER));
-        addItemHasher(connection, new ItemHasherBase(this, connection));
+        addItemHasher(connection);
+        connection.put(new PlayerSneaking());
     }
 
     @Override
     protected void onMappingDataLoaded() {
-        mappedTypes().particle.filler(this)
-            .reader("block", ParticleType.Readers.BLOCK)
-            .reader("block_marker", ParticleType.Readers.BLOCK)
-            .reader("dust_pillar", ParticleType.Readers.BLOCK)
-            .reader("falling_dust", ParticleType.Readers.BLOCK)
-            .reader("block_crumble", ParticleType.Readers.BLOCK)
-            .reader("dust", ParticleType.Readers.DUST1_21_2)
-            .reader("dust_color_transition", ParticleType.Readers.DUST_TRANSITION1_21_2)
-            .reader("vibration", ParticleType.Readers.VIBRATION1_20_3)
-            .reader("sculk_charge", ParticleType.Readers.SCULK_CHARGE)
-            .reader("shriek", ParticleType.Readers.SHRIEK)
-            .reader("entity_effect", ParticleType.Readers.COLOR)
-            .reader("tinted_leaves", ParticleType.Readers.COLOR)
-            .reader("trail", ParticleType.Readers.TRAIL1_21_4)
-            .reader("dragon_breath", ParticleType.Readers.POWER)
-            .reader("effect", ParticleType.Readers.SPELL)
-            .reader("instant_effect", ParticleType.Readers.SPELL)
-            .reader("flash", ParticleType.Readers.COLOR)
-            .reader("item", ParticleType.Readers.item(itemRewriter.mappedItemTemplateType()));
+        ParticleType.Fillers.fill1_21_9(this);
         mappedTypes().structuredData.filler(this).add(StructuredDataKey.CUSTOM_DATA, StructuredDataKey.MAX_STACK_SIZE, StructuredDataKey.MAX_DAMAGE,
             StructuredDataKey.UNBREAKABLE1_21_5, StructuredDataKey.RARITY, StructuredDataKey.TOOLTIP_DISPLAY, StructuredDataKey.DAMAGE_RESISTANT26_1,
             StructuredDataKey.CUSTOM_NAME, StructuredDataKey.LORE, StructuredDataKey.ENCHANTMENTS1_21_5,
@@ -350,6 +346,16 @@ public final class Protocol1_21_11To26_1 extends AbstractProtocol<ClientboundPac
     @Override
     public BlockItemPacketRewriter26_1 getItemRewriter() {
         return itemRewriter;
+    }
+
+    @Override
+    public BlockRewriter<ClientboundPacket1_21_11> getBlockRewriter() {
+        return blockRewriter;
+    }
+
+    @Override
+    public RecipeDisplayRewriter<ClientboundPacket1_21_11> getRecipeRewriter() {
+        return recipeRewriter;
     }
 
     @Override

@@ -20,17 +20,18 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package com.viaversion.viaversion.api.protocol;
+package com.viaversion.viaversion.api.minecraft.data.version;
 
-/**
- * A simple protocol which does not have any packet types.
- * <p>
- * {@link AbstractProtocol} should be preferred over this class in most cases.
- */
-public abstract class AbstractSimpleProtocol extends AbstractProtocol<SimpleProtocol.DummyPacketTypes, SimpleProtocol.DummyPacketTypes,
-    SimpleProtocol.DummyPacketTypes, SimpleProtocol.DummyPacketTypes> implements SimpleProtocol {
+import com.viaversion.viaversion.api.minecraft.data.StructuredDataKey;
+import com.viaversion.viaversion.api.minecraft.item.Item;
+import com.viaversion.viaversion.api.type.types.version.VersionedTypesHolder;
 
-    protected AbstractSimpleProtocol() {
-        super(null, null, null, null);
+public class StructuredDataKeys26_2 extends StructuredDataKeys1_21_11 {
+
+    public final StructuredDataKey<Item> sulfurCubeContent;
+
+    public StructuredDataKeys26_2(final VersionedTypesHolder types) {
+        super(types);
+        this.sulfurCubeContent = add("sulfur_cube_content", types.item());
     }
 }

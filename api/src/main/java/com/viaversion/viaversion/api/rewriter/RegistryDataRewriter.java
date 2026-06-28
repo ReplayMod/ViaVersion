@@ -24,15 +24,23 @@ package com.viaversion.viaversion.api.rewriter;
 
 import com.viaversion.nbt.tag.CompoundTag;
 import com.viaversion.viaversion.api.connection.UserConnection;
-import com.viaversion.viaversion.util.KeyMappings;
-import org.checkerframework.checker.nullness.qual.Nullable;
+import com.viaversion.viaversion.api.protocol.packet.PacketWrapper;
 
 public interface RegistryDataRewriter {
 
-    @Nullable
-    KeyMappings getMappings(String registryKey);
+    void handle(PacketWrapper wrapper);
 
     boolean shouldRemoveRegistry(String registryKey);
 
+    boolean hasRegistriesToRemove();
+
     void updateDialog(UserConnection connection, CompoundTag tag);
+
+    /**
+     * Sends registries that had additional entries configured, but weren't sent by the server at all
+     * by the time finish_configuration was sent to the client.
+     *
+     * @param connection the user connection
+     */
+    void sendMissingRegistries(final UserConnection connection);
 }
