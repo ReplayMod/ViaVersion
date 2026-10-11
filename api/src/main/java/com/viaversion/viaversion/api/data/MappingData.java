@@ -29,6 +29,7 @@ import com.viaversion.viaversion.util.Key;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 public interface MappingData {
@@ -190,15 +191,27 @@ public interface MappingData {
      */
     @Nullable IntSet changedBlocks();
 
+    default boolean hasBlockChanged(final int blockId) {
+        return changedBlocks() != null && changedBlocks().contains(blockId);
+    }
+
+    @Nullable Set<String> changedEnvironmentAttributes();
+
     /**
      * Type of mappings. Currently only relevant for ops writing of generic holder classes and expanded when needed.
      */
     enum MappingType implements RegistryKey {
         ITEM, BLOCK, SOUND, ENTITY_TYPE;
 
+        private final Key key;
+
+        MappingType() {
+            this.key = Key.of(name().toLowerCase(Locale.ROOT));
+        }
+
         @Override
-        public Key key() {
-            return Key.of(name().toLowerCase(Locale.ROOT));
+        public Key registry() {
+            return this.key;
         }
     }
 }

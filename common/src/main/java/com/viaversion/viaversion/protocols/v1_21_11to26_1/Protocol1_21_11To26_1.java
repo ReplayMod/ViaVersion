@@ -39,6 +39,7 @@ import com.viaversion.viaversion.api.type.types.chunk.ChunkType26_1;
 import com.viaversion.viaversion.api.type.types.misc.ParticleType;
 import com.viaversion.viaversion.api.type.types.version.Types1_20_5;
 import com.viaversion.viaversion.api.type.types.version.VersionedTypes;
+import com.viaversion.viaversion.connection.ProtocolStorablesBase;
 import com.viaversion.viaversion.data.entity.EntityTrackerBase;
 import com.viaversion.viaversion.protocols.v1_21_11to26_1.data.MappingData26_1;
 import com.viaversion.viaversion.protocols.v1_21_11to26_1.packet.ClientboundPacket26_1;
@@ -49,8 +50,7 @@ import com.viaversion.viaversion.protocols.v1_21_11to26_1.rewriter.BlockItemPack
 import com.viaversion.viaversion.protocols.v1_21_11to26_1.rewriter.ComponentRewriter26_1;
 import com.viaversion.viaversion.protocols.v1_21_11to26_1.rewriter.EntityPacketRewriter26_1;
 import com.viaversion.viaversion.protocols.v1_21_11to26_1.rewriter.RegistryDataRewriter26_1;
-import com.viaversion.viaversion.protocols.v1_21_11to26_1.storage.PlayerSneaking;
-import com.viaversion.viaversion.protocols.v1_21_11to26_1.storage.TagsSent;
+import com.viaversion.viaversion.protocols.v1_21_11to26_1.storage.ProtocolStorables26_1;
 import com.viaversion.viaversion.protocols.v1_21_4to1_21_5.rewriter.RecipeDisplayRewriter1_21_5;
 import com.viaversion.viaversion.protocols.v1_21_5to1_21_6.packet.ServerboundPackets1_21_6;
 import com.viaversion.viaversion.protocols.v1_21_7to1_21_9.packet.ClientboundConfigurationPackets1_21_9;
@@ -66,6 +66,7 @@ import com.viaversion.viaversion.rewriter.TagRewriter;
 import com.viaversion.viaversion.rewriter.block.BlockRewriter1_21_5;
 import com.viaversion.viaversion.rewriter.text.NBTComponentRewriter;
 import com.viaversion.viaversion.util.Key;
+import com.viaversion.viaversion.util.MathUtil;
 import java.util.Map;
 
 import static com.viaversion.viaversion.util.ProtocolUtil.packetTypeMap;
@@ -105,7 +106,8 @@ public final class Protocol1_21_11To26_1 extends AbstractProtocol<ClientboundPac
             sendSoundVariants(wrapper, "chicken_sound_variant", MAPPINGS.chickenSoundVariants());
 
             // Make sure the client gets damage types and banner patterns, even if the server doesn't send tags
-            if (!wrapper.user().has(TagsSent.class)) {
+            final ProtocolStorables26_1 storables = wrapper.user().storables(this);
+            if (!storables.tagsSent()) {
                 final PacketWrapper tagsPacket = wrapper.create(ClientboundConfigurationPackets1_21_9.UPDATE_TAGS);
                 tagsPacket.write(Types.VAR_INT, 0);
                 tagsPacket.send(Protocol1_21_11To26_1.class, false);
@@ -142,30 +144,36 @@ public final class Protocol1_21_11To26_1 extends AbstractProtocol<ClientboundPac
             addBabyAssetId(tag);
         });
         registryDataRewriter.addHandler("dimension_type", (key, tag) -> {
-            tag.putBoolean("has_ender_dragon_fight", Key.equals(key, "the_end"));
+            final String strippedKey = Key.stripMinecraftNamespace(key);
+            tag.putBoolean("has_ender_dragon_fight", strippedKey.equals("the_end"));
 
-            final CompoundTag attributes = tag.getCompoundTag("attributes");
-            if (attributes != null) {
-                final int ambientLightColor = switch (Key.stripMinecraftNamespace(key)) {
-                    case "the_end" -> -12630209;
-                    case "the_nether" -> -13621215;
-                    case "overworld" -> -16119286;
-                    default -> -16777216;
-                };
-                attributes.putInt("visual/ambient_light_color", ambientLightColor);
+            switch (strippedKey) {
+                case "overworld", "overworld_caves" -> tag.putString("default_clock", "minecraft:overworld");
+                case "the_end" -> tag.putString("default_clock", "minecraft:the_end");
             }
+
+            CompoundTag attributes = tag.getCompoundTag("attributes");
+            if (attributes == null) {
+                attributes = new CompoundTag();
+                tag.put("attributes", attributes);
+            }
+
+            final int ambientLightColor = switch (strippedKey) {
+                case "the_end" -> -12630209;
+                case "the_nether" -> -13621215;
+                case "overworld" -> -16119286;
+                default -> ambientLightColor(tag.getFloat("ambient_light", 0F));
+            };
+            attributes.putInt("visual/ambient_light_color", ambientLightColor);
         });
         registerClientbound(ClientboundPackets1_21_11.SET_TIME, wrapper -> {
             wrapper.passthrough(Types.LONG); // Game time
 
             final long dayTime = wrapper.read(Types.LONG);
             final boolean tickDayTime = wrapper.read(Types.BOOLEAN);
-
-            wrapper.write(Types.VAR_INT, 1); // One!
-            wrapper.write(Types.VAR_INT, 0); // Overworld clock
-            wrapper.write(Types.VAR_LONG, dayTime); // Total ticks
-            wrapper.write(Types.FLOAT, 0F); // Partial tick
-            wrapper.write(Types.FLOAT, tickDayTime ? 1F : 0F); // Tick rate
+            wrapper.write(Types.VAR_INT, 2);
+            writeClockUpdate(wrapper, 0, dayTime, tickDayTime); // Overworld clock
+            writeClockUpdate(wrapper, 1, dayTime, tickDayTime); // The End clock
         });
 
         replaceClientbound(ClientboundPackets1_21_11.UPDATE_TAGS, this::handleTags);
@@ -180,9 +188,18 @@ public final class Protocol1_21_11To26_1 extends AbstractProtocol<ClientboundPac
         });
     }
 
+    private void writeClockUpdate(final PacketWrapper wrapper, final int clockId, final long dayTime, final boolean tickDayTime) {
+        wrapper.write(Types.VAR_INT, clockId);
+        wrapper.write(Types.VAR_LONG, dayTime); // Total ticks
+        wrapper.write(Types.FLOAT, 0F); // Partial tick
+        wrapper.write(Types.FLOAT, tickDayTime ? 1F : 0F); // Tick rate
+    }
+
     private void handleTags(final PacketWrapper wrapper) {
         tagRewriter.handleGeneric(wrapper);
-        wrapper.user().put(new TagsSent());
+
+        final ProtocolStorables26_1 storables = wrapper.user().storables(this);
+        storables.setTagsSent(true);
     }
 
     private void sendSoundVariants(final PacketWrapper wrapper, final String key, final CompoundTag tag) {
@@ -273,6 +290,12 @@ public final class Protocol1_21_11To26_1 extends AbstractProtocol<ClientboundPac
         assetIdTag.setValue(assetId.replace(key + "/", key + "/" + key + "_"));
     }
 
+    private int ambientLightColor(final float ambientLight) {
+        // Interpolate between the overworld (ambient_light=0) and full white
+        final int value = MathUtil.clamp(Math.round(10 + ambientLight * 245), 10, 255);
+        return 0xFF000000 | value << 16 | value << 8 | value;
+    }
+
     private void swapEntityNameAffix(final String key, final CompoundTag tag) {
         final StringTag assetIdTag = tag.getStringTag("asset_id");
         final String assetId = assetIdTag.getValue();
@@ -288,7 +311,11 @@ public final class Protocol1_21_11To26_1 extends AbstractProtocol<ClientboundPac
     public void init(final UserConnection connection) {
         addEntityTracker(connection, new EntityTrackerBase(connection, EntityTypes1_21_11.PLAYER));
         addItemHasher(connection);
-        connection.put(new PlayerSneaking());
+    }
+
+    @Override
+    public ProtocolStorablesBase createStorables() {
+        return new ProtocolStorables26_1();
     }
 
     @Override
@@ -306,12 +333,12 @@ public final class Protocol1_21_11To26_1 extends AbstractProtocol<ClientboundPac
             StructuredDataKey.BUCKET_ENTITY_DATA, StructuredDataKey.BLOCK_ENTITY_DATA1_21_9, StructuredDataKey.INSTRUMENT26_1,
             StructuredDataKey.RECIPES, StructuredDataKey.LODESTONE_TRACKER, StructuredDataKey.FIREWORK_EXPLOSION, StructuredDataKey.FIREWORKS,
             StructuredDataKey.PROFILE1_21_9, StructuredDataKey.NOTE_BLOCK_SOUND, StructuredDataKey.BANNER_PATTERNS, StructuredDataKey.BASE_COLOR,
-            StructuredDataKey.POT_DECORATIONS, StructuredDataKey.BLOCK_STATE, StructuredDataKey.BEES1_21_9, StructuredDataKey.LOCK1_21_2,
+            StructuredDataKey.POT_DECORATIONS1_20_5, StructuredDataKey.BLOCK_STATE, StructuredDataKey.BEES1_21_9, StructuredDataKey.LOCK1_21_2,
             StructuredDataKey.CONTAINER_LOOT, StructuredDataKey.TOOL1_21_5, StructuredDataKey.ITEM_NAME, StructuredDataKey.OMINOUS_BOTTLE_AMPLIFIER,
             StructuredDataKey.FOOD1_21_2, StructuredDataKey.JUKEBOX_PLAYABLE26_1, StructuredDataKey.ATTRIBUTE_MODIFIERS1_21_6,
             StructuredDataKey.REPAIRABLE, StructuredDataKey.ENCHANTABLE, StructuredDataKey.CONSUMABLE1_21_2, StructuredDataKey.ATTACK_RANGE,
             StructuredDataKey.USE_COOLDOWN, StructuredDataKey.DAMAGE, StructuredDataKey.EQUIPPABLE1_21_6, StructuredDataKey.ITEM_MODEL,
-            StructuredDataKey.GLIDER, StructuredDataKey.TOOLTIP_STYLE, StructuredDataKey.DEATH_PROTECTION, StructuredDataKey.WEAPON,
+            StructuredDataKey.GLIDER, StructuredDataKey.TOOLTIP_STYLE, StructuredDataKey.DEATH_PROTECTION1_21_2, StructuredDataKey.WEAPON,
             StructuredDataKey.POTION_DURATION_SCALE, StructuredDataKey.VILLAGER_VARIANT, StructuredDataKey.WOLF_VARIANT, StructuredDataKey.WOLF_COLLAR,
             StructuredDataKey.FOX_VARIANT, StructuredDataKey.SALMON_SIZE, StructuredDataKey.PARROT_VARIANT, StructuredDataKey.TROPICAL_FISH_PATTERN,
             StructuredDataKey.TROPICAL_FISH_BASE_COLOR, StructuredDataKey.TROPICAL_FISH_PATTERN_COLOR, StructuredDataKey.MOOSHROOM_VARIANT,

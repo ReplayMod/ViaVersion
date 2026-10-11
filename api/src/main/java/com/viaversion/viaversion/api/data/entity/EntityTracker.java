@@ -23,7 +23,9 @@
 package com.viaversion.viaversion.api.data.entity;
 
 import com.viaversion.viaversion.api.connection.UserConnection;
+import com.viaversion.viaversion.api.minecraft.chunks.Chunk;
 import com.viaversion.viaversion.api.minecraft.entities.EntityType;
+import com.viaversion.viaversion.api.type.Type;
 import com.viaversion.viaversion.util.KeyMappings;
 import java.util.Map;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -43,8 +45,9 @@ public interface EntityTracker {
      *
      * @param id   entity id
      * @param type entity type
+     * @return tracked entity
      */
-    void addEntity(int id, EntityType type);
+    TrackedEntity addEntity(int id, EntityType type);
 
     /**
      * Returns whether the entity is currently tracked.
@@ -75,8 +78,9 @@ public interface EntityTracker {
      * Untracks an entity.
      *
      * @param id entity id
+     * @return previously tracked entity
      */
-    void removeEntity(int id);
+    @Nullable TrackedEntity removeEntity(int id);
 
     /**
      * Clears stored entity types and data, only leaving behind the client entity.
@@ -87,25 +91,6 @@ public interface EntityTracker {
      * Clears all stored data, including entity types, entity data and client entity id.
      */
     void clear();
-
-    /**
-     * Returns the stored entity data if an entity with the id is tracked, else null.
-     * If no data has been initialized yet, it will be done and returned by this method.
-     *
-     * @param id entity id
-     * @return stored entity data if an entity with the id is tracked, else null
-     * @throws IllegalArgumentException if entity data storage has not been enabled via the implementation
-     */
-    @Nullable StoredEntityData entityData(int id);
-
-    /**
-     * Returns stored entity data if it has previously been initialized by {@link #entityData(int)}, else null.
-     *
-     * @param id entity id
-     * @return stored entity data if it has previously been initialized by {@link #entityData(int)}
-     * @throws IllegalArgumentException if entity data storage has not been enabled via the implementation
-     */
-    @Nullable StoredEntityData entityDataIfPresent(int id);
 
     /**
      * Returns whether the client entity id has been set.
@@ -203,6 +188,24 @@ public interface EntityTracker {
     int biomesSent();
 
     void setBiomesSent(int biomesSent);
+
+    /**
+     * Returns the cached chunk type for the current dimension if set.
+     *
+     * @param mapped whether to return the mapped chunk type
+     * @return cached chunk type
+     */
+    @Nullable Type<Chunk> chunkType(boolean mapped);
+
+    /**
+     * Caches the chunk type for the current dimension.
+     * <p>
+     * Invalidates when the world section height or the number of biomes change.
+     *
+     * @param mapped    whether to set the mapped chunk type
+     * @param chunkType chunk type
+     */
+    void setChunkType(boolean mapped, @Nullable Type<Chunk> chunkType);
 
     EntityType playerType();
 

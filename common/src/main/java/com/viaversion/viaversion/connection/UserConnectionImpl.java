@@ -17,9 +17,9 @@
  */
 package com.viaversion.viaversion.connection;
 
-import com.google.common.cache.CacheBuilder;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.connection.ProtocolInfo;
+import com.viaversion.viaversion.api.connection.ProtocolStorables;
 import com.viaversion.viaversion.api.connection.StorableObject;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.data.entity.EntityTracker;
@@ -43,30 +43,28 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.CodecException;
-import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import it.unimi.dsi.fastutil.longs.LongSet;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.SplittableRandom;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 public class UserConnectionImpl implements UserConnection {
-    private static final int PASSTHROUGH_DATA_BYTES = Long.BYTES * 2 + 2;
+    private static final int PASSTHROUGH_DATA_BYTES = Long.BYTES + 2;
     private static final AtomicLong IDS = new AtomicLong();
     private final long id = IDS.incrementAndGet();
-    private final Map<Class<?>, StorableObject> storedObjects = new ConcurrentHashMap<>();
-    private final Map<Class<? extends Protocol>, EntityTracker> entityTrackers = new Reference2ObjectOpenHashMap<>();
-    private final Map<Class<? extends Protocol>, ItemHasher> itemHashers = new Reference2ObjectOpenHashMap<>();
-    private final Map<Class<? extends Protocol>, ClientWorld> clientWorlds = new Reference2ObjectOpenHashMap<>();
+    private final SplittableRandom random = new SplittableRandom();
+    private final Map<Class<?>, StorableObject> storedObjects = new ConcurrentHashMap<>(8);
+    private final ProtocolStorables[] protocolStorables = new ProtocolStorables[Via.getManager().getProtocolManager().registeredProtocolCount()];
     private final PacketTracker packetTracker = new PacketTracker(this);
-    private final Set<UUID> passthroughTokens = Collections.newSetFromMap(CacheBuilder.newBuilder()
-        .expireAfterWrite(10, TimeUnit.SECONDS)
-        .<UUID, Boolean>build().asMap());
+    private final LongSet passthroughTokens = new LongOpenHashSet(4);
     private final ProtocolInfo protocolInfo = new ProtocolInfoImpl();
     private final Channel channel;
     private final boolean clientSide;
@@ -74,7 +72,7 @@ public class UserConnectionImpl implements UserConnection {
     private boolean pendingDisconnect;
 
     /**
-     * Creates an UserConnection. When it's a client-side connection, some method behaviors are modified.
+     * Creates a UserConnection. When it's a client-side connection, some method behaviors are modified.
      *
      * @param channel    netty channel.
      * @param clientSide true if it's a client-side connection
@@ -120,37 +118,90 @@ public class UserConnectionImpl implements UserConnection {
 
     @Override
     public Collection<EntityTracker> getEntityTrackers() {
-        return entityTrackers.values();
+        final List<EntityTracker> trackers = new ArrayList<>();
+        for (final ProtocolStorables storable : protocolStorables) {
+            if (storable != null && storable.entityTracker() != null) {
+                trackers.add(storable.entityTracker());
+            }
+        }
+        return trackers;
     }
 
     @Override
     public @Nullable <T extends EntityTracker> T getEntityTracker(Class<? extends Protocol> protocolClass) {
-        return (T) entityTrackers.get(protocolClass);
+        final ProtocolStorables storables = storablesByClassIfPresent(protocolClass);
+        return storables != null ? (T) storables.entityTracker() : null;
     }
 
     @Override
     public void addEntityTracker(Class<? extends Protocol> protocolClass, EntityTracker tracker) {
-        entityTrackers.putIfAbsent(protocolClass, tracker);
+        storables(protocolClass).setEntityTracker(tracker);
     }
 
     @Override
     public void addItemHasher(final Class<? extends Protocol> protocolClass, final ItemHasher itemHasher) {
-        itemHashers.putIfAbsent(protocolClass, itemHasher);
+        storables(protocolClass).setItemHasher(itemHasher);
     }
 
     @Override
     public @Nullable <T extends ItemHasher> T getItemHasher(Class<? extends Protocol> protocolClass) {
-        return (T) itemHashers.get(protocolClass);
+        final ProtocolStorables storables = storablesByClassIfPresent(protocolClass);
+        return storables != null ? (T) storables.itemHasher() : null;
     }
 
     @Override
     public @Nullable <T extends ClientWorld> T getClientWorld(final Class<? extends Protocol> protocolClass) {
-        return (T) clientWorlds.get(protocolClass);
+        final ProtocolStorables storables = storablesByClassIfPresent(protocolClass);
+        return storables != null ? (T) storables.clientWorld() : null;
     }
 
     @Override
     public void addClientWorld(final Class<? extends Protocol> protocolClass, final ClientWorld clientWorld) {
-        clientWorlds.putIfAbsent(protocolClass, clientWorld);
+        storables(protocolClass).setClientWorld(clientWorld);
+    }
+
+    private @Nullable ProtocolStorables storablesByClassIfPresent(final Class<? extends Protocol> protocolClass) {
+        final int index = protocolIndex(protocolClass);
+        return index >= 0 && index < protocolStorables.length ? protocolStorables[index] : null;
+    }
+
+    private static int protocolIndex(final Class<? extends Protocol> protocolClass) {
+        final Protocol<?, ?, ?, ?> protocol = Via.getManager().getProtocolManager().getProtocol(protocolClass);
+        return protocol != null ? protocol.index() : -1;
+    }
+
+    @Override
+    public @Nullable <T extends EntityTracker> T getEntityTracker(final Protocol<?, ?, ?, ?> protocol) {
+        final ProtocolStorables storables = storablesIfPresent(protocol);
+        //noinspection unchecked
+        return storables != null ? (T) storables.entityTracker() : null;
+    }
+
+    @Override
+    public @Nullable <T extends ItemHasher> T getItemHasher(final Protocol<?, ?, ?, ?> protocol) {
+        final ProtocolStorables storables = storablesIfPresent(protocol);
+        //noinspection unchecked
+        return storables != null ? (T) storables.itemHasher() : null;
+    }
+
+    @Override
+    public <T extends ProtocolStorables> T storables(final Protocol<?, ?, ?, ?> protocol) {
+        T storables = storablesIfPresent(protocol);
+        if (storables == null) {
+            //noinspection unchecked
+            storables = (T) protocol.createStorables();
+            protocolStorables[protocol.index()] = storables;
+        }
+        return storables;
+    }
+
+    public <T extends ProtocolStorables> T storablesIfPresent(final Protocol<?, ?, ?, ?> protocol) {
+        final int index = protocol.index();
+        if (index == -1) {
+            throw new IllegalArgumentException("Provided protocol does not have a valid index: " + index);
+        }
+        //noinspection unchecked
+        return (T) protocolStorables[index];
     }
 
     @Override
@@ -159,9 +210,7 @@ public class UserConnectionImpl implements UserConnection {
             object.onRemove();
         }
         storedObjects.clear();
-        entityTrackers.clear();
-        itemHashers.clear();
-        clientWorlds.clear();
+        Arrays.fill(protocolStorables, null);
     }
 
     @Override
@@ -261,7 +310,7 @@ public class UserConnectionImpl implements UserConnection {
             if (shouldTransformPacket()) {
                 // Bypass serverbound packet decoder transforming
                 Types.VAR_INT.writePrimitive(buf, PacketWrapper.PASSTHROUGH_ID);
-                Types.UUID.write(buf, generatePassthroughToken());
+                Types.LONG.writePrimitive(buf, generatePassthroughToken());
             }
 
             buf.writeBytes(packet);
@@ -346,11 +395,13 @@ public class UserConnectionImpl implements UserConnection {
         }
 
         final int id = Types.VAR_INT.readPrimitive(buf);
-        if (id == PacketWrapper.PASSTHROUGH_ID) {
-            if (!passthroughTokens.remove(Types.UUID.read(buf))) {
-                throw new IllegalArgumentException("Invalid token");
+        if (id == PacketWrapper.PASSTHROUGH_ID && buf.readableBytes() >= Long.BYTES) {
+            if (removePassthroughToken(buf.readLong())) {
+                return;
             }
-            return;
+
+            // Move reader back and treat it like a regular packet
+            buf.readerIndex(buf.readerIndex() - Long.BYTES);
         }
 
         final int valuesReaderIndex = buf.readerIndex();
@@ -443,10 +494,22 @@ public class UserConnectionImpl implements UserConnection {
     }
 
     @Override
-    public UUID generatePassthroughToken() {
-        UUID token = UUID.randomUUID();
-        passthroughTokens.add(token);
-        return token;
+    public long generatePassthroughToken() {
+        // Don't use TLR so it's not entirely predictable; use SplittableRandom over Random since it actually has a 64 bit seed
+        while (true) {
+            synchronized (passthroughTokens) {
+                final long token = random.nextLong();
+                if (passthroughTokens.add(token)) {
+                    return token;
+                }
+            }
+        }
+    }
+
+    private boolean removePassthroughToken(final long token) {
+        synchronized (passthroughTokens) {
+            return passthroughTokens.remove(token);
+        }
     }
 
     @Override

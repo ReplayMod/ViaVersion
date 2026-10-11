@@ -56,7 +56,7 @@ public class EntityPacketRewriter1_11 extends EntityRewriter<ClientboundPackets1
                 map(Types.UNSIGNED_BYTE); // 1 - Gamemode
                 map(Types.INT); // 2 - Dimension
                 handler(wrapper -> {
-                    ClientWorld clientWorld = wrapper.user().getClientWorld(Protocol1_10To1_11.class);
+                    ClientWorld clientWorld = wrapper.user().storables(protocol).clientWorld();
                     int dimensionId = wrapper.get(Types.INT, 1);
                     clientWorld.setEnvironment(dimensionId);
                 });
@@ -68,7 +68,7 @@ public class EntityPacketRewriter1_11 extends EntityRewriter<ClientboundPackets1
             public void register() {
                 map(Types.INT);
                 handler(wrapper -> {
-                    ClientWorld clientWorld = wrapper.user().getClientWorld(Protocol1_10To1_11.class);
+                    ClientWorld clientWorld = wrapper.user().storables(protocol).clientWorld();
                     int dimensionId = wrapper.get(Types.INT, 0);
                     if (clientWorld.setEnvironment(dimensionId)) {
                         tracker(wrapper.user()).clearEntities();
@@ -98,10 +98,10 @@ public class EntityPacketRewriter1_11 extends EntityRewriter<ClientboundPackets1
                         tryFixFishingHookVelocity(wrapper);
                     } else if (type == EntityTypes1_10.ObjectType.ITEM.getId()) {
                         // Older clients used stone as fallback as long as the entity data was not set
+                        final int entityId = wrapper.get(Types.VAR_INT, 0);
+
                         wrapper.send(Protocol1_10To1_11.class);
                         wrapper.cancel();
-
-                        final int entityId = wrapper.get(Types.VAR_INT, 0);
 
                         final List<EntityData> entityDataList = new ArrayList<>();
                         entityDataList.add(new EntityData(6, EntityDataTypes1_9.ITEM, new DataItem(1, (byte) 1, null)));
@@ -142,7 +142,7 @@ public class EntityPacketRewriter1_11 extends EntityRewriter<ClientboundPackets1
                         wrapper.set(Types.VAR_INT, 1, entType.getId());
 
                         // Register Type ID
-                        wrapper.user().getEntityTracker(Protocol1_10To1_11.class).addEntity(entityId, entType);
+                        wrapper.user().getEntityTracker(protocol).addEntity(entityId, entType);
                         handleEntityData(entityId, wrapper.get(Types.ENTITY_DATA_LIST1_9, 0), wrapper.user());
                     }
                 });
@@ -177,7 +177,7 @@ public class EntityPacketRewriter1_11 extends EntityRewriter<ClientboundPackets1
                 handler(wrapper -> {
                     int entityID = wrapper.get(Types.VAR_INT, 0);
                     if (Via.getConfig().isHologramPatch()) {
-                        EntityTracker1_11 tracker = wrapper.user().getEntityTracker(Protocol1_10To1_11.class);
+                        EntityTracker1_11 tracker = wrapper.user().getEntityTracker(protocol);
                         if (tracker.isHologram(entityID)) {
                             Double newValue = wrapper.get(Types.DOUBLE, 1);
                             newValue -= (Via.getConfig().getHologramYOffset());

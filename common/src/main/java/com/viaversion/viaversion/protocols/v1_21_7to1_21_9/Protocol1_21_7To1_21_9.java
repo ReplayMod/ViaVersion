@@ -28,6 +28,7 @@ import com.viaversion.viaversion.api.minecraft.entitydata.types.EntityDataTypes1
 import com.viaversion.viaversion.api.protocol.AbstractProtocol;
 import com.viaversion.viaversion.api.protocol.packet.provider.PacketTypesProvider;
 import com.viaversion.viaversion.api.protocol.packet.provider.SimplePacketTypesProvider;
+import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.api.type.types.chunk.ChunkType1_21_5;
 import com.viaversion.viaversion.api.type.types.misc.ParticleType;
@@ -51,8 +52,10 @@ import com.viaversion.viaversion.protocols.v1_21_7to1_21_9.rewriter.ComponentRew
 import com.viaversion.viaversion.protocols.v1_21_7to1_21_9.rewriter.EntityPacketRewriter1_21_9;
 import com.viaversion.viaversion.protocols.v1_21_7to1_21_9.rewriter.ParticleRewriter1_21_9;
 import com.viaversion.viaversion.protocols.v1_21_7to1_21_9.rewriter.RegistryDataRewriter1_21_9;
-import com.viaversion.viaversion.protocols.v1_21_7to1_21_9.storage.DimensionScaleStorage;
+import com.viaversion.viaversion.protocols.v1_21_7to1_21_9.storage.ProtocolStorables1_21_9;
+import com.viaversion.viaversion.protocols.v1_21to1_21_2.Protocol1_21To1_21_2;
 import com.viaversion.viaversion.protocols.v1_21to1_21_2.storage.LastExplosionPowerStorage;
+import com.viaversion.viaversion.protocols.v1_21to1_21_2.storage.ProtocolStorables1_21_2;
 import com.viaversion.viaversion.rewriter.BlockRewriter;
 import com.viaversion.viaversion.rewriter.ParticleRewriter;
 import com.viaversion.viaversion.rewriter.RecipeDisplayRewriter;
@@ -91,13 +94,18 @@ public final class Protocol1_21_7To1_21_9 extends AbstractProtocol<ClientboundPa
             wrapper.passthrough(Types.DOUBLE); // Y
             wrapper.passthrough(Types.DOUBLE); // Z
 
-            final LastExplosionPowerStorage lastExplosionPowerStorage = wrapper.user().get(LastExplosionPowerStorage.class);
+            // Get power and affected blocks from 1.21.2 protocol
             float radius = 0;
             int affectedBlocks = 0;
-            if (lastExplosionPowerStorage != null) {
-                radius = lastExplosionPowerStorage.power();
-                affectedBlocks = lastExplosionPowerStorage.affectedBlocks();
+            if (wrapper.user().getProtocolInfo().serverProtocolVersion().olderThan(ProtocolVersion.v1_21_2)) {
+                final ProtocolStorables1_21_2 storables1_21_2 = wrapper.user().storables(Protocol1_21To1_21_2.class);
+                final LastExplosionPowerStorage lastExplosionPowerStorage = storables1_21_2.lastExplosionPowerStorage();
+                if (lastExplosionPowerStorage != null) {
+                    radius = lastExplosionPowerStorage.power();
+                    affectedBlocks = lastExplosionPowerStorage.affectedBlocks();
+                }
             }
+
             wrapper.write(Types.FLOAT, radius);
             wrapper.write(Types.INT, affectedBlocks); // For some reason a plain int
 
@@ -112,7 +120,7 @@ public final class Protocol1_21_7To1_21_9 extends AbstractProtocol<ClientboundPa
 
             wrapper.write(Types.VAR_INT, 0); // Number of block particles
         });
-        registerServerbound(ServerboundPackets1_21_6.DEBUG_SAMPLE_SUBSCRIPTION, wrapper -> {
+        registerServerbound(ServerboundPackets1_21_6.DEBUG_SUBSCRIPTION_REQUEST, wrapper -> {
             final int count = Limit.max(wrapper.read(Types.VAR_INT), 32); // subscription count
             for (int i = 0; i < count; i++) {
                 final int id = wrapper.read(Types.VAR_INT); // subscription registry id
@@ -144,12 +152,12 @@ public final class Protocol1_21_7To1_21_9 extends AbstractProtocol<ClientboundPa
             StructuredDataKey.BUCKET_ENTITY_DATA, StructuredDataKey.BLOCK_ENTITY_DATA1_21_9, StructuredDataKey.INSTRUMENT1_21_5,
             StructuredDataKey.RECIPES, StructuredDataKey.LODESTONE_TRACKER, StructuredDataKey.FIREWORK_EXPLOSION, StructuredDataKey.FIREWORKS,
             StructuredDataKey.PROFILE1_21_9, StructuredDataKey.NOTE_BLOCK_SOUND, StructuredDataKey.BANNER_PATTERNS, StructuredDataKey.BASE_COLOR,
-            StructuredDataKey.POT_DECORATIONS, StructuredDataKey.BLOCK_STATE, StructuredDataKey.BEES1_21_9, StructuredDataKey.LOCK1_21_2,
+            StructuredDataKey.POT_DECORATIONS1_20_5, StructuredDataKey.BLOCK_STATE, StructuredDataKey.BEES1_21_9, StructuredDataKey.LOCK1_21_2,
             StructuredDataKey.CONTAINER_LOOT, StructuredDataKey.TOOL1_21_5, StructuredDataKey.ITEM_NAME, StructuredDataKey.OMINOUS_BOTTLE_AMPLIFIER,
             StructuredDataKey.FOOD1_21_2, StructuredDataKey.JUKEBOX_PLAYABLE1_21_5, StructuredDataKey.ATTRIBUTE_MODIFIERS1_21_6,
-            StructuredDataKey.REPAIRABLE, StructuredDataKey.ENCHANTABLE, StructuredDataKey.CONSUMABLE1_21_2,
+            StructuredDataKey.REPAIRABLE, StructuredDataKey.ENCHANTABLE, StructuredDataKey.CONSUMABLE1_21_5,
             StructuredDataKey.USE_COOLDOWN, StructuredDataKey.DAMAGE, StructuredDataKey.EQUIPPABLE1_21_6, StructuredDataKey.ITEM_MODEL,
-            StructuredDataKey.GLIDER, StructuredDataKey.TOOLTIP_STYLE, StructuredDataKey.DEATH_PROTECTION, StructuredDataKey.WEAPON,
+            StructuredDataKey.GLIDER, StructuredDataKey.TOOLTIP_STYLE, StructuredDataKey.DEATH_PROTECTION1_21_2, StructuredDataKey.WEAPON,
             StructuredDataKey.POTION_DURATION_SCALE, StructuredDataKey.VILLAGER_VARIANT, StructuredDataKey.WOLF_VARIANT, StructuredDataKey.WOLF_COLLAR,
             StructuredDataKey.FOX_VARIANT, StructuredDataKey.SALMON_SIZE, StructuredDataKey.PARROT_VARIANT, StructuredDataKey.TROPICAL_FISH_PATTERN,
             StructuredDataKey.TROPICAL_FISH_BASE_COLOR, StructuredDataKey.TROPICAL_FISH_PATTERN_COLOR, StructuredDataKey.MOOSHROOM_VARIANT,
@@ -164,7 +172,11 @@ public final class Protocol1_21_7To1_21_9 extends AbstractProtocol<ClientboundPa
     public void init(final UserConnection connection) {
         addEntityTracker(connection, new EntityTrackerBase(connection, EntityTypes1_21_9.PLAYER));
         addItemHasher(connection);
-        connection.put(new DimensionScaleStorage());
+    }
+
+    @Override
+    public ProtocolStorables1_21_9 createStorables() {
+        return new ProtocolStorables1_21_9();
     }
 
     @Override

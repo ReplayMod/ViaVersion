@@ -22,14 +22,15 @@ import com.viaversion.viaversion.api.platform.ViaChannelHandler;
 import com.viaversion.viaversion.exception.CancelCodecException;
 import com.viaversion.viaversion.exception.CancelDecoderException;
 import com.viaversion.viaversion.exception.CancelEncoderException;
+import com.viaversion.viaversion.util.ByteBufUtil;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
-import io.netty.handler.codec.ByteToMessageCodec;
+import io.netty.handler.codec.MessageToMessageCodec;
 
 import java.util.List;
 
-public class ViaCodecHandler extends ByteToMessageCodec<ByteBuf> implements ViaChannelHandler {
+public class ViaCodecHandler extends MessageToMessageCodec<ByteBuf, ByteBuf> implements ViaChannelHandler {
 
     public static final String NAME = "via-codec";
 
@@ -40,14 +41,19 @@ public class ViaCodecHandler extends ByteToMessageCodec<ByteBuf> implements ViaC
     }
 
     @Override
-    protected void encode(ChannelHandlerContext ctx, ByteBuf in, ByteBuf out) {
+    protected void encode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) {
         if (!this.connection.checkOutgoingPacket()) {
             throw CancelEncoderException.generate(null);
         }
 
-        out.writeBytes(in);
-        if (this.connection.shouldTransformPacket()) {
-            this.connection.transformOutgoing(out, CancelEncoderException::generate);
+        final ByteBuf transformedBuf = ByteBufUtil.copy(ctx.alloc(), in);
+        try {
+            if (this.connection.shouldTransformPacket()) {
+                this.connection.transformOutgoing(transformedBuf, CancelEncoderException::generate);
+            }
+            out.add(transformedBuf.retain());
+        } finally {
+            transformedBuf.release();
         }
     }
 
@@ -57,7 +63,7 @@ public class ViaCodecHandler extends ByteToMessageCodec<ByteBuf> implements ViaC
             throw CancelDecoderException.generate(null);
         }
 
-        final ByteBuf transformedBuf = ctx.alloc().buffer().writeBytes(in);
+        final ByteBuf transformedBuf = ByteBufUtil.copy(ctx.alloc(), in);
         try {
             if (this.connection.shouldTransformPacket()) {
                 this.connection.transformIncoming(transformedBuf, CancelDecoderException::generate);

@@ -261,6 +261,8 @@ public interface ViaVersionConfig extends Config {
      */
     boolean isChunkBorderFix();
 
+    boolean isMultiReddustColorFix();
+
     /**
      * Should we make team colours based on the last colour in team prefix
      *
@@ -506,7 +508,7 @@ public interface ViaVersionConfig extends Config {
     boolean cancelBlockSounds();
 
     /**
-     * Hides scoreboard numbers for 1.20.3+ clients on older server versions.
+     * Hides sidebar scoreboard numbers for 1.20.3+ clients on older server versions.
      *
      * @return true if enabled
      */

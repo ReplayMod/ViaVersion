@@ -31,7 +31,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ArrayType<T> extends Type<T[]> {
-    private final Type<T> elementType;
+    protected final Type<T> elementType;
     private final int maxLength;
 
     public ArrayType(Type<T> type) {
@@ -66,7 +66,7 @@ public class ArrayType<T> extends Type<T[]> {
         return amount < Short.MAX_VALUE ? readArray(buffer, amount) : readList(buffer, amount);
     }
 
-    private T[] readArray(ByteBuf buffer, int length) {
+    protected T[] readArray(ByteBuf buffer, int length) {
         T[] array = createArray(length);
         for (int i = 0; i < length; i++) {
             array[i] = elementType.read(buffer);
@@ -110,5 +110,15 @@ public class ArrayType<T> extends Type<T[]> {
 
     public ArrayType<T> withMaxLength(final int maxLength) {
         return new ArrayType<>(this.getOutputClass(), this.elementType, maxLength);
+    }
+
+    static int checkLength(final int length, final int elementBytes, final int readable) {
+        if (length < 0) {
+            throw new IllegalArgumentException("Length " + length + " is negative");
+        }
+        if ((long) length * elementBytes > readable) {
+            throw new IllegalArgumentException("Length " + length + " is larger than readable bytes");
+        }
+        return length;
     }
 }

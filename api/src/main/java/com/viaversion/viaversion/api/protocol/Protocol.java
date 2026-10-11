@@ -23,6 +23,7 @@
 package com.viaversion.viaversion.api.protocol;
 
 import com.google.common.base.Preconditions;
+import com.viaversion.viaversion.api.connection.ProtocolStorables;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.data.MappingData;
 import com.viaversion.viaversion.api.platform.providers.ViaProviders;
@@ -33,6 +34,7 @@ import com.viaversion.viaversion.api.protocol.packet.ServerboundPacketType;
 import com.viaversion.viaversion.api.protocol.packet.State;
 import com.viaversion.viaversion.api.protocol.packet.provider.PacketTypesProvider;
 import com.viaversion.viaversion.api.protocol.remapper.PacketHandler;
+import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import com.viaversion.viaversion.api.rewriter.ComponentRewriter;
 import com.viaversion.viaversion.api.rewriter.EntityRewriter;
 import com.viaversion.viaversion.api.rewriter.ItemRewriter;
@@ -57,6 +59,22 @@ import org.checkerframework.checker.nullness.qual.Nullable;
  * @see SimpleProtocol for a helper class if you do not need to define any of the types above
  */
 public interface Protocol<CU extends ClientboundPacketType, CM extends ClientboundPacketType, SM extends ServerboundPacketType, SU extends ServerboundPacketType> {
+
+    /**
+     * Returns the server protocol version for this protocol,
+     * or null if not set (e.g. for base protocols).
+     *
+     * @return the server protocol version
+     */
+    @Nullable ProtocolVersion getServerVersion();
+
+    /**
+     * Returns the client protocol version for this protocol,
+     * or null if not set (e.g. for base protocols).
+     *
+     * @return the client protocol version for this protocol
+     */
+    @Nullable ProtocolVersion getClientVersion();
 
     default void registerClientbound(State state, ClientboundPacketType packetType, @Nullable PacketHandler handler) {
         Preconditions.checkArgument(packetType.state() == state);
@@ -459,6 +477,15 @@ public interface Protocol<CU extends ClientboundPacketType, CM extends Clientbou
     default boolean isBaseProtocol() {
         return false;
     }
+
+    /**
+     * Returns the index assigned to this protocol during registration.
+     *
+     * @return protocol index, or -1 if not yet registered
+     */
+    int index();
+
+    ProtocolStorables createStorables();
 
     /**
      * Marks this protocol as dependent on another. Before being initialized, it will wait for the dependency's completion.

@@ -21,7 +21,6 @@ import com.google.common.base.Preconditions;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.data.entity.EntityTracker;
-import com.viaversion.viaversion.api.data.item.ItemHasher;
 import com.viaversion.viaversion.api.minecraft.entities.EntityType;
 import com.viaversion.viaversion.api.protocol.packet.ClientboundPacketType;
 import com.viaversion.viaversion.api.protocol.packet.Direction;
@@ -38,18 +37,19 @@ import com.viaversion.viaversion.api.protocol.remapper.PacketHandler;
 import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import com.viaversion.viaversion.api.rewriter.MappingDataListener;
 import com.viaversion.viaversion.api.rewriter.Rewriter;
+import com.viaversion.viaversion.connection.ProtocolStorablesBase;
 import com.viaversion.viaversion.data.entity.EntityTrackerBase;
 import com.viaversion.viaversion.data.item.ItemHasherBase;
 import com.viaversion.viaversion.exception.CancelException;
 import com.viaversion.viaversion.exception.InformativeException;
+import com.viaversion.viaversion.protocol.ProtocolManagerImpl;
 import com.viaversion.viaversion.protocol.shared_registration.SharedRegistrations;
 import com.viaversion.viaversion.rewriter.RecipeDisplayRewriter;
-import com.viaversion.viaversion.rewriter.TagRewriter;
-import com.viaversion.viaversion.rewriter.text.ComponentRewriterBase;
 import com.viaversion.viaversion.util.ProtocolLogger;
 import com.viaversion.viaversion.util.ProtocolUtil;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 import java.util.logging.Level;
@@ -75,6 +75,7 @@ public abstract class AbstractProtocol<CU extends ClientboundPacketType, CM exte
     protected final PacketMappings clientboundMappings;
     protected final PacketMappings serverboundMappings;
     private final Map<Class<?>, Object> storedObjects = new HashMap<>();
+    private final int index = ProtocolManagerImpl.PROTOCOL_INDEX.getAndIncrement();
     private boolean initialized;
     private ProtocolLogger logger;
     private ProtocolVersion serverVersion;
@@ -232,6 +233,7 @@ public abstract class AbstractProtocol<CU extends ClientboundPacketType, CM exte
         callOnMappingDataLoaded(getEntityRewriter());
         callOnMappingDataLoaded(getItemRewriter());
         callOnMappingDataLoaded(getTagRewriter());
+        callOnMappingDataLoaded(getBlockRewriter());
     }
 
     private void callRegister(@Nullable Rewriter<?> rewriter) {
@@ -249,20 +251,15 @@ public abstract class AbstractProtocol<CU extends ClientboundPacketType, CM exte
     protected void addEntityTracker(UserConnection connection) {
         final EntityType playerEntityType = getEntityRewriter().typeFromId("player");
         Preconditions.checkNotNull(playerEntityType, "Player entity type not found");
-        connection.addEntityTracker(this.getClass(), new EntityTrackerBase(connection, playerEntityType));
+        connection.storables(this).setEntityTracker(new EntityTrackerBase(connection, playerEntityType));
     }
 
     protected void addEntityTracker(UserConnection connection, EntityTracker tracker) {
-        connection.addEntityTracker(this.getClass(), tracker);
+        connection.storables(this).setEntityTracker(tracker);
     }
 
     protected void addItemHasher(UserConnection connection) {
-        connection.addItemHasher(this.getClass(), new ItemHasherBase(this, connection));
-    }
-
-    @Deprecated(forRemoval = true)
-    protected void addItemHasher(UserConnection connection, ItemHasher hasher) {
-        connection.addItemHasher(this.getClass(), hasher);
+        connection.storables(this).setItemHasher(new ItemHasherBase(this, connection));
     }
 
     protected PacketTypesProvider<CU, CM, SM, SU> createPacketTypesProvider() {
@@ -282,12 +279,12 @@ public abstract class AbstractProtocol<CU extends ClientboundPacketType, CM exte
         return PacketMappings.arrayMappings();
     }
 
-    /**
-     * Returns the server protocol version for this protocol,
-     * or null if not set (e.g. for base protocols).
-     *
-     * @return the server protocol version
-     */
+    @Override
+    public ProtocolStorablesBase createStorables() {
+        return new ProtocolStorablesBase();
+    }
+
+    @Override
     public @Nullable ProtocolVersion getServerVersion() {
         return serverVersion;
     }
@@ -302,12 +299,7 @@ public abstract class AbstractProtocol<CU extends ClientboundPacketType, CM exte
         this.serverVersion = serverVersion;
     }
 
-    /**
-     * Returns the client protocol version for this protocol,
-     * or null if not set (e.g. for base protocols).
-     *
-     * @return the client protocol version for this protocol
-     */
+    @Override
     public @Nullable ProtocolVersion getClientVersion() {
         return clientVersion;
     }
@@ -320,6 +312,11 @@ public abstract class AbstractProtocol<CU extends ClientboundPacketType, CM exte
      */
     public void setClientVersion(final ProtocolVersion clientVersion) {
         this.clientVersion = clientVersion;
+    }
+
+    @Override
+    public int index() {
+        return index;
     }
 
     // ---------------------------------------------------------------------------------

@@ -22,9 +22,13 @@
  */
 package com.viaversion.viaversion.api.minecraft.chunks;
 
+import com.google.common.base.Preconditions;
+import com.viaversion.viaversion.util.CompactArrayUtil;
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
+import java.util.function.IntConsumer;
+import java.util.function.IntPredicate;
 import java.util.function.IntUnaryOperator;
 
 public final class DataPaletteImpl implements DataPalette {
@@ -32,8 +36,8 @@ public final class DataPaletteImpl implements DataPalette {
     private static final int DEFAULT_INITIAL_SIZE = 16;
 
     private final IntArrayList palette;
-    private final Int2IntMap inversePalette;
     private final int sizeBits;
+    private Int2IntMap inversePalette;
     private ChunkData values;
 
     public DataPaletteImpl(final int valuesLength) {
@@ -43,11 +47,30 @@ public final class DataPaletteImpl implements DataPalette {
     public DataPaletteImpl(final int valuesLength, final int initialSize) {
         values = new SingleChunkData(valuesLength);
         sizeBits = Integer.numberOfTrailingZeros(valuesLength) / 3;
-        // Pre-size the palette array/map
+        // Pre-size the palette array
         palette = new IntArrayList(initialSize);
-        // To get an initial table size of initialSize, need to scale it down by load factor.
-        inversePalette = new Int2IntOpenHashMap((int) (initialSize * Int2IntOpenHashMap.DEFAULT_LOAD_FACTOR));
-        inversePalette.defaultReturnValue(-1);
+    }
+
+    private Int2IntMap inversePalette() {
+        // Lazily build the inverse palette. Most palettes never need it
+        if (inversePalette == null) {
+            inversePalette = new Int2IntOpenHashMap(palette.size());
+            inversePalette.defaultReturnValue(-1);
+            for (int i = 0; i < palette.size(); i++) {
+                inversePalette.put(palette.getInt(i), i);
+            }
+        }
+        return inversePalette;
+    }
+
+    private Int2IntMap emptyInversePalette() {
+        if (inversePalette == null) {
+            inversePalette = new Int2IntOpenHashMap(palette.size());
+            inversePalette.defaultReturnValue(-1);
+        } else {
+            inversePalette.clear();
+        }
+        return inversePalette;
     }
 
     @Override
@@ -63,7 +86,7 @@ public final class DataPaletteImpl implements DataPalette {
 
     @Override
     public void setIdAt(final int sectionCoordinate, final int id) {
-        int index = inversePalette.get(id);
+        int index = inversePalette().get(id);
         if (index == -1) {
             index = palette.size();
             palette.add(id);
@@ -83,6 +106,38 @@ public final class DataPaletteImpl implements DataPalette {
         values.set(sectionCoordinate, index);
     }
 
+    /**
+     * Stores palette indexes from a compact long array, replacing all current values.
+     * The data is kept packed unless written to; reads extract bits the slow way, since almost all work will use replaceIds or will only have a few reads.
+     * <p>
+     * Only valid for local palettes (bitsPerValue &lt;= 8).
+     *
+     * @param data          compact long array
+     * @param bitsPerValue  bits per value
+     * @param valuesPerLong packked values per long
+     */
+    public void setPaletteIndexes(final long[] data, final int bitsPerValue, final int valuesPerLong) {
+        Preconditions.checkArgument(bitsPerValue <= 8, "Cannot pack global palette");
+        values = new PackedChunkData(data, bitsPerValue, valuesPerLong, values.size());
+    }
+
+    @Override
+    public long[] createPackedValues(final int bitsPerValue, final int entries, final boolean rawIds) {
+        if (rawIds) {
+            return CompactArrayUtil.createCompactArrayWithPadding(bitsPerValue, entries, this::idAt);
+        }
+
+        if (values instanceof final PackedChunkData packed && packed.bitsPerValue == bitsPerValue) {
+            // Values were never modified and the width still matches - write them back as-is
+            return packed.data;
+        }
+
+        final int valuesPerLong = (char) (64 / bitsPerValue);
+        final long[] data = new long[(entries + valuesPerLong - 1) / valuesPerLong];
+        values.packInto(data, bitsPerValue);
+        return data;
+    }
+
     @Override
     public int size() {
         return palette.size();
@@ -96,7 +151,7 @@ public final class DataPaletteImpl implements DataPalette {
     @Override
     public void setIdByIndex(final int index, final int id) {
         final int oldId = palette.set(index, id);
-        if (oldId == id) return;
+        if (oldId == id || inversePalette == null) return;
 
         inversePalette.put(id, index);
         if (inversePalette.get(oldId) == index) {
@@ -112,7 +167,7 @@ public final class DataPaletteImpl implements DataPalette {
 
     @Override
     public void replaceId(final int oldId, final int newId) {
-        final int index = inversePalette.remove(oldId);
+        final int index = inversePalette().remove(oldId);
         if (index == -1) return;
 
         inversePalette.put(newId, index);
@@ -130,12 +185,12 @@ public final class DataPaletteImpl implements DataPalette {
             return;
         }
 
-        inversePalette.clear();
         int writeIndex = 0;
         int[] indexRemap = null;
         int firstCollision = 0;
 
         final int[] palette = this.palette.elements();
+        final Int2IntMap inversePalette = emptyInversePalette();
         for (int readIndex = 0; readIndex < oldSize; readIndex++) {
             final int mappedId = mapper.applyAsInt(palette[readIndex]);
             final int existingIndex = inversePalette.putIfAbsent(mappedId, writeIndex);
@@ -172,14 +227,51 @@ public final class DataPaletteImpl implements DataPalette {
 
     @Override
     public void addId(final int id) {
-        inversePalette.put(id, palette.size());
+        if (inversePalette != null) {
+            inversePalette.put(id, palette.size());
+        }
         palette.add(id);
+    }
+
+    private static final ThreadLocal<boolean[]> MATCHING_INDEXES = ThreadLocal.withInitial(() -> new boolean[ChunkSection.SIZE]);
+
+    @Override
+    public void forEachMatchingCoordinate(final IntPredicate idPredicate, final IntConsumer coordinateConsumer) {
+        final int size = size();
+        if (size > ChunkSection.SIZE) { // Shouldn't ever happen normally, but is technically possible...
+            for (int idx = 0, len = this.values.size(); idx < len; idx++) {
+                if (idPredicate.test(idAt(idx))) {
+                    coordinateConsumer.accept(idx);
+                }
+            }
+            return;
+        }
+
+        // Instead of going through every single coordinate value (4096 for block sections), check the palette ids first.
+        // Reuse a thread-local array for quick checking against palette indexes.
+        final boolean[] matching = MATCHING_INDEXES.get();
+        boolean any = false;
+        for (int i = 0; i < size; i++) {
+            final boolean match = idPredicate.test(idByIndex(i));
+            matching[i] = match;
+            any |= match;
+        }
+
+        if (!any) {
+            return;
+        }
+
+        for (int idx = 0, len = this.values.size(); idx < len; idx++) {
+            if (matching[paletteIndexAt(idx)]) {
+                coordinateConsumer.accept(idx);
+            }
+        }
     }
 
     @Override
     public void clear() {
         palette.clear();
-        inversePalette.clear();
+        inversePalette = null;
     }
 
     interface ChunkData {
@@ -188,6 +280,11 @@ public final class DataPaletteImpl implements DataPalette {
         void set(int idx, int val);
 
         int size();
+
+        /**
+         * Packs all values into the given compact long array.
+         */
+        void packInto(long[] data, int bitsPerValue);
     }
 
     private final class SingleChunkData implements ChunkData {
@@ -215,6 +312,11 @@ public final class DataPaletteImpl implements DataPalette {
         public int size() {
             return size;
         }
+
+        @Override
+        public void packInto(final long[] data, final int bitsPerValue) {
+            // All values are 0, nothing to write
+        }
     }
 
     private final class ByteChunkData implements ChunkData {
@@ -222,6 +324,10 @@ public final class DataPaletteImpl implements DataPalette {
 
         public ByteChunkData(int size) {
             this.data = new byte[size];
+        }
+
+        public ByteChunkData(byte[] data) {
+            this.data = data;
         }
 
         @Override
@@ -243,6 +349,11 @@ public final class DataPaletteImpl implements DataPalette {
         @Override
         public int size() {
             return data.length;
+        }
+
+        @Override
+        public void packInto(final long[] out, final int bitsPerValue) {
+            CompactArrayUtil.packWithPadding(data, out, bitsPerValue);
         }
     }
 
@@ -270,6 +381,63 @@ public final class DataPaletteImpl implements DataPalette {
         public int size() {
             return data.length;
         }
+
+        @Override
+        public void packInto(final long[] out, final int bitsPerValue) {
+            CompactArrayUtil.packWithPadding(data, out, bitsPerValue);
+        }
     }
 
+    /**
+     * Raw chunk data as read from the buffer.
+     */
+    private final class PackedChunkData implements ChunkData {
+        private final long[] data;
+        private final int bitsPerValue;
+        private final int valuesPerLong;
+        private final long maxEntryValue;
+        private final int size;
+
+        private PackedChunkData(final long[] data, final int bitsPerValue, final int valuesPerLong, final int size) {
+            this.data = data;
+            this.bitsPerValue = bitsPerValue;
+            this.valuesPerLong = valuesPerLong;
+            this.size = size;
+            this.maxEntryValue = (1L << bitsPerValue) - 1;
+        }
+
+        @Override
+        public int get(final int idx) {
+            // Called so rarely that the cheap storage outweighs the more complex getter
+            final int cellIndex = idx / valuesPerLong;
+            final int bitIndex = (idx - cellIndex * valuesPerLong) * bitsPerValue;
+            return (int) (data[cellIndex] >>> bitIndex & maxEntryValue);
+        }
+
+        @Override
+        public void set(final int idx, final int val) {
+            // First write access, actually read out for fast value access
+            final ChunkData byteChunkData = extractData();
+            values = byteChunkData;
+            byteChunkData.set(idx, val);
+        }
+
+        private ChunkData extractData() {
+            final byte[] unpackedData = new byte[size];
+            CompactArrayUtil.unpackWithPadding(this.data, unpackedData, bitsPerValue);
+            return new ByteChunkData(unpackedData);
+        }
+
+        @Override
+        public int size() {
+            return size;
+        }
+
+        @Override
+        public void packInto(final long[] out, final int newBitsPerValue) {
+            // Always called with bitsPerValue != newBitsPerValue, which should only really happen if the server sends an unncessarily high bit width,
+            // or if the number of ids shrunk in replaceIds. Rare enough to not need its own special method
+            extractData().packInto(out, newBitsPerValue);
+        }
+    }
 }

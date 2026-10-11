@@ -28,13 +28,16 @@ import com.viaversion.viaversion.api.protocol.packet.provider.SimplePacketTypesP
 import com.viaversion.viaversion.api.type.types.chunk.ChunkType26_1;
 import com.viaversion.viaversion.api.type.types.version.Types1_20_5;
 import com.viaversion.viaversion.api.type.types.version.VersionedTypes;
+import com.viaversion.viaversion.connection.ProtocolStorablesBase;
 import com.viaversion.viaversion.protocols.v1_21_11to26_1.packet.ClientboundPacket26_1;
 import com.viaversion.viaversion.protocols.v1_21_11to26_1.packet.ClientboundPackets26_1;
+import com.viaversion.viaversion.protocols.v1_21_11to26_1.storage.ProtocolStorables26_1;
 import com.viaversion.viaversion.protocols.v1_21_4to1_21_5.rewriter.RecipeDisplayRewriter1_21_5;
 import com.viaversion.viaversion.protocols.v1_21_5to1_21_6.packet.ServerboundPackets1_21_6;
 import com.viaversion.viaversion.protocols.v1_21_7to1_21_9.packet.ClientboundConfigurationPackets1_21_9;
 import com.viaversion.viaversion.protocols.v1_21_7to1_21_9.packet.ServerboundConfigurationPackets1_21_9;
 import com.viaversion.viaversion.protocols.v1_21_7to1_21_9.packet.ServerboundPacket1_21_9;
+import com.viaversion.viaversion.protocols.v26_2to26_3.rewriter.RecipeDisplayRewriter26_3;
 import com.viaversion.viaversion.rewriter.BlockRewriter;
 import com.viaversion.viaversion.rewriter.ParticleRewriter;
 import com.viaversion.viaversion.rewriter.RecipeDisplayRewriter;
@@ -60,7 +63,7 @@ final class Protocol98_1To99_1 extends AbstractProtocol<ClientboundPacket26_1, C
     private final ParticleRewriter<ClientboundPacket26_1> particleRewriter = new ParticleRewriter<>(this);
     private final TagRewriter<ClientboundPacket26_1> tagRewriter = new TagRewriter<>(this);
     private final NBTComponentRewriter<ClientboundPacket26_1> componentRewriter = new ComponentRewriter99_1(this);
-    private final RecipeDisplayRewriter<ClientboundPacket26_1> recipeewriter = new RecipeDisplayRewriter1_21_5<>(this);
+    private final RecipeDisplayRewriter<ClientboundPacket26_1> recipeRewriter = new RecipeDisplayRewriter26_3<>(this);
     private final RegistryDataRewriter registryDataRewriter = new RegistryDataRewriter(this);
 
     public Protocol98_1To99_1() {
@@ -96,7 +99,7 @@ final class Protocol98_1To99_1 extends AbstractProtocol<ClientboundPacket26_1, C
         // EntityTypes1_21_11.initialize(this);
 
         // Uncomment if versioned types changed
-        // ParticleType.Fillers.fill1_21_9(this);
+        // ParticleType.Fillers.fill26_2(this);
 
         super.onMappingDataLoaded(); // Calls load methods on rewriters. Last in case the rewriters access the above filled data
     }
@@ -107,6 +110,12 @@ final class Protocol98_1To99_1 extends AbstractProtocol<ClientboundPacket26_1, C
         addEntityTracker(connection);
         addItemHasher(connection);
     }
+
+    // If data beyond the tracker and hasher is required
+    //@Override
+    //public ProtocolStorablesBase createStorables() {
+    //    return new ProtocolStorables99_1();
+    //}
 
     // Overriding these methods is important as they are relied on various rewriter classes
     // and have mapping load methods called in AbstractProtocol via the getters
@@ -137,7 +146,7 @@ final class Protocol98_1To99_1 extends AbstractProtocol<ClientboundPacket26_1, C
 
     @Override
     public RecipeDisplayRewriter<ClientboundPacket26_1> getRecipeRewriter() {
-        return recipeewriter;
+        return recipeRewriter;
     }
 
     @Override

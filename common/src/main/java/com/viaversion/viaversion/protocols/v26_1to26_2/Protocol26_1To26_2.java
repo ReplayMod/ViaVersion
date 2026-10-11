@@ -17,8 +17,6 @@
  */
 package com.viaversion.viaversion.protocols.v26_1to26_2;
 
-import com.viaversion.nbt.tag.CompoundTag;
-import com.viaversion.nbt.tag.Tag;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.data.MappingData;
 import com.viaversion.viaversion.api.data.MappingDataBase;
@@ -49,7 +47,9 @@ import com.viaversion.viaversion.protocols.v1_21_7to1_21_9.packet.ClientboundCon
 import com.viaversion.viaversion.protocols.v1_21_7to1_21_9.packet.ServerboundConfigurationPackets1_21_9;
 import com.viaversion.viaversion.protocols.v26_1to26_2.rewriter.BlockItemPacketRewriter26_2;
 import com.viaversion.viaversion.protocols.v26_1to26_2.rewriter.EntityPacketRewriter26_2;
-import com.viaversion.viaversion.protocols.v26_1to26_2.storage.Encrypted;
+import com.viaversion.viaversion.protocols.v26_1to26_2.rewriter.RegistryDataRewriter26_2;
+import com.viaversion.viaversion.connection.ProtocolStorablesBase;
+import com.viaversion.viaversion.protocols.v26_1to26_2.storage.ProtocolStorables26_2;
 import com.viaversion.viaversion.rewriter.BlockRewriter;
 import com.viaversion.viaversion.rewriter.ParticleRewriter;
 import com.viaversion.viaversion.rewriter.RecipeDisplayRewriter;
@@ -57,7 +57,6 @@ import com.viaversion.viaversion.rewriter.RegistryDataRewriter;
 import com.viaversion.viaversion.rewriter.TagRewriter;
 import com.viaversion.viaversion.rewriter.block.BlockRewriter1_21_5;
 import com.viaversion.viaversion.rewriter.text.NBTComponentRewriter;
-import com.viaversion.viaversion.util.Key;
 import java.util.UUID;
 
 import static com.viaversion.viaversion.util.ProtocolUtil.packetTypeMap;
@@ -71,38 +70,9 @@ public final class Protocol26_1To26_2 extends AbstractProtocol<ClientboundPacket
     private final ParticleRewriter<ClientboundPacket26_1> particleRewriter = new ParticleRewriter<>(this);
     private final TagRewriter<ClientboundPacket26_1> tagRewriter = new TagRewriter<>(this);
     private final NBTComponentRewriter<ClientboundPacket26_1> componentRewriter = new NBTComponentRewriter<>(this);
-    private final RegistryDataRewriter registryDataRewriter = new RegistryDataRewriter(this) {
-        @Override
-        public void updateEnchantmentTerm(final CompoundTag term) {
-            super.updateEnchantmentTerm(term);
-
-            final String condition = term.getString("condition");
-            if (Key.equals(condition, "entity_properties")) {
-                final CompoundTag predicate = term.getCompoundTag("predicate");
-                final CompoundTag typeSpecific = predicate.removeUnchecked("type_specific");
-                if (typeSpecific != null) {
-                    updateTypeSpecificTerm(predicate, typeSpecific);
-                    return;
-                }
-
-                final Tag typeTag = predicate.remove("type");
-                if (typeTag != null) {
-                    predicate.put("entity_type", typeTag);
-                }
-            }
-        }
-    };
+    private final RegistryDataRewriter registryDataRewriter = new RegistryDataRewriter26_2(this);
     private final RecipeDisplayRewriter1_21_5<ClientboundPacket26_1> recipeRewriter = new RecipeDisplayRewriter1_21_5<>(this);
-
-    private void updateTypeSpecificTerm(final CompoundTag predicate, final CompoundTag typeSpecific) {
-        final String type = typeSpecific.getString("type");
-        final String strippedType = Key.stripMinecraftNamespace(type);
-        if (strippedType.equals("player") || strippedType.equals("lightning")
-            || strippedType.equals("fishing_hook") || strippedType.equals("raider")) {
-            predicate.put("type_specific/" + strippedType, typeSpecific);
-        }
-    }
-
+    private final UUID sessionId = UUID.randomUUID(); // One shared session
 
     public Protocol26_1To26_2() {
         super(ClientboundPacket26_1.class, ClientboundPacket26_1.class, ServerboundPacket26_1.class, ServerboundPacket26_1.class);
@@ -137,12 +107,13 @@ public final class Protocol26_1To26_2 extends AbstractProtocol<ClientboundPacket
             wrapper.passthrough(Types.STRING); // Name
             wrapper.passthrough(Types.PROFILE_PROPERTY_ARRAY);
 
-            wrapper.write(Types.UUID, UUID.randomUUID()); // Session ID
+            wrapper.write(Types.UUID, sessionId);
         });
 
         registerServerbound(State.LOGIN, ServerboundLoginPackets.ENCRYPTION_KEY, wrapper -> {
             // Previously also used for hiding skins on offline mode servers, now moved to the login packet.
-            wrapper.user().put(new Encrypted());
+            final ProtocolStorables26_2 storables = wrapper.user().storables(Protocol26_1To26_2.this);
+            storables.setEncrypted(true);
         });
 
         tagRewriter.addEmptyTags(RegistryType.BLOCK, "infiniburn_nether", "infiniburn_end", "infiniburn_overworld"); // from an older version, but servers may have skipped these
@@ -165,12 +136,12 @@ public final class Protocol26_1To26_2 extends AbstractProtocol<ClientboundPacket
             StructuredDataKey.BUCKET_ENTITY_DATA, StructuredDataKey.BLOCK_ENTITY_DATA1_21_9, StructuredDataKey.INSTRUMENT26_1,
             StructuredDataKey.RECIPES, StructuredDataKey.LODESTONE_TRACKER, StructuredDataKey.FIREWORK_EXPLOSION, StructuredDataKey.FIREWORKS,
             StructuredDataKey.PROFILE1_21_9, StructuredDataKey.NOTE_BLOCK_SOUND, StructuredDataKey.BANNER_PATTERNS, StructuredDataKey.BASE_COLOR,
-            StructuredDataKey.POT_DECORATIONS, StructuredDataKey.BLOCK_STATE, StructuredDataKey.BEES1_21_9, StructuredDataKey.LOCK1_21_2,
+            StructuredDataKey.POT_DECORATIONS1_20_5, StructuredDataKey.BLOCK_STATE, StructuredDataKey.BEES1_21_9, StructuredDataKey.LOCK1_21_2,
             StructuredDataKey.CONTAINER_LOOT, StructuredDataKey.TOOL1_21_5, StructuredDataKey.ITEM_NAME, StructuredDataKey.OMINOUS_BOTTLE_AMPLIFIER,
             StructuredDataKey.FOOD1_21_2, StructuredDataKey.JUKEBOX_PLAYABLE26_1, StructuredDataKey.ATTRIBUTE_MODIFIERS1_21_6,
             StructuredDataKey.REPAIRABLE, StructuredDataKey.ENCHANTABLE, StructuredDataKey.CONSUMABLE1_21_2, StructuredDataKey.ATTACK_RANGE,
             StructuredDataKey.USE_COOLDOWN, StructuredDataKey.DAMAGE, StructuredDataKey.EQUIPPABLE1_21_6, StructuredDataKey.ITEM_MODEL,
-            StructuredDataKey.GLIDER, StructuredDataKey.TOOLTIP_STYLE, StructuredDataKey.DEATH_PROTECTION, StructuredDataKey.WEAPON,
+            StructuredDataKey.GLIDER, StructuredDataKey.TOOLTIP_STYLE, StructuredDataKey.DEATH_PROTECTION1_21_2, StructuredDataKey.WEAPON,
             StructuredDataKey.POTION_DURATION_SCALE, StructuredDataKey.VILLAGER_VARIANT, StructuredDataKey.WOLF_VARIANT, StructuredDataKey.WOLF_COLLAR,
             StructuredDataKey.FOX_VARIANT, StructuredDataKey.SALMON_SIZE, StructuredDataKey.PARROT_VARIANT, StructuredDataKey.TROPICAL_FISH_PATTERN,
             StructuredDataKey.TROPICAL_FISH_BASE_COLOR, StructuredDataKey.TROPICAL_FISH_PATTERN_COLOR, StructuredDataKey.MOOSHROOM_VARIANT,
@@ -182,6 +153,11 @@ public final class Protocol26_1To26_2 extends AbstractProtocol<ClientboundPacket
             StructuredDataKey.KINETIC_WEAPON, StructuredDataKey.SWING_ANIMATION, StructuredDataKey.ZOMBIE_NAUTILUS_VARIANT26_1, StructuredDataKey.ADDITIONAL_TRADE_COST,
             StructuredDataKey.DYE, StructuredDataKey.PIG_SOUND_VARIANT, StructuredDataKey.COW_SOUND_VARIANT, StructuredDataKey.CHICKEN_SOUND_VARIANT, StructuredDataKey.CAT_SOUND_VARIANT);
         super.onMappingDataLoaded();
+    }
+
+    @Override
+    public ProtocolStorablesBase createStorables() {
+        return new ProtocolStorables26_2();
     }
 
     @Override

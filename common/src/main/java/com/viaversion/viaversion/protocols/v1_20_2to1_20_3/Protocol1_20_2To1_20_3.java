@@ -17,6 +17,7 @@
  */
 package com.viaversion.viaversion.protocols.v1_20_2to1_20_3;
 
+import com.viaversion.nbt.tag.Tag;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.connection.UserConnection;
 import com.viaversion.viaversion.api.data.MappingData;
@@ -33,6 +34,7 @@ import com.viaversion.viaversion.api.type.Types;
 import com.viaversion.viaversion.api.type.types.chunk.ChunkType1_20_2;
 import com.viaversion.viaversion.api.type.types.misc.ParticleType;
 import com.viaversion.viaversion.api.type.types.version.Types1_20_3;
+import com.viaversion.viaversion.connection.ProtocolStorablesBase;
 import com.viaversion.viaversion.data.entity.EntityTrackerBase;
 import com.viaversion.viaversion.protocols.v1_20_2to1_20_3.packet.ClientboundConfigurationPackets1_20_3;
 import com.viaversion.viaversion.protocols.v1_20_2to1_20_3.packet.ClientboundPacket1_20_3;
@@ -41,6 +43,8 @@ import com.viaversion.viaversion.protocols.v1_20_2to1_20_3.packet.ServerboundPac
 import com.viaversion.viaversion.protocols.v1_20_2to1_20_3.packet.ServerboundPackets1_20_3;
 import com.viaversion.viaversion.protocols.v1_20_2to1_20_3.rewriter.BlockItemPacketRewriter1_20_3;
 import com.viaversion.viaversion.protocols.v1_20_2to1_20_3.rewriter.EntityPacketRewriter1_20_3;
+import com.viaversion.viaversion.protocols.v1_20_2to1_20_3.storage.ProtocolStorables1_20_3;
+import com.viaversion.viaversion.protocols.v1_20_2to1_20_3.storage.ScoreboardStorage;
 import com.viaversion.viaversion.protocols.v1_20to1_20_2.packet.ClientboundConfigurationPackets1_20_2;
 import com.viaversion.viaversion.protocols.v1_20to1_20_2.packet.ClientboundPacket1_20_2;
 import com.viaversion.viaversion.protocols.v1_20to1_20_2.packet.ClientboundPackets1_20_2;
@@ -96,17 +100,41 @@ public final class Protocol1_20_2To1_20_3 extends AbstractProtocol<ClientboundPa
             wrapper.write(Types.BOOLEAN, false);
         });
         registerClientbound(ClientboundPackets1_20_2.SET_OBJECTIVE, wrapper -> {
-            wrapper.passthrough(Types.STRING); // Objective Name
-            final byte action = wrapper.passthrough(Types.BYTE); // Method
+            final String objectiveName = wrapper.passthrough(Types.STRING);
+            final byte action = wrapper.passthrough(Types.BYTE);
             if (action == 0 || action == 2) {
-                convertComponent(wrapper); // Display Name
-                final int render = wrapper.passthrough(Types.VAR_INT); // Render type
-                if (render == 0 && Via.getConfig().hideScoreboardNumbers()) { // 0 = "integer", 1 = "hearts"
-                    wrapper.write(Types.BOOLEAN, true); // has number format
-                    wrapper.write(Types.VAR_INT, 0); // Blank format
-                } else {
-                    wrapper.write(Types.BOOLEAN, false); // has number format
+                if (!Via.getConfig().hideScoreboardNumbers()) {
+                    convertComponent(wrapper); // Display name
+                    wrapper.passthrough(Types.VAR_INT); // Render type
+                    wrapper.write(Types.BOOLEAN, false); // No number format
+                    return;
                 }
+
+                final Tag displayName = ComponentUtil.jsonToTag(wrapper.read(Types.COMPONENT));
+                wrapper.write(Types.TRUSTED_TAG, displayName);
+
+                final ScoreboardStorage scoreboard = wrapper.user().<ProtocolStorables1_20_3>storables(this).scoreboard();
+                final int render = wrapper.passthrough(Types.VAR_INT);
+                final boolean hideNumberFormat = shouldHideNumberFormat(scoreboard, objectiveName, render);
+                writeNumberFormat(wrapper, hideNumberFormat);
+                scoreboard.putObjective(objectiveName, displayName.copy(), render, hideNumberFormat);
+            } else if (action == 1 && Via.getConfig().hideScoreboardNumbers()) {
+                final ScoreboardStorage scoreboard = wrapper.user().<ProtocolStorables1_20_3>storables(this).scoreboard();
+                scoreboard.removeObjective(objectiveName);
+            }
+        });
+        registerClientbound(ClientboundPackets1_20_2.SET_DISPLAY_OBJECTIVE, wrapper -> {
+            if (!Via.getConfig().hideScoreboardNumbers()) {
+                return;
+            }
+
+            final int slot = wrapper.passthrough(Types.VAR_INT);
+            final String objectiveName = wrapper.passthrough(Types.STRING);
+            final ScoreboardStorage scoreboard = wrapper.user().<ProtocolStorables1_20_3>storables(this).scoreboard();
+            final String previousObjective = scoreboard.setDisplaySlot(slot, objectiveName);
+            updateNumberFormat(wrapper, scoreboard, previousObjective);
+            if (!objectiveName.equals(previousObjective)) {
+                updateNumberFormat(wrapper, scoreboard, objectiveName);
             }
         });
 
@@ -335,6 +363,42 @@ public final class Protocol1_20_2To1_20_3 extends AbstractProtocol<ClientboundPa
         wrapper.write(Types.TRUSTED_OPTIONAL_TAG, ComponentUtil.jsonToTag(wrapper.read(Types.OPTIONAL_COMPONENT)));
     }
 
+    private static boolean shouldHideNumberFormat(final ScoreboardStorage scoreboard, final String objectiveName, final int renderType) {
+        return renderType == 0 && scoreboard.isSidebar(objectiveName);
+    }
+
+    private static void writeNumberFormat(final PacketWrapper wrapper, final boolean hideNumberFormat) {
+        wrapper.write(Types.BOOLEAN, hideNumberFormat); // Has number format
+        if (hideNumberFormat) {
+            wrapper.write(Types.VAR_INT, 0); // Blank format
+        }
+    }
+
+    private static void updateNumberFormat(final PacketWrapper wrapper, final ScoreboardStorage scoreboard, final String objectiveName) {
+        if (objectiveName == null || objectiveName.isEmpty()) {
+            return;
+        }
+
+        final ScoreboardStorage.Objective objective = scoreboard.objective(objectiveName);
+        if (objective == null) {
+            return;
+        }
+
+        final boolean hideNumberFormat = shouldHideNumberFormat(scoreboard, objectiveName, objective.renderType());
+        if (hideNumberFormat == objective.numberFormatHidden()) {
+            return;
+        }
+
+        final PacketWrapper objectivePacket = wrapper.create(ClientboundPackets1_20_3.SET_OBJECTIVE);
+        objectivePacket.write(Types.STRING, objectiveName);
+        objectivePacket.write(Types.BYTE, (byte) 2); // Update objective
+        objectivePacket.write(Types.TRUSTED_TAG, objective.displayName().copy());
+        objectivePacket.write(Types.VAR_INT, objective.renderType());
+        writeNumberFormat(objectivePacket, hideNumberFormat);
+        objectivePacket.send(Protocol1_20_2To1_20_3.class);
+        scoreboard.setNumberFormatHidden(objectiveName, hideNumberFormat);
+    }
+
     @Override
     protected void onMappingDataLoaded() {
         EntityTypes1_20_3.initialize(this);
@@ -345,6 +409,11 @@ public final class Protocol1_20_2To1_20_3 extends AbstractProtocol<ClientboundPa
     @Override
     public void init(final UserConnection connection) {
         addEntityTracker(connection, new EntityTrackerBase(connection, EntityTypes1_20_3.PLAYER));
+    }
+
+    @Override
+    public ProtocolStorablesBase createStorables() {
+        return new ProtocolStorables1_20_3();
     }
 
     @Override
